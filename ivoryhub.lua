@@ -1,5 +1,6 @@
---// IVORY HUB — FULL FIXED SCRIPT (Key + Aimbot + Flashstep + Macro)
---// Fixed: Aimbot works, Macro/Soru buttons clickable (no drag conflict), Macro B/W
+--// IVORY HUB — FULL SCRIPT (Key + Aimbot + Flashstep + Macro + Soru Toggle)
+--// Soru Aimbot Toggle Button (draggable, clickable) + Macro button draggable/clickable
+--// Key: Ivory | Mobile & PC Compatible
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -55,6 +56,7 @@ local Combat = {
     SpeedMultiplier = 15,
     NoClip = false,
     SoruButtonVisible = false,
+    SoruAimbotEnabled = false, -- NEW: Soru Aimbot toggle flag
     SoruCooldown = 1.5,
     LastSoru = 0,
     AntiStun = false,
@@ -154,7 +156,7 @@ KeyButton.MouseLeave:Connect(function()
     tween(KeyButton, 0.2, {BackgroundColor3 = IVORY})
 end)
 
---// TRUE FLASHSTEP FUNCTION
+--// TRUE FLASHSTEP FUNCTION (Unchanged)
 local function DoSoru()
     if tick() - Combat.LastSoru < Combat.SoruCooldown then return end
     Combat.LastSoru = tick()
@@ -241,7 +243,7 @@ local function LoadFullScript()
     Gui.IgnoreGuiInset = true
     Gui.Parent = PlayerGui
 
-    -- Floating Toggle
+    -- Floating Toggle (main UI)
     local Toggle = Instance.new("TextButton")
     Toggle.Size = UDim2.fromOffset(38, 38)
     Toggle.Position = UDim2.new(0, 16, 0.5, -19)
@@ -258,7 +260,7 @@ local function LoadFullScript()
     ToggleStroke.Thickness = 1
     ToggleStroke.Transparency = 0.35
 
-    -- Macro Button (Black & White, NO DRAG)
+    -- Macro Button (draggable + clickable, black/white)
     local MacroButton = Instance.new("TextButton")
     MacroButton.Size = UDim2.fromOffset(50, 50)
     MacroButton.Position = UDim2.new(1, -70, 0.5, -25)
@@ -276,7 +278,7 @@ local function LoadFullScript()
     MacroStroke.Thickness = 2
     MacroStroke.Transparency = 0.3
 
-    -- Soru Button (NO DRAG)
+    -- Soru Button (draggable + clickable)
     local SoruButton = Instance.new("TextButton")
     SoruButton.Size = UDim2.fromOffset(45, 45)
     SoruButton.Position = UDim2.new(1, -70, 0.5, 40)
@@ -293,6 +295,106 @@ local function LoadFullScript()
     SoruStroke.Color = IVORY
     SoruStroke.Thickness = 2
     SoruStroke.Transparency = 0.3
+
+    -- NEW: Soru Aimbot Toggle Button (small, draggable, indicates ON/OFF)
+    local SoruToggle = Instance.new("TextButton")
+    SoruToggle.Size = UDim2.fromOffset(44, 44)
+    SoruToggle.Position = UDim2.new(1, -70, 0.5, -80)
+    SoruToggle.BackgroundColor3 = BLACK
+    SoruToggle.Text = "SA: OFF"
+    SoruToggle.TextColor3 = IVORY
+    SoruToggle.TextSize = 10
+    SoruToggle.Font = Enum.Font.GothamBold
+    SoruToggle.AutoButtonColor = false
+    SoruToggle.Parent = Gui
+    Instance.new("UICorner", SoruToggle).CornerRadius = UDim.new(0, 10)
+    local SoruToggleStroke = Instance.new("UIStroke", SoruToggle)
+    SoruToggleStroke.Color = IVORY
+    SoruToggleStroke.Thickness = 1
+    SoruToggleStroke.Transparency = 0.5
+
+    -- Function to update Soru Toggle visual
+    local function UpdateSoruToggleVisual()
+        if Combat.SoruAimbotEnabled then
+            SoruToggle.Text = "SA: ON"
+            SoruToggle.TextColor3 = GREEN
+        else
+            SoruToggle.Text = "SA: OFF"
+            SoruToggle.TextColor3 = IVORY
+        end
+    end
+    UpdateSoruToggleVisual()
+
+    -- Draggable function with drag/click distinction
+    local function MakeDraggableClickable(button)
+        local dragThreshold = 10 -- pixels
+        local dragging = false
+        local startPos = nil
+        local moved = false
+        local inputStart = nil
+
+        button.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = true
+                moved = false
+                startPos = button.Position
+                inputStart = input.Position
+                input.Changed:Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then
+                        dragging = false
+                        if not moved then
+                            -- It was a click
+                            button.MouseButton1Click:Fire()
+                        end
+                    end
+                end)
+            end
+        end)
+
+        UserInputService.InputChanged:Connect(function(input)
+            if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                local delta = input.Position - inputStart
+                if delta.Magnitude > dragThreshold then
+                    moved = true
+                end
+                button.Position = UDim2.new(
+                    startPos.X.Scale,
+                    startPos.X.Offset + delta.X,
+                    startPos.Y.Scale,
+                    startPos.Y.Offset + delta.Y
+                )
+            end
+        end)
+    end
+
+    -- Apply draggable+clickable to Macro and Soru buttons and Soru Toggle
+    MakeDraggableClickable(MacroButton)
+    MakeDraggableClickable(SoruButton)
+    MakeDraggableClickable(SoruToggle)
+
+    -- Macro Button Click Handler (only if not moved)
+    MacroButton.MouseButton1Click:Connect(function()
+        if not Combat.MacroEnabled or #Combat.MacroSteps == 0 then return end
+        if tick() - Combat.LastMacroAction < 0.5 then return end
+        Combat.LastMacroAction = tick()
+        for _, step in ipairs(Combat.MacroSteps) do
+            task.wait(step.Delay)
+        end
+    end)
+
+    -- Soru Button Click Handler (only if Soru Aimbot Enabled)
+    SoruButton.MouseButton1Click:Connect(function()
+        if Combat.SoruAimbotEnabled then
+            DoSoru()
+        end
+        -- If OFF, do nothing (normal game Soru can be used via its own key)
+    end)
+
+    -- Soru Toggle Click Handler
+    SoruToggle.MouseButton1Click:Connect(function()
+        Combat.SoruAimbotEnabled = not Combat.SoruAimbotEnabled
+        UpdateSoruToggleVisual()
+    end)
 
     -- Main Frame
     local Main = Instance.new("Frame")
@@ -626,7 +728,7 @@ local function LoadFullScript()
     -- Home
     AddCard(Home, "Welcome to Ivory PVP", "Mobile optimized Blox Fruits PVP", "◆")
     AddCard(Home, "Current Status", "All systems operational", "●")
-    AddCard(Home, "Script Version", "v18.0 - Fixed Clicks", "◈")
+    AddCard(Home, "Script Version", "v19.0 - Soru Toggle", "◈")
     AddCard(Home, "Quick Stats", "Aimbot | Flashstep | Macro", "▣")
     AddCard(Home, "Mobile Only", "No PC inputs, no freezes", "◎")
     AddCard(Home, "Anti-Detection", "Silent aim leaves no trace", "◇")
@@ -663,6 +765,10 @@ local function LoadFullScript()
         Combat.SoruButtonVisible = enabled
         SoruButton.Visible = enabled
     end, "⚡")
+    AddToggle(CombatPage, "Soru Aimbot", "Toggle Soru aimbot (ON/OFF)", function(enabled)
+        Combat.SoruAimbotEnabled = enabled
+        UpdateSoruToggleVisual()
+    end, "🎯")
     AddToggle(CombatPage, "Anti Stun", "Prevents stun effects", function(enabled)
         Combat.AntiStun = enabled
     end, "🛡")
@@ -848,7 +954,7 @@ local function LoadFullScript()
     AddCard(CreditsPage, "Discord", "Ivory999", "◈")
     AddCard(CreditsPage, "Ideas By", "Rayo", "✦")
     AddCard(CreditsPage, "Discord", "rayo06996", "◎")
-    AddCard(CreditsPage, "Version", "v18.0 - Fixed Clicks", "▣")
+    AddCard(CreditsPage, "Version", "v19.0 - Soru Toggle", "▣")
     AddCard(CreditsPage, "Special Thanks", "All supporters and testers", "♡")
     AddCard(CreditsPage, "Updates", "Join Discord for latest updates", "↻")
 
@@ -920,8 +1026,8 @@ local function LoadFullScript()
     Tabs.Home.Accent.Visible = true
     Home.Visible = true
 
-    -- Dragging (only main frame, NOT floating buttons)
-    local function MakeDraggable(Object, DragObject)
+    -- Draggable for main frame only (Toggle button is simple click)
+    local function MakeDraggableSimple(Object, DragObject)
         local dragging = false
         local dragStart, startPos
         DragObject.InputBegan:Connect(function(input)
@@ -941,8 +1047,7 @@ local function LoadFullScript()
             end
         end)
     end
-    MakeDraggable(Main, Top)
-    MakeDraggable(Toggle, Toggle)
+    MakeDraggableSimple(Main, Top)
 
     -- Open/Close
     local Open = true
@@ -959,18 +1064,9 @@ local function LoadFullScript()
     Toggle.MouseButton1Click:Connect(function() if Open then HideUI() else ShowUI() end end)
     Close.MouseButton1Click:Connect(HideUI)
 
-    -- Macro Button Click (FIXED: no drag, only click)
-    MacroButton.MouseButton1Click:Connect(function()
-        if not Combat.MacroEnabled or #Combat.MacroSteps == 0 then return end
-        if tick() - Combat.LastMacroAction < 0.5 then return end
-        Combat.LastMacroAction = tick()
-        for _, step in ipairs(Combat.MacroSteps) do
-            task.wait(step.Delay)
-        end
-    end)
-
-    -- Soru Button Click (FIXED: no drag, only click)
-    SoruButton.MouseButton1Click:Connect(DoSoru)
+    -- Macro Button Click (already handled via draggable click)
+    -- Soru Button Click (already handled)
+    -- Soru Toggle Click (already handled)
 
     -- Aimbot Functions
     local function isIn180FOV(position)
