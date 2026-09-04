@@ -8,7 +8,6 @@ local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
-local HttpService = game:GetService("HttpService")
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 local mouse = player:GetMouse()
@@ -39,9 +38,9 @@ Main.Position = UDim2.new(.5,-260,.5,-165)
 Main.BackgroundColor3 = BLACK
 Main.BorderSizePixel = 0
 Main.Parent = Gui
+Main.Visible = true
 
 Instance.new("UICorner",Main).CornerRadius = UDim.new(0,14)
-
 local MainStroke = Instance.new("UIStroke",Main)
 MainStroke.Color = Color3.fromRGB(55,55,55)
 MainStroke.Thickness = 1
@@ -52,7 +51,6 @@ Top.Size = UDim2.new(1,0,0,58)
 Top.BackgroundColor3 = DARK
 Top.BorderSizePixel = 0
 Top.Parent = Main
-
 Instance.new("UICorner",Top).CornerRadius = UDim.new(0,14)
 
 local Title = Instance.new("TextLabel")
@@ -88,7 +86,6 @@ Close.TextSize = 22
 Close.Font = Enum.Font.Gotham
 Close.AutoButtonColor = false
 Close.Parent = Top
-
 Instance.new("UICorner",Close).CornerRadius = UDim.new(0,9)
 
 --// SIDEBAR
@@ -101,7 +98,6 @@ Sidebar.ScrollBarThickness = 2
 Sidebar.ScrollBarImageColor3 = GRAY
 Sidebar.CanvasSize = UDim2.new(0,0,0,0)
 Sidebar.Parent = Main
-
 Instance.new("UICorner",Sidebar).CornerRadius = UDim.new(0,11)
 
 local SideLayout = Instance.new("UIListLayout")
@@ -125,7 +121,6 @@ Content.Position = UDim2.fromOffset(155,68)
 Content.BackgroundColor3 = DARK
 Content.BorderSizePixel = 0
 Content.Parent = Main
-
 Instance.new("UICorner",Content).CornerRadius = UDim.new(0,11)
 
 --// PAGES
@@ -172,19 +167,10 @@ local function CreateButton(Parent,Text)
     Instance.new("UICorner",Button).CornerRadius = UDim.new(0,8)
 
     Button.MouseEnter:Connect(function()
-        TweenService:Create(
-            Button,
-            TweenInfo.new(.12),
-            {BackgroundColor3 = Color3.fromRGB(45,45,45)}
-        ):Play()
+        TweenService:Create(Button,TweenInfo.new(.12),{BackgroundColor3 = Color3.fromRGB(45,45,45)}):Play()
     end)
-
     Button.MouseLeave:Connect(function()
-        TweenService:Create(
-            Button,
-            TweenInfo.new(.12),
-            {BackgroundColor3 = LIGHT}
-        ):Play()
+        TweenService:Create(Button,TweenInfo.new(.12),{BackgroundColor3 = LIGHT}):Play()
     end)
 
     return Button
@@ -271,12 +257,11 @@ Toggle.AutoButtonColor = false
 Toggle.Parent = Gui
 
 Instance.new("UICorner",Toggle).CornerRadius = UDim.new(0,12)
-
 local ToggleStroke = Instance.new("UIStroke",Toggle)
 ToggleStroke.Color = WHITE
 ToggleStroke.Thickness = 1
 
---// DRAG FUNCTION (Fixed)
+--// DRAG FUNCTION
 local function MakeDraggable(Object)
     local Dragging = false
     local DragStart
@@ -329,19 +314,13 @@ SoruButton.Parent = Gui
 SoruButton.ZIndex = 20
 
 Instance.new("UICorner",SoruButton).CornerRadius = UDim.new(0,8)
-
 local SoruStroke = Instance.new("UIStroke",SoruButton)
 SoruStroke.Color = WHITE
 SoruStroke.Thickness = 1
 
 MakeDraggable(SoruButton)
 
--- Block click propagation to prevent movement interference
-SoruButton.MouseButton1Click:Connect(function()
-    -- Do nothing here, handled below
-end)
-
--- Actual Soru action on click (using InputBegan to capture)
+-- Soru button action (manual teleport)
 SoruButton.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         if aimbotUI and aimbotUI.getEnabled() then
@@ -357,9 +336,7 @@ SoruButton.InputBegan:Connect(function(input)
                         if remotes then
                             local commF = remotes:FindFirstChild("CommF_")
                             if commF then
-                                pcall(function()
-                                    commF:InvokeServer("Flashstep", targetPos)
-                                end)
+                                pcall(function() commF:InvokeServer("Flashstep", targetPos) end)
                             end
                         end
                     end
@@ -421,7 +398,6 @@ HomeSub.Font = Enum.Font.Gotham
 HomeSub.Parent = Home
 
 --// Main Page (features)
--- Fast Attack
 local fastAttack = false
 local fastAttackLoop = nil
 local fastToggle = CreateToggle(MainPage, "FAST ATTACK", false, function(state)
@@ -628,7 +604,6 @@ local function createAimbotUI()
 
     local aimbotEnabled = false
     local currentTarget = nil
-    local lastKey = nil
     local targetPlayers = true
     local targetNPCs = true
     local soruAimbot = false
@@ -654,7 +629,7 @@ local function createAimbotUI()
 
     local soruToggle = CreateToggle(AimbotPage, "SORU TELEPORT", false, function(state)
         soruAimbot = state
-        SoruButton.Visible = state  -- show/hide manual button
+        SoruButton.Visible = state
     end)
 
     local excludeFToggle = CreateToggle(AimbotPage, "F SKILL (EXCLUDED)", true, function(state)
@@ -748,7 +723,6 @@ local function createAimbotUI()
     statusLabel.TextXAlignment = Enum.TextXAlignment.Left
     statusLabel.Parent = AimbotPage
 
-    -- Return a table with all control references for save/load
     return {
         status = statusLabel,
         getTarget = function() return currentTarget end,
@@ -756,11 +730,9 @@ local function createAimbotUI()
         getEnabled = function() return aimbotEnabled end,
         setEnabled = function(s) 
             aimbotEnabled = s
-            -- Update toggle button text
-            local btnText = s and "AIMBOT ON" or "AIMBOT OFF"
             for _, child in ipairs(AimbotPage:GetChildren()) do
                 if child:IsA("TextButton") and string.sub(child.Text,1,6) == "AIMBOT" then
-                    child.Text = btnText
+                    child.Text = s and "AIMBOT ON" or "AIMBOT OFF"
                     break
                 end
             end
@@ -772,17 +744,6 @@ local function createAimbotUI()
         getMaxDist = function() return maxDistance end,
         getShowLine = function() return showLine end,
         getShowFOV = function() return showFOV end,
-        -- For save/load
-        toggles = {
-            aimbot = aimbotToggle,
-            players = targetPlayersToggle,
-            npcs = targetNPCsToggle,
-            soru = soruToggle,
-            excludeF = excludeFToggle,
-            line = lineToggle,
-            fov = fovToggle,
-        },
-        dist = { label = distLabel, val = distVal },
         updateStatus = function()
             if aimbotEnabled and currentTarget then
                 local name = "Unknown"
@@ -1143,9 +1104,7 @@ function doSoruTeleportAuto()
     if remotes then
         local commF = remotes:FindFirstChild("CommF_")
         if commF then
-            pcall(function()
-                commF:InvokeServer("Flashstep", targetPos)
-            end)
+            pcall(function() commF:InvokeServer("Flashstep", targetPos) end)
         end
     end
 end
@@ -1265,9 +1224,7 @@ CreateButton(PlayersPage, "Refresh Players")
 
 --// Settings Page
 local themeBlack = true
-
-local infoText = nil
-local creditsText = nil
+local infoText, creditsText
 
 local function applyTheme(dark)
     themeBlack = dark
@@ -1287,7 +1244,6 @@ local function applyTheme(dark)
         SoruButton.BackgroundColor3 = BLACK
         SoruButton.TextColor3 = WHITE
         SoruStroke.Color = WHITE
-        -- Info & Credits text
         if infoText then infoText.TextColor3 = WHITE end
         if creditsText then creditsText.TextColor3 = WHITE end
     else
@@ -1306,7 +1262,6 @@ local function applyTheme(dark)
         SoruButton.BackgroundColor3 = WHITE
         SoruButton.TextColor3 = BLACK
         SoruStroke.Color = BLACK
-        -- Info & Credits text
         if infoText then infoText.TextColor3 = BLACK end
         if creditsText then creditsText.TextColor3 = BLACK end
     end
@@ -1330,201 +1285,7 @@ end)
 
 applyTheme(true)
 
--- Save Config
-local saveBtn = CreateButton(SettingsPage, "SAVE CONFIG")
-saveBtn.MouseButton1Click:Connect(function()
-    local config = {
-        aimbotEnabled = aimbotUI.getEnabled(),
-        targetPlayers = aimbotUI.getTargetPlayers(),
-        targetNPCs = aimbotUI.getTargetNPCs(),
-        soruAimbot = aimbotUI.getSoru(),
-        excludeF = aimbotUI.getExcludeF(),
-        maxDistance = aimbotUI.getMaxDist(),
-        showLine = aimbotUI.getShowLine(),
-        showFOV = aimbotUI.getShowFOV(),
-        fastAttack = fastAttack,
-        walkSpeed = walkSpeed,
-        walkSpeedVal = walkSpeedVal,
-        noclipEnabled = noclipEnabled,
-        espEnabled = espEnabled,
-        espName = espName,
-        espDist = espDist,
-        espHealth = espHealth,
-        themeBlack = themeBlack
-    }
-    local success, err = pcall(function()
-        if writefile then
-            writefile("IvoryHub_Config.json", HttpService:JSONEncode(config))
-            print("Config saved!")
-        else
-            print("writefile not available")
-        end
-    end)
-    if success then
-        saveBtn.Text = "CONFIG SAVED!"
-        task.delay(1.5, function()
-            saveBtn.Text = "SAVE CONFIG"
-        end)
-    else
-        saveBtn.Text = "ERROR!"
-        task.delay(1.5, function()
-            saveBtn.Text = "SAVE CONFIG"
-        end)
-    end
-end)
-
--- Load Config
-local loadBtn = CreateButton(SettingsPage, "LOAD CONFIG")
-loadBtn.MouseButton1Click:Connect(function()
-    local success, data = pcall(function()
-        if readfile and isfile and isfile("IvoryHub_Config.json") then
-            return HttpService:JSONDecode(readfile("IvoryHub_Config.json"))
-        end
-        return nil
-    end)
-    if success and data then
-        -- Restore toggles
-        aimbotUI.setEnabled(data.aimbotEnabled or false)
-        -- Update aimbot toggle button manually
-        for _, child in ipairs(AimbotPage:GetChildren()) do
-            if child:IsA("TextButton") and string.sub(child.Text,1,6) == "AIMBOT" then
-                child.Text = data.aimbotEnabled and "AIMBOT ON" or "AIMBOT OFF"
-                break
-            end
-        end
-        -- Update other toggles
-        if aimbotUI.toggles.players then
-            local state = data.targetPlayers ~= nil and data.targetPlayers or true
-            aimbotUI.toggles.players.Text = state and "TARGET PLAYERS ON" or "TARGET PLAYERS OFF"
-            targetPlayers = state
-        end
-        if aimbotUI.toggles.npcs then
-            local state = data.targetNPCs ~= nil and data.targetNPCs or true
-            aimbotUI.toggles.npcs.Text = state and "TARGET NPCS ON" or "TARGET NPCS OFF"
-            targetNPCs = state
-        end
-        if aimbotUI.toggles.soru then
-            local state = data.soruAimbot or false
-            aimbotUI.toggles.soru.Text = state and "SORU TELEPORT ON" or "SORU TELEPORT OFF"
-            soruAimbot = state
-            SoruButton.Visible = state
-        end
-        if aimbotUI.toggles.excludeF then
-            local state = data.excludeF ~= nil and data.excludeF or true
-            aimbotUI.toggles.excludeF.Text = state and "F SKILL (EXCLUDED) ON" or "F SKILL (EXCLUDED) OFF"
-            excludeF = state
-        end
-        if aimbotUI.toggles.line then
-            local state = data.showLine ~= nil and data.showLine or true
-            aimbotUI.toggles.line.Text = state and "TARGET LINE ON" or "TARGET LINE OFF"
-            showLine = state
-            if TargetLine then TargetLine.Visible = (aimbotUI.getEnabled() and showLine) end
-        end
-        if aimbotUI.toggles.fov then
-            local state = data.showFOV or false
-            aimbotUI.toggles.fov.Text = state and "FOV CIRCLE ON" or "FOV CIRCLE OFF"
-            showFOV = state
-            if FOVCircle then FOVCircle.Visible = (aimbotUI.getEnabled() and showFOV) end
-        end
-        -- Distance
-        if data.maxDistance then
-            maxDistance = data.maxDistance
-            aimbotUI.dist.label.Text = "Distance: " .. maxDistance
-            aimbotUI.dist.val.Text = tostring(maxDistance)
-        end
-        -- Fast Attack
-        if data.fastAttack ~= nil then
-            fastAttack = data.fastAttack
-            fastToggle.Text = fastAttack and "FAST ATTACK ON" or "FAST ATTACK OFF"
-            if fastAttack then
-                -- Start loop if not already
-                if not fastAttackLoop then
-                    fastAttackLoop = RunService.Heartbeat:Connect(function() ... end) -- we need the loop logic, but we'll just reuse the same code; better to call the toggle manually?
-                    -- We can just call the callback with state
-                    -- But it's easier to just trigger the toggle's click logic
-                end
-            else
-                if fastAttackLoop then fastAttackLoop:Disconnect(); fastAttackLoop = nil end
-            end
-        end
-        -- Walk Speed
-        if data.walkSpeed ~= nil then
-            walkSpeed = data.walkSpeed
-            wsToggle.Text = walkSpeed and "WALK SPEED ON" or "WALK SPEED OFF"
-            if walkSpeed then
-                if not wsLoop then
-                    wsLoop = RunService.Heartbeat:Connect(function() ... end)
-                end
-            else
-                if wsLoop then wsLoop:Disconnect(); wsLoop = nil end
-                local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-                if hum then hum.WalkSpeed = 16 end
-            end
-        end
-        if data.walkSpeedVal then
-            walkSpeedVal = data.walkSpeedVal
-            wsVal.Text = tostring(walkSpeedVal)
-            wsLabel.Text = "Speed: " .. walkSpeedVal
-        end
-        -- Noclip
-        if data.noclipEnabled ~= nil then
-            noclipEnabled = data.noclipEnabled
-            noclipToggle.Text = noclipEnabled and "NOCLIP ON" or "NOCLIP OFF"
-            if noclipEnabled then
-                if player.Character then
-                    for _, part in pairs(player.Character:GetDescendants()) do
-                        if part:IsA("BasePart") then part.CanCollide = false end
-                    end
-                end
-            else
-                if player.Character then
-                    for _, part in pairs(player.Character:GetDescendants()) do
-                        if part:IsA("BasePart") then part.CanCollide = true end
-                    end
-                end
-            end
-        end
-        -- ESP
-        if data.espEnabled ~= nil then
-            espEnabled = data.espEnabled
-            espMasterToggle.Text = espEnabled and "ESP MASTER ON" or "ESP MASTER OFF"
-            if not espEnabled then
-                for _, v in pairs(workspace:GetDescendants()) do
-                    if v:IsA("BillboardGui") and v.Name == "IvoryESP" then
-                        v:Destroy()
-                    end
-                end
-            end
-        end
-        if data.espName ~= nil then
-            espName = data.espName
-            espNameToggle.Text = espName and "SHOW NAME ON" or "SHOW NAME OFF"
-        end
-        if data.espDist ~= nil then
-            espDist = data.espDist
-            espDistToggle.Text = espDist and "SHOW DISTANCE ON" or "SHOW DISTANCE OFF"
-        end
-        if data.espHealth ~= nil then
-            espHealth = data.espHealth
-            espHealthToggle.Text = espHealth and "SHOW HEALTH ON" or "SHOW HEALTH OFF"
-        end
-        -- Theme
-        if data.themeBlack ~= nil then
-            themeBlack = data.themeBlack
-            themeToggle.Text = themeBlack and "DARK THEME ON" or "DARK THEME OFF"
-            applyTheme(themeBlack)
-        end
-        loadBtn.Text = "CONFIG LOADED!"
-        task.delay(1.5, function()
-            loadBtn.Text = "LOAD CONFIG"
-        end)
-    else
-        loadBtn.Text = "ERROR!"
-        task.delay(1.5, function()
-            loadBtn.Text = "LOAD CONFIG"
-        end)
-    end
-end)
+-- Save/Load Config removed to avoid errors on mobile
 
 --// Info Page
 infoText = Instance.new("TextLabel")
@@ -1556,4 +1317,4 @@ print("✅ Ivory Hub loaded with integrated Aimbot, ESP, and features!")
 print("📌 Toggle GUI with the 'I' button (middle-left).")
 print("📌 All toggles show ON/OFF text, buttons stay gray.")
 print("📌 'SORU' button appears only when Soru Teleport toggle is ON.")
-print("📌 Save/Load Config works (saves to IvoryHub_Config.json).")
+print("📌 Save/Load removed for mobile stability.")
