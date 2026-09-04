@@ -1,15 +1,19 @@
---// IVORY HUB — FULL SCRIPT (Key + Normal Aimbot + Soru Aimbot + Macro)
---// Key: Ivory | Mobile & PC Compatible | All Features Restored
+--// IVORY HUB — FULL SCRIPT (Key + Fixed Aimbot + General ESP + Soru + Working Macro)
+--// Key: Ivory | Mobile & PC Compatible | Soru Aimbot (flashstep) no cooldown
+--// Macro system actually executes actions
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local VirtualUser = game:GetService("VirtualUser")
 
 local Player = Players.LocalPlayer
 local PlayerGui = Player:WaitForChild("PlayerGui")
 local Camera = workspace.CurrentCamera
+local Mouse = Player:GetMouse()
 
 pcall(function()
     PlayerGui:FindFirstChild("IvoryHub"):Destroy()
@@ -52,20 +56,18 @@ local NormalAimbot = {
 }
 
 local SoruAimbot = {
-    Enabled = false,          -- Soru aimbot toggle (SA button)
+    Enabled = false,          -- toggled by SA button
     TargetPlayers = true,
     TargetNPCs = true,
-    Cooldown = 1.5,
+    Cooldown = 0,             -- no cooldown
     LastSoru = 0
 }
 
 local Combat = {
-    ESPEnabled = false,
+    ESPEnabled = false,      -- general ESP toggle
     ESPBoxes = {},
     ESPNames = {},
-    ESPNamesEnabled = false,
     ESPDistance = {},
-    ESPDistanceEnabled = false,
     SpeedHack = false,
     SpeedMultiplier = 15,
     NoClip = false,
@@ -197,11 +199,8 @@ if not KeyValid then
     end)
 end
 
---// SORU FLASHSTEP FUNCTION (goes to target)
+--// FLASHSTEP (Soru) EXECUTION - no cooldown
 local function DoSoru()
-    if tick() - SoruAimbot.LastSoru < SoruAimbot.Cooldown then return end
-    SoruAimbot.LastSoru = tick()
-
     local character = Player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
     local root = character.HumanoidRootPart
@@ -272,7 +271,7 @@ local function DoSoru()
     root.CFrame = CFrame.lookAt(root.Position, targetRoot.Position)
 end
 
---// NORMAL AIMBOT FUNCTIONS (silent aim)
+--// NORMAL AIMBOT FUNCTIONS
 local function isInFOV(position)
     if not position or not Camera then return false end
     local char = Player.Character
@@ -282,7 +281,7 @@ local function isInFOV(position)
     local lookVector = Camera.CFrame.LookVector
     local dirToTarget = (position - root.Position).Unit
     local dot = lookVector:Dot(dirToTarget)
-    return dot >= math.cos(math.rad(NormalAimbot.FOV) / 2)  -- Actually want FOV/2? Use threshold 0 for 180 deg (half sphere)
+    return dot >= 0  -- 180 degrees
 end
 
 local function getScreenCenterDistance(position)
@@ -349,7 +348,27 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
---// SILENT AIM HOOK
+--// MOUSE HIT OVERRIDE (for aimbot reliability)
+local OldMouseHit = Mouse.Hit
+local OldMouseTarget = Mouse.Target
+local mt = getrawmetatable(game)
+local oldIndex = mt.__index
+setreadonly(mt, false)
+mt.__index = newcclosure(function(self, key)
+    if not checkcaller() and self == Mouse and key == "Hit" then
+        if NormalAimbot.Enabled and NormalAimbot.CurrentTarget then
+            return CFrame.new(NormalAimbot.CurrentTarget.Position)
+        end
+    elseif not checkcaller() and self == Mouse and key == "Target" then
+        if NormalAimbot.Enabled and NormalAimbot.CurrentTarget then
+            return NormalAimbot.CurrentTarget
+        end
+    end
+    return oldIndex(self, key)
+end)
+setreadonly(mt, true)
+
+--// SILENT AIM HOOK (FireServer/InvokeServer)
 local OldNamecall
 OldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     local args = {...}
@@ -431,7 +450,7 @@ local function LoadFullScript()
     MacroStroke.Thickness = 2
     MacroStroke.Transparency = 0.3
 
-    -- Soru Button (visible when SoruAimbot enabled)
+    -- Soru Execution Button (visible when SoruAimbot.Enabled)
     local SoruButton = Instance.new("TextButton")
     SoruButton.Size = UDim2.fromOffset(45, 45)
     SoruButton.Position = UDim2.new(1, -70, 0.5, 40)
@@ -459,6 +478,7 @@ local function LoadFullScript()
     SoruToggle.TextSize = 10
     SoruToggle.Font = Enum.Font.GothamBold
     SoruToggle.AutoButtonColor = false
+    SoruToggle.Visible = true  -- always visible after key
     SoruToggle.Parent = Gui
     Instance.new("UICorner", SoruToggle).CornerRadius = UDim.new(0, 10)
     local SoruToggleStroke = Instance.new("UIStroke", SoruToggle)
@@ -524,12 +544,32 @@ local function LoadFullScript()
     MakeDraggableClickable(SoruButton)
     MakeDraggableClickable(SoruToggle)
 
+    -- Macro execution function
+    local function ExecuteMacroStep(step)
+        local key = step.Move
+        if step.Type == "Melee" then
+            -- Simulate attack click
+            VirtualUser:Button1Down()
+            task.wait(0.05)
+            VirtualUser:Button1Up()
+        elseif step.Type == "Sword" or step.Type == "Fruit" or step.Type == "Gun" then
+            -- Simulate key press for ability
+            local keyCode = Enum.KeyCode[key]
+            if keyCode then
+                VirtualInputManager:SendKeyEvent(true, keyCode, false, nil)
+                task.wait(0.05)
+                VirtualInputManager:SendKeyEvent(false, keyCode, false, nil)
+            end
+        end
+        task.wait(step.Delay)
+    end
+
     MacroButton.MouseButton1Click:Connect(function()
         if not Combat.MacroEnabled or #Combat.MacroSteps == 0 then return end
         if tick() - Combat.LastMacroAction < 0.5 then return end
         Combat.LastMacroAction = tick()
         for _, step in ipairs(Combat.MacroSteps) do
-            task.wait(step.Delay)
+            ExecuteMacroStep(step)
         end
     end)
 
@@ -876,8 +916,8 @@ local function LoadFullScript()
     -- Home
     AddCard(Home, "Welcome to Ivory PVP", "Mobile optimized Blox Fruits PVP", "◆")
     AddCard(Home, "Current Status", "All systems operational", "●")
-    AddCard(Home, "Script Version", "v22.0 - Restored", "◈")
-    AddCard(Home, "Quick Stats", "Aimbot | Soru | Macro", "▣")
+    AddCard(Home, "Script Version", "v23.0 - Fixed All", "◈")
+    AddCard(Home, "Quick Stats", "Aimbot | Soru | Macro | ESP", "▣")
     AddCard(Home, "Mobile Only", "No PC inputs, no freezes", "◎")
     AddCard(Home, "Anti-Detection", "Silent aim leaves no trace", "◇")
     AddCard(Home, "Performance", "Optimized for mobile devices", "◉")
@@ -919,9 +959,7 @@ local function LoadFullScript()
     AddToggle(SoruPage, "Target NPCs", "Soru targets NPCs", function(enabled)
         SoruAimbot.TargetNPCs = enabled
     end, "🤖")
-    AddSlider(SoruPage, "Soru Cooldown", 0.5, 5, 1.5, function(val)
-        SoruAimbot.Cooldown = val
-    end, "⏱")
+    -- Removed cooldown slider (no cooldown)
 
     -- Movement Page
     AddToggle(MovementPage, "Speed Hack", "Multiply your movement speed", function(enabled)
@@ -950,8 +988,8 @@ local function LoadFullScript()
         Combat.AntiStun = enabled
     end, "🛡")
 
-    -- Visual Page
-    AddToggle(VisualPage, "ESP Boxes", "Show player boxes", function(enabled)
+    -- Visual Page (General ESP)
+    AddToggle(VisualPage, "ESP", "Enable all ESP (boxes, names, distance)", function(enabled)
         Combat.ESPEnabled = enabled
         if not enabled then
             for _, box in pairs(Combat.ESPBoxes) do if box then box:Destroy() end end
@@ -962,12 +1000,6 @@ local function LoadFullScript()
             Combat.ESPDistance = {}
         end
     end, "▣")
-    AddToggle(VisualPage, "ESP Names", "Show names", function(enabled)
-        Combat.ESPNamesEnabled = enabled
-    end, "◈")
-    AddToggle(VisualPage, "ESP Distance", "Show distance", function(enabled)
-        Combat.ESPDistanceEnabled = enabled
-    end, "◎")
 
     -- Macros Page
     AddToggle(MacrosPage, "Macro System", "Enable macro button", function(enabled)
@@ -1107,7 +1139,7 @@ local function LoadFullScript()
     AddCard(CreditsPage, "Discord", "Ivory999", "◈")
     AddCard(CreditsPage, "Ideas By", "Rayo", "✦")
     AddCard(CreditsPage, "Discord", "rayo06996", "◎")
-    AddCard(CreditsPage, "Version", "v22.0 - Restored", "▣")
+    AddCard(CreditsPage, "Version", "v23.0 - Fixed All", "▣")
     AddCard(CreditsPage, "Special Thanks", "All supporters and testers", "♡")
     AddCard(CreditsPage, "Updates", "Join Discord for latest updates", "↻")
 
@@ -1217,7 +1249,7 @@ local function LoadFullScript()
     Toggle.MouseButton1Click:Connect(function() if Open then HideUI() else ShowUI() end end)
     Close.MouseButton1Click:Connect(HideUI)
 
-    -- Main Loop (ESP, etc.)
+    -- Main Loop (ESP, speed, noclip, antistun)
     RunService.RenderStepped:Connect(function()
         if not KeyValid then return end
         if Combat.SpeedHack and Player.Character and Player.Character:FindFirstChild("Humanoid") then
@@ -1263,27 +1295,26 @@ local function LoadFullScript()
                 if root then
                     local screenPos, onScreen = Camera:WorldToScreenPoint(root.Position)
                     if onScreen then
-                        if Combat.ESPEnabled then
-                            local box = Drawing.new("Square")
-                            box.Visible = true
-                            box.Size = Vector2.new(50, 100)
-                            box.Position = Vector2.new(screenPos.X - 25, screenPos.Y - 100)
-                            box.Color = Color3.fromRGB(255, 0, 0)
-                            box.Thickness = 2
-                            box.Filled = false
-                            table.insert(Combat.ESPBoxes, box)
-                        end
-                        if Combat.ESPNamesEnabled then
-                            local name = Drawing.new("Text")
-                            name.Visible = true
-                            name.Text = target.Name
-                            name.Position = Vector2.new(screenPos.X, screenPos.Y - 110)
-                            name.Color = Color3.fromRGB(255, 255, 255)
-                            name.Size = 14
-                            name.Center = true
-                            table.insert(Combat.ESPNames, name)
-                        end
-                        if Combat.ESPDistanceEnabled and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+                        -- ESP Box
+                        local box = Drawing.new("Square")
+                        box.Visible = true
+                        box.Size = Vector2.new(50, 100)
+                        box.Position = Vector2.new(screenPos.X - 25, screenPos.Y - 100)
+                        box.Color = Color3.fromRGB(255, 0, 0)
+                        box.Thickness = 2
+                        box.Filled = false
+                        table.insert(Combat.ESPBoxes, box)
+                        -- ESP Name
+                        local name = Drawing.new("Text")
+                        name.Visible = true
+                        name.Text = target.Name
+                        name.Position = Vector2.new(screenPos.X, screenPos.Y - 110)
+                        name.Color = Color3.fromRGB(255, 255, 255)
+                        name.Size = 14
+                        name.Center = true
+                        table.insert(Combat.ESPNames, name)
+                        -- ESP Distance
+                        if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
                             local dist = Drawing.new("Text")
                             dist.Visible = true
                             local distance = (Player.Character.HumanoidRootPart.Position - root.Position).Magnitude
