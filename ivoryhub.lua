@@ -1,5 +1,5 @@
 --// IVORY HUB — BLOX FRUITS PVP SCRIPT
---// 180° Silent Aimbot + Combat Features
+--// 180° Silent Aimbot + Soru Aimbot + Macro System
 --// Black & Ivory / MOBILE ONLY
 --// Credits: Ivory | Ideas: Rayo
 
@@ -43,7 +43,6 @@ end
 --// COMBAT VARIABLES
 local Combat = {
     SilentAimEnabled = false,
-    SilentAimAngle = 180,
     SilentAimTarget = nil,
     SilentAimFOV = 180,
     SilentAimHitChance = 100,
@@ -57,10 +56,10 @@ local Combat = {
     SpeedHack = false,
     SpeedMultiplier = 15,
     NoClip = false,
-    FlashstepAimbot = false,
-    FlashstepCooldown = 1,
-    LastFlashstep = 0,
-    FlashstepDistance = 20,
+    SoruAimbot = false,
+    SoruCooldown = 1,
+    LastSoru = 0,
+    SoruDistance = 15,
     AutoBuso = false,
     AutoBusoCooldown = 5,
     LastBuso = 0,
@@ -68,12 +67,15 @@ local Combat = {
     AutoKenCooldown = 3,
     LastKen = 0,
     AntiStun = false,
+    MacroEnabled = false,
+    MacroDelay = 0.5,
     MacroAttack = false,
     MacroDash = false,
     MacroJump = false,
     MacroAbility1 = false,
     MacroAbility2 = false,
-    MacroAbility3 = false
+    MacroAbility3 = false,
+    LastMacroAction = 0
 }
 
 --// GUI
@@ -105,6 +107,42 @@ ToggleStroke.Color = IVORY
 ToggleStroke.Thickness = 1
 ToggleStroke.Transparency = 0.35
 ToggleStroke.Parent = Toggle
+
+--// MACRO FLOATING BUTTON
+local MacroButton = Instance.new("TextButton")
+MacroButton.Name = "MacroButton"
+MacroButton.Size = UDim2.fromOffset(50, 50)
+MacroButton.Position = UDim2.new(1, -70, 0.5, -25)
+MacroButton.BackgroundColor3 = BLACK
+MacroButton.Text = "M"
+MacroButton.TextColor3 = GOLD
+MacroButton.TextSize = 20
+MacroButton.Font = Enum.Font.GothamBold
+MacroButton.AutoButtonColor = false
+MacroButton.Visible = false
+MacroButton.Parent = Gui
+
+local MacroCorner = Instance.new("UICorner")
+MacroCorner.CornerRadius = UDim.new(0, 14)
+MacroCorner.Parent = MacroButton
+
+local MacroStroke = Instance.new("UIStroke")
+MacroStroke.Color = GOLD
+MacroStroke.Thickness = 2
+MacroStroke.Transparency = 0.3
+MacroStroke.Parent = MacroButton
+
+--// MACRO LABEL
+local MacroLabel = Instance.new("TextLabel")
+MacroLabel.BackgroundTransparency = 1
+MacroLabel.Position = UDim2.new(1, -75, 0.5, 30)
+MacroLabel.Size = UDim2.fromOffset(60, 15)
+MacroLabel.Text = "MACRO"
+MacroLabel.TextColor3 = GOLD
+MacroLabel.TextSize = 8
+MacroLabel.Font = Enum.Font.GothamBold
+MacroLabel.Visible = false
+MacroLabel.Parent = Gui
 
 --// MAIN
 local Main = Instance.new("Frame")
@@ -487,7 +525,7 @@ local function AddSlider(Page, title, min, max, default, callback, icon)
         
         SliderFill.Size = UDim2.new(percent, 0, 1, 0)
         SliderButton.Position = UDim2.new(percent, -8, 0.5, -8)
-        Value.Text = string.format("%.1f", val)
+        Value.Text = string.format("%.2f", val)
         callback(val)
     end
 
@@ -511,72 +549,6 @@ local function AddSlider(Page, title, min, max, default, callback, icon)
     return Card
 end
 
---// BUTTON CARD
-local function AddButton(Page, title, description, callback, icon)
-    local Card = Instance.new("TextButton")
-    Card.Size = UDim2.new(1, -2, 0, 60)
-    Card.BackgroundColor3 = PANEL
-    Card.BorderSizePixel = 0
-    Card.Text = ""
-    Card.AutoButtonColor = false
-    Card.Parent = Page
-
-    local Corner = Instance.new("UICorner")
-    Corner.CornerRadius = UDim.new(0, 9)
-    Corner.Parent = Card
-
-    local Stroke = Instance.new("UIStroke")
-    Stroke.Color = IVORY
-    Stroke.Transparency = 0.92
-    Stroke.Parent = Card
-
-    local Icon = Instance.new("TextLabel")
-    Icon.BackgroundTransparency = 1
-    Icon.Position = UDim2.fromOffset(10, 15)
-    Icon.Size = UDim2.fromOffset(30, 30)
-    Icon.Text = icon or "◆"
-    Icon.TextColor3 = IVORY
-    Icon.TextSize = 16
-    Icon.Font = Enum.Font.GothamBold
-    Icon.Parent = Card
-
-    local T = Instance.new("TextLabel")
-    T.BackgroundTransparency = 1
-    T.Position = UDim2.fromOffset(48, 8)
-    T.Size = UDim2.new(1, -60, 0, 20)
-    T.Text = title
-    T.TextColor3 = WHITE
-    T.TextSize = 12
-    T.Font = Enum.Font.GothamBold
-    T.TextXAlignment = Enum.TextXAlignment.Left
-    T.Parent = Card
-
-    local D = Instance.new("TextLabel")
-    D.BackgroundTransparency = 1
-    D.Position = UDim2.fromOffset(48, 29)
-    D.Size = UDim2.new(1, -60, 0, 20)
-    D.Text = description
-    D.TextColor3 = GREY
-    D.TextSize = 9
-    D.Font = Enum.Font.Gotham
-    D.TextXAlignment = Enum.TextXAlignment.Left
-    D.Parent = Card
-
-    Card.MouseEnter:Connect(function()
-        tween(Card, 0.15, {BackgroundColor3 = Color3.fromRGB(25, 25, 25)})
-    end)
-
-    Card.MouseLeave:Connect(function()
-        tween(Card, 0.15, {BackgroundColor3 = PANEL})
-    end)
-
-    Card.MouseButton1Click:Connect(function()
-        callback()
-    end)
-
-    return Card
-end
-
 --// CREATE PAGES
 local Home = CreatePage("Home")
 local AimbotPage = CreatePage("Aimbot")
@@ -590,8 +562,8 @@ local SettingsPage = CreatePage("Settings")
 --// HOME CONTENT
 AddCard(Home, "Welcome to Ivory PVP", "Premium Blox Fruits mobile combat", "◆")
 AddCard(Home, "Current Status", "All systems operational and ready", "●")
-AddCard(Home, "Script Version", "v5.0 - Mobile Edition", "◈")
-AddCard(Home, "Quick Stats", "180° FOV | Silent Aim | Flashstep", "▣")
+AddCard(Home, "Script Version", "v6.0 - Soru Aimbot Edition", "◈")
+AddCard(Home, "Quick Stats", "180° FOV | Silent Aim | Soru", "▣")
 AddCard(Home, "Mobile Optimized", "Touch controls fully supported", "◎")
 AddCard(Home, "Anti-Detection", "Silent aim leaves no visual trace", "◇")
 AddCard(Home, "Performance", "Optimized for low-end devices", "◉")
@@ -610,10 +582,10 @@ AddToggle(AimbotPage, "Silent Aim", "180° silent aim - camera stays still", fun
     end
 end, "◎")
 
-AddToggle(AimbotPage, "Flashstep Aimbot", "Flashstep to target automatically", function(enabled)
-    Combat.FlashstepAimbot = enabled
+AddToggle(AimbotPage, "Soru Aimbot", "Auto Soru to target with animation", function(enabled)
+    Combat.SoruAimbot = enabled
     if enabled then
-        Status.Text = "●  FLASHSTEP"
+        Status.Text = "●  SORU AIM"
         Status.TextColor3 = GOLD
     else
         Status.Text = "●  ONLINE"
@@ -629,8 +601,8 @@ AddSlider(AimbotPage, "Prediction", 0, 1, 0.15, function(val)
     Combat.SilentAimPrediction = val
 end, "▣")
 
-AddSlider(AimbotPage, "Flashstep Distance", 5, 50, 20, function(val)
-    Combat.FlashstepDistance = val
+AddSlider(AimbotPage, "Soru Distance", 5, 30, 15, function(val)
+    Combat.SoruDistance = val
 end, "⚡")
 
 --// COMBAT PAGE
@@ -692,28 +664,45 @@ AddToggle(VisualPage, "ESP Distance", "Show distance to players", function(enabl
     Combat.ESPDistanceEnabled = enabled
 end, "◎")
 
---// MACROS PAGE (Mobile Touch)
-AddToggle(MacrosPage, "Auto Attack", "Automatically attack nearest target", function(enabled)
+--// MACROS PAGE
+AddToggle(MacrosPage, "Macro System", "Enable macro button on screen", function(enabled)
+    Combat.MacroEnabled = enabled
+    MacroButton.Visible = enabled
+    MacroLabel.Visible = enabled
+    if enabled then
+        Status.Text = "●  MACRO"
+        Status.TextColor3 = GOLD
+    else
+        Status.Text = "●  ONLINE"
+        Status.TextColor3 = GREEN
+    end
+end, "⌨")
+
+AddSlider(MacrosPage, "Macro Delay", 0.1, 3, 0.5, function(val)
+    Combat.MacroDelay = val
+end, "⏱")
+
+AddToggle(MacrosPage, "Macro: Attack", "Attack in macro sequence", function(enabled)
     Combat.MacroAttack = enabled
 end, "⚔")
 
-AddToggle(MacrosPage, "Auto Dash", "Automatically dash when moving", function(enabled)
+AddToggle(MacrosPage, "Macro: Dash", "Dash in macro sequence", function(enabled)
     Combat.MacroDash = enabled
 end, "»")
 
-AddToggle(MacrosPage, "Auto Jump", "Automatically jump repeatedly", function(enabled)
+AddToggle(MacrosPage, "Macro: Jump", "Jump in macro sequence", function(enabled)
     Combat.MacroJump = enabled
 end, "↑")
 
-AddToggle(MacrosPage, "Auto Ability 1", "Automatically use ability 1", function(enabled)
+AddToggle(MacrosPage, "Macro: Ability 1", "Use ability 1 in sequence", function(enabled)
     Combat.MacroAbility1 = enabled
 end, "①")
 
-AddToggle(MacrosPage, "Auto Ability 2", "Automatically use ability 2", function(enabled)
+AddToggle(MacrosPage, "Macro: Ability 2", "Use ability 2 in sequence", function(enabled)
     Combat.MacroAbility2 = enabled
 end, "②")
 
-AddToggle(MacrosPage, "Auto Ability 3", "Automatically use ability 3", function(enabled)
+AddToggle(MacrosPage, "Macro: Ability 3", "Use ability 3 in sequence", function(enabled)
     Combat.MacroAbility3 = enabled
 end, "③")
 
@@ -722,7 +711,7 @@ AddCard(CreditsPage, "Made By", "Ivory", "◆")
 AddCard(CreditsPage, "Discord", "Ivory999", "◈")
 AddCard(CreditsPage, "Ideas By", "Rayo", "✦")
 AddCard(CreditsPage, "Discord", "rayo06996", "◎")
-AddCard(CreditsPage, "Version", "v5.0 - Mobile Edition", "▣")
+AddCard(CreditsPage, "Version", "v6.0 - Mobile Edition", "▣")
 AddCard(CreditsPage, "Special Thanks", "All supporters and testers", "♡")
 AddCard(CreditsPage, "Updates", "Join Discord for latest updates", "↻")
 
@@ -871,6 +860,7 @@ end
 
 MakeDraggable(Main, Top)
 MakeDraggable(Toggle, Toggle)
+MakeDraggable(MacroButton, MacroButton)
 
 --// OPEN / CLOSE
 local Open = true
@@ -911,6 +901,48 @@ Close.MouseButton1Click:Connect(function()
     HideUI()
 end)
 
+--// MACRO BUTTON HANDLER
+MacroButton.MouseButton1Click:Connect(function()
+    if not Combat.MacroEnabled then return end
+    
+    if tick() - Combat.LastMacroAction < Combat.MacroDelay then return end
+    Combat.LastMacroAction = tick()
+    
+    -- Execute macro sequence
+    if Combat.MacroAttack then
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, nil, 0)
+        task.wait(Combat.MacroDelay)
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, nil, 0)
+    end
+    
+    if Combat.MacroDash and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+        local root = Player.Character.HumanoidRootPart
+        root.Velocity = root.CFrame.LookVector * 100
+    end
+    
+    if Combat.MacroJump and Player.Character and Player.Character:FindFirstChild("Humanoid") then
+        Player.Character.Humanoid.Jump = true
+    end
+    
+    if Combat.MacroAbility1 then
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Z, false, nil)
+        task.wait(Combat.MacroDelay)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Z, false, nil)
+    end
+    
+    if Combat.MacroAbility2 then
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.X, false, nil)
+        task.wait(Combat.MacroDelay)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.X, false, nil)
+    end
+    
+    if Combat.MacroAbility3 then
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.C, false, nil)
+        task.wait(Combat.MacroDelay)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.C, false, nil)
+    end
+end)
+
 --// BUTTON EFFECTS
 Toggle.MouseEnter:Connect(function()
     tween(Toggle, 0.15, {
@@ -935,6 +967,18 @@ Close.MouseLeave:Connect(function()
     tween(Close, 0.15, {
         BackgroundColor3 = DARKGREY,
         TextColor3 = IVORY
+    })
+end)
+
+MacroButton.MouseEnter:Connect(function()
+    tween(MacroButton, 0.15, {
+        BackgroundColor3 = Color3.fromRGB(40, 40, 20)
+    })
+end)
+
+MacroButton.MouseLeave:Connect(function()
+    tween(MacroButton, 0.15, {
+        BackgroundColor3 = BLACK
     })
 end)
 
@@ -968,8 +1012,8 @@ local function GetClosestPlayer()
     return closest
 end
 
---// FLASHSTEP FUNCTION
-local function FlashstepToTarget(target)
+--// SORU FUNCTION (Flashstep with animation)
+local function SoruToTarget(target)
     if not target or not target.Character or not target.Character:FindFirstChild("HumanoidRootPart") then
         return false
     end
@@ -982,20 +1026,39 @@ local function FlashstepToTarget(target)
     local root = character.HumanoidRootPart
     local targetRoot = target.Character.HumanoidRootPart
     
+    -- Soru animation effect (create afterimage)
+    for i = 1, 5 do
+        local afterimage = Instance.new("Part")
+        afterimage.Size = root.Size
+        afterimage.CFrame = root.CFrame
+        afterimage.Anchored = true
+        afterimage.CanCollide = false
+        afterimage.Transparency = 0.3 + (i * 0.1)
+        afterimage.Color = IVORY
+        afterimage.Material = Enum.Material.ForceField
+        afterimage.Parent = workspace
+        game:GetService("Debris"):AddItem(afterimage, 0.1 * i)
+        task.wait(0.02)
+    end
+    
+    -- Calculate soru position
     local direction = (root.Position - targetRoot.Position).Unit
-    local flashstepPos = targetRoot.Position + direction * Combat.FlashstepDistance
+    local soruPos = targetRoot.Position + direction * Combat.SoruDistance
     
-    root.CFrame = CFrame.new(flashstepPos) * CFrame.Angles(0, math.rad(180), 0)
+    -- Teleport to target
+    root.CFrame = CFrame.new(soruPos) * CFrame.Angles(0, math.rad(180), 0)
     
+    -- Flash effect at destination
     local flashEffect = Instance.new("Part")
-    flashEffect.Size = Vector3.new(1, 1, 1)
-    flashEffect.Position = flashstepPos
+    flashEffect.Size = Vector3.new(2, 2, 2)
+    flashEffect.Position = soruPos
     flashEffect.Anchored = true
     flashEffect.CanCollide = false
     flashEffect.Transparency = 0.5
     flashEffect.Color = IVORY
+    flashEffect.Material = Enum.Material.Neon
     flashEffect.Parent = workspace
-    game:GetService("Debris"):AddItem(flashEffect, 0.3)
+    game:GetService("Debris"):AddItem(flashEffect, 0.5)
     
     return true
 end
@@ -1064,8 +1127,8 @@ RunService.RenderStepped:Connect(function()
         end
     end
     
-    -- Flashstep Aimbot
-    if Combat.FlashstepAimbot and tick() - Combat.LastFlashstep > Combat.FlashstepCooldown then
+    -- Soru Aimbot
+    if Combat.SoruAimbot and tick() - Combat.LastSoru > Combat.SoruCooldown then
         local target = GetClosestPlayer()
         
         if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
@@ -1076,8 +1139,8 @@ RunService.RenderStepped:Connect(function()
                 local distance = (root.Position - targetRoot.Position).Magnitude
                 
                 if distance > 10 and distance < 100 then
-                    Combat.LastFlashstep = tick()
-                    FlashstepToTarget(target)
+                    Combat.LastSoru = tick()
+                    SoruToTarget(target)
                 end
             end
         end
@@ -1088,7 +1151,6 @@ RunService.RenderStepped:Connect(function()
         Combat.LastBuso = tick()
         
         if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
-            -- Activate Buso Haki (press J key)
             VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.J, false, nil)
             task.wait(0.1)
             VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.J, false, nil)
@@ -1100,53 +1162,10 @@ RunService.RenderStepped:Connect(function()
         Combat.LastKen = tick()
         
         if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
-            -- Activate Ken Haki (press K key)
             VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.K, false, nil)
             task.wait(0.1)
             VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.K, false, nil)
         end
-    end
-    
-    -- Auto Attack Macro
-    if Combat.MacroAttack then
-        local target = GetClosestPlayer()
-        if target then
-            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, nil, 0)
-            task.wait(0.1)
-            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, nil, 0)
-        end
-    end
-    
-    -- Auto Dash Macro
-    if Combat.MacroDash and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
-        local root = Player.Character.HumanoidRootPart
-        if root.Velocity.Magnitude > 1 then
-            root.Velocity = root.CFrame.LookVector * 100
-        end
-    end
-    
-    -- Auto Jump Macro
-    if Combat.MacroJump and Player.Character and Player.Character:FindFirstChild("Humanoid") then
-        Player.Character.Humanoid.Jump = true
-    end
-    
-    -- Auto Ability Macros
-    if Combat.MacroAbility1 then
-        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Z, false, nil)
-        task.wait(0.1)
-        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Z, false, nil)
-    end
-    
-    if Combat.MacroAbility2 then
-        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.X, false, nil)
-        task.wait(0.1)
-        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.X, false, nil)
-    end
-    
-    if Combat.MacroAbility3 then
-        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.C, false, nil)
-        task.wait(0.1)
-        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.C, false, nil)
     end
     
     -- ESP
