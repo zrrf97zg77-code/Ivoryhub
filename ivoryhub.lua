@@ -1,6 +1,7 @@
---// IVORY HUB — FULL SCRIPT (Key + Aimbot + Flashstep + Macro + Soru Toggle)
+--// IVORY HUB — FULL SCRIPT (Key + Soru Aimbot + Macro + Soru Toggle)
 --// Soru Aimbot Toggle Button (draggable, clickable) + Macro button draggable/clickable
---// Key: Ivory | Mobile & PC Compatible
+--// Key: Ivory | Mobile & PC Compatible | Soru OFF by default
+--// Fixed: Soru goes to target, aimbot targets players/NPCs
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -33,17 +34,14 @@ local function tween(obj, time, props)
 end
 
 --// VARIABLES
-local KeyValid = false
 local VALID_KEY = "Ivory"
 
-local Aimbot = {
-    Enabled = false,
-    MaxDistance = 3000,
-    TargetPlayers = true,
-    TargetNPCs = true,
-    CurrentTarget = nil,
-    Prediction = 0.15
-}
+if not _G.IvoryKeyValid or _G.IvoryKey ~= VALID_KEY then
+    _G.IvoryKeyValid = false
+    _G.IvoryKey = VALID_KEY
+end
+
+local KeyValid = _G.IvoryKeyValid
 
 local Combat = {
     ESPEnabled = false,
@@ -56,13 +54,15 @@ local Combat = {
     SpeedMultiplier = 15,
     NoClip = false,
     SoruButtonVisible = false,
-    SoruAimbotEnabled = false, -- NEW: Soru Aimbot toggle flag
+    SoruAimbotEnabled = false, -- Soru OFF by default
     SoruCooldown = 1.5,
     LastSoru = 0,
     AntiStun = false,
     MacroEnabled = false,
     MacroSteps = {},
-    LastMacroAction = 0
+    LastMacroAction = 0,
+    TargetPlayers = true,
+    TargetNPCs = true
 }
 
 local MoveLists = {
@@ -72,91 +72,122 @@ local MoveLists = {
     Gun = {"Z", "X"}
 }
 
---// KEY GUI
+--// KEY GUI (only shown if not already validated)
 local KeyGui = Instance.new("ScreenGui")
 KeyGui.Name = "IvoryKeyGui"
 KeyGui.ResetOnSpawn = false
 KeyGui.IgnoreGuiInset = true
+KeyGui.Enabled = not KeyValid
 KeyGui.Parent = PlayerGui
 
-local KeyFrame = Instance.new("Frame")
-KeyFrame.Size = UDim2.fromOffset(340, 200)
-KeyFrame.Position = UDim2.new(0.5, -170, 0.5, -100)
-KeyFrame.BackgroundColor3 = BLACK
-KeyFrame.BorderSizePixel = 0
-KeyFrame.Parent = KeyGui
-Instance.new("UICorner", KeyFrame).CornerRadius = UDim.new(0, 16)
-local KeyStroke = Instance.new("UIStroke", KeyFrame)
-KeyStroke.Color = IVORY
-KeyStroke.Thickness = 2
-KeyStroke.Transparency = 0.2
+if not KeyValid then
+    local KeyFrame = Instance.new("Frame")
+    KeyFrame.Size = UDim2.fromOffset(340, 200)
+    KeyFrame.Position = UDim2.new(0.5, -170, 0.5, -100)
+    KeyFrame.BackgroundColor3 = BLACK
+    KeyFrame.BorderSizePixel = 0
+    KeyFrame.Parent = KeyGui
+    Instance.new("UICorner", KeyFrame).CornerRadius = UDim.new(0, 16)
+    local KeyStroke = Instance.new("UIStroke", KeyFrame)
+    KeyStroke.Color = IVORY
+    KeyStroke.Thickness = 2
+    KeyStroke.Transparency = 0.2
 
-local AccentBar = Instance.new("Frame")
-AccentBar.Size = UDim2.new(1, 0, 0, 4)
-AccentBar.BackgroundColor3 = IVORY
-AccentBar.BorderSizePixel = 0
-AccentBar.Parent = KeyFrame
-Instance.new("UICorner", AccentBar).CornerRadius = UDim.new(0, 16)
+    local AccentBar = Instance.new("Frame")
+    AccentBar.Size = UDim2.new(1, 0, 0, 4)
+    AccentBar.BackgroundColor3 = IVORY
+    AccentBar.BorderSizePixel = 0
+    AccentBar.Parent = KeyFrame
+    Instance.new("UICorner", AccentBar).CornerRadius = UDim.new(0, 16)
 
-local KeyTitle = Instance.new("TextLabel")
-KeyTitle.Size = UDim2.new(1, 0, 0, 40)
-KeyTitle.Position = UDim2.new(0, 0, 0, 20)
-KeyTitle.BackgroundTransparency = 1
-KeyTitle.Text = "IVORY HUB"
-KeyTitle.TextColor3 = IVORY
-KeyTitle.Font = Enum.Font.GothamBold
-KeyTitle.TextSize = 24
-KeyTitle.Parent = KeyFrame
+    local KeyTitle = Instance.new("TextLabel")
+    KeyTitle.Size = UDim2.new(1, 0, 0, 40)
+    KeyTitle.Position = UDim2.new(0, 0, 0, 20)
+    KeyTitle.BackgroundTransparency = 1
+    KeyTitle.Text = "IVORY HUB"
+    KeyTitle.TextColor3 = IVORY
+    KeyTitle.Font = Enum.Font.GothamBold
+    KeyTitle.TextSize = 24
+    KeyTitle.Parent = KeyFrame
 
-local KeySubTitle = Instance.new("TextLabel")
-KeySubTitle.Size = UDim2.new(1, 0, 0, 20)
-KeySubTitle.Position = UDim2.new(0, 0, 0, 60)
-KeySubTitle.BackgroundTransparency = 1
-KeySubTitle.Text = "ENTER ACCESS KEY"
-KeySubTitle.TextColor3 = GREY
-KeySubTitle.Font = Enum.Font.GothamMedium
-KeySubTitle.TextSize = 10
-KeySubTitle.Parent = KeyFrame
+    local KeySubTitle = Instance.new("TextLabel")
+    KeySubTitle.Size = UDim2.new(1, 0, 0, 20)
+    KeySubTitle.Position = UDim2.new(0, 0, 0, 60)
+    KeySubTitle.BackgroundTransparency = 1
+    KeySubTitle.Text = "ENTER ACCESS KEY"
+    KeySubTitle.TextColor3 = GREY
+    KeySubTitle.Font = Enum.Font.GothamMedium
+    KeySubTitle.TextSize = 10
+    KeySubTitle.Parent = KeyFrame
 
-local KeyBox = Instance.new("TextBox")
-KeyBox.Size = UDim2.new(0.8, 0, 0, 36)
-KeyBox.Position = UDim2.new(0.1, 0, 0, 90)
-KeyBox.BackgroundColor3 = DARKGREY
-KeyBox.BorderSizePixel = 0
-KeyBox.Text = ""
-KeyBox.PlaceholderText = "ENTER KEY"
-KeyBox.PlaceholderColor3 = GREY
-KeyBox.TextColor3 = WHITE
-KeyBox.Font = Enum.Font.GothamBold
-KeyBox.TextSize = 14
-KeyBox.Parent = KeyFrame
-Instance.new("UICorner", KeyBox).CornerRadius = UDim.new(0, 8)
-local BoxStroke = Instance.new("UIStroke", KeyBox)
-BoxStroke.Color = IVORY
-BoxStroke.Thickness = 1
-BoxStroke.Transparency = 0.5
+    local KeyBox = Instance.new("TextBox")
+    KeyBox.Size = UDim2.new(0.8, 0, 0, 36)
+    KeyBox.Position = UDim2.new(0.1, 0, 0, 90)
+    KeyBox.BackgroundColor3 = DARKGREY
+    KeyBox.BorderSizePixel = 0
+    KeyBox.Text = ""
+    KeyBox.PlaceholderText = "ENTER KEY"
+    KeyBox.PlaceholderColor3 = GREY
+    KeyBox.TextColor3 = WHITE
+    KeyBox.Font = Enum.Font.GothamBold
+    KeyBox.TextSize = 14
+    KeyBox.Parent = KeyFrame
+    Instance.new("UICorner", KeyBox).CornerRadius = UDim.new(0, 8)
+    local BoxStroke = Instance.new("UIStroke", KeyBox)
+    BoxStroke.Color = IVORY
+    BoxStroke.Thickness = 1
+    BoxStroke.Transparency = 0.5
 
-local KeyButton = Instance.new("TextButton")
-KeyButton.Size = UDim2.new(0.8, 0, 0, 36)
-KeyButton.Position = UDim2.new(0.1, 0, 0, 140)
-KeyButton.BackgroundColor3 = IVORY
-KeyButton.BorderSizePixel = 0
-KeyButton.Text = "UNLOCK"
-KeyButton.TextColor3 = BLACK
-KeyButton.Font = Enum.Font.GothamBold
-KeyButton.TextSize = 14
-KeyButton.AutoButtonColor = false
-KeyButton.Parent = KeyFrame
-Instance.new("UICorner", KeyButton).CornerRadius = UDim.new(0, 8)
+    local KeyButton = Instance.new("TextButton")
+    KeyButton.Size = UDim2.new(0.8, 0, 0, 36)
+    KeyButton.Position = UDim2.new(0.1, 0, 0, 140)
+    KeyButton.BackgroundColor3 = IVORY
+    KeyButton.BorderSizePixel = 0
+    KeyButton.Text = "UNLOCK"
+    KeyButton.TextColor3 = BLACK
+    KeyButton.Font = Enum.Font.GothamBold
+    KeyButton.TextSize = 14
+    KeyButton.AutoButtonColor = false
+    KeyButton.Parent = KeyFrame
+    Instance.new("UICorner", KeyButton).CornerRadius = UDim.new(0, 8)
 
-KeyButton.MouseEnter:Connect(function()
-    tween(KeyButton, 0.2, {BackgroundColor3 = Color3.fromRGB(220, 220, 200)})
-end)
-KeyButton.MouseLeave:Connect(function()
-    tween(KeyButton, 0.2, {BackgroundColor3 = IVORY})
-end)
+    KeyButton.MouseEnter:Connect(function()
+        tween(KeyButton, 0.2, {BackgroundColor3 = Color3.fromRGB(220, 220, 200)})
+    end)
+    KeyButton.MouseLeave:Connect(function()
+        tween(KeyButton, 0.2, {BackgroundColor3 = IVORY})
+    end)
 
---// TRUE FLASHSTEP FUNCTION (Unchanged)
+    KeyButton.MouseButton1Click:Connect(function()
+        if KeyBox.Text == VALID_KEY then
+            KeyButton.Text = "✓ UNLOCKED"
+            tween(KeyButton, 0.3, {BackgroundColor3 = Color3.fromRGB(0, 255, 100)})
+            _G.IvoryKeyValid = true
+            _G.IvoryKey = VALID_KEY
+            task.wait(0.5)
+            KeyGui:Destroy()
+            LoadFullScript()
+        else
+            KeyBox.Text = ""
+            KeyBox.PlaceholderText = "WRONG KEY"
+            KeyBox.PlaceholderColor3 = RED
+            tween(KeyFrame, 0.1, {Position = UDim2.new(0.5, -170, 0.5, -105)})
+            task.wait(0.1)
+            tween(KeyFrame, 0.1, {Position = UDim2.new(0.5, -170, 0.5, -100)})
+            task.wait(1)
+            KeyBox.PlaceholderText = "ENTER KEY"
+            KeyBox.PlaceholderColor3 = GREY
+        end
+    end)
+
+    KeyBox.FocusLost:Connect(function(enterPressed)
+        if enterPressed then
+            KeyButton.MouseButton1Click:Fire()
+        end
+    end)
+end
+
+--// FLASHSTEP FUNCTION (Fixed: teleports to target direction with afterimages)
 local function DoSoru()
     if tick() - Combat.LastSoru < Combat.SoruCooldown then return end
     Combat.LastSoru = tick()
@@ -168,7 +199,7 @@ local function DoSoru()
     local targetRoot = nil
     local shortestDist = math.huge
 
-    if Aimbot.TargetPlayers then
+    if Combat.TargetPlayers then
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= Player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
                 local otherRoot = p.Character.HumanoidRootPart
@@ -181,12 +212,11 @@ local function DoSoru()
         end
     end
 
-    if Aimbot.TargetNPCs then
-        local enemies = workspace:FindFirstChild("Enemies")
-        if enemies then
-            for _, npc in pairs(enemies:GetChildren()) do
-                if npc:IsA("Model") and npc:FindFirstChild("HumanoidRootPart") then
-                    local otherRoot = npc.HumanoidRootPart
+    if Combat.TargetNPCs then
+        for _, model in pairs(workspace:GetChildren()) do
+            if model:IsA("Model") and model:FindFirstChild("Humanoid") and model:FindFirstChild("HumanoidRootPart") then
+                if not Players:GetPlayerFromCharacter(model) then
+                    local otherRoot = model.HumanoidRootPart
                     local dist = (root.Position - otherRoot.Position).Magnitude
                     if dist < shortestDist then
                         shortestDist = dist
@@ -199,9 +229,10 @@ local function DoSoru()
 
     if not targetRoot then return end
 
+    -- Go to target: direction is FROM player TO target
     local direction = (targetRoot.Position - root.Position).Unit
 
-    -- Flashstep with afterimages (5 steps, 4 studs each = 20 studs)
+    -- Flashstep with afterimages (5 steps toward target)
     for i = 1, 5 do
         local afterimage = Instance.new("Part")
         afterimage.Size = root.Size
@@ -235,7 +266,7 @@ end
 --// LOAD FULL SCRIPT
 local function LoadFullScript()
     KeyValid = true
-    KeyGui:Destroy()
+    if KeyGui then KeyGui:Destroy() end
 
     local Gui = Instance.new("ScreenGui")
     Gui.Name = "IvoryHub"
@@ -296,7 +327,7 @@ local function LoadFullScript()
     SoruStroke.Thickness = 2
     SoruStroke.Transparency = 0.3
 
-    -- NEW: Soru Aimbot Toggle Button (small, draggable, indicates ON/OFF)
+    -- Soru Aimbot Toggle Button (small, draggable, indicates ON/OFF)
     local SoruToggle = Instance.new("TextButton")
     SoruToggle.Size = UDim2.fromOffset(44, 44)
     SoruToggle.Position = UDim2.new(1, -70, 0.5, -80)
@@ -306,6 +337,7 @@ local function LoadFullScript()
     SoruToggle.TextSize = 10
     SoruToggle.Font = Enum.Font.GothamBold
     SoruToggle.AutoButtonColor = false
+    SoruToggle.Visible = false
     SoruToggle.Parent = Gui
     Instance.new("UICorner", SoruToggle).CornerRadius = UDim.new(0, 10)
     local SoruToggleStroke = Instance.new("UIStroke", SoruToggle)
@@ -313,21 +345,22 @@ local function LoadFullScript()
     SoruToggleStroke.Thickness = 1
     SoruToggleStroke.Transparency = 0.5
 
-    -- Function to update Soru Toggle visual
     local function UpdateSoruToggleVisual()
         if Combat.SoruAimbotEnabled then
             SoruToggle.Text = "SA: ON"
             SoruToggle.TextColor3 = GREEN
+            SoruButton.Visible = true
         else
             SoruToggle.Text = "SA: OFF"
             SoruToggle.TextColor3 = IVORY
+            SoruButton.Visible = false
         end
     end
     UpdateSoruToggleVisual()
 
     -- Draggable function with drag/click distinction
     local function MakeDraggableClickable(button)
-        local dragThreshold = 10 -- pixels
+        local dragThreshold = 10
         local dragging = false
         local startPos = nil
         local moved = false
@@ -343,7 +376,6 @@ local function LoadFullScript()
                     if input.UserInputState == Enum.UserInputState.End then
                         dragging = false
                         if not moved then
-                            -- It was a click
                             button.MouseButton1Click:Fire()
                         end
                     end
@@ -367,12 +399,10 @@ local function LoadFullScript()
         end)
     end
 
-    -- Apply draggable+clickable to Macro and Soru buttons and Soru Toggle
     MakeDraggableClickable(MacroButton)
     MakeDraggableClickable(SoruButton)
     MakeDraggableClickable(SoruToggle)
 
-    -- Macro Button Click Handler (only if not moved)
     MacroButton.MouseButton1Click:Connect(function()
         if not Combat.MacroEnabled or #Combat.MacroSteps == 0 then return end
         if tick() - Combat.LastMacroAction < 0.5 then return end
@@ -382,15 +412,12 @@ local function LoadFullScript()
         end
     end)
 
-    -- Soru Button Click Handler (only if Soru Aimbot Enabled)
     SoruButton.MouseButton1Click:Connect(function()
         if Combat.SoruAimbotEnabled then
             DoSoru()
         end
-        -- If OFF, do nothing (normal game Soru can be used via its own key)
     end)
 
-    -- Soru Toggle Click Handler
     SoruToggle.MouseButton1Click:Connect(function()
         Combat.SoruAimbotEnabled = not Combat.SoruAimbotEnabled
         UpdateSoruToggleVisual()
@@ -717,7 +744,6 @@ local function LoadFullScript()
 
     -- Create Pages
     local Home = CreatePage("Home")
-    local AimbotPage = CreatePage("Aimbot")
     local CombatPage = CreatePage("Combat")
     local MovementPage = CreatePage("Movement")
     local VisualPage = CreatePage("Visuals")
@@ -728,47 +754,24 @@ local function LoadFullScript()
     -- Home
     AddCard(Home, "Welcome to Ivory PVP", "Mobile optimized Blox Fruits PVP", "◆")
     AddCard(Home, "Current Status", "All systems operational", "●")
-    AddCard(Home, "Script Version", "v19.0 - Soru Toggle", "◈")
-    AddCard(Home, "Quick Stats", "Aimbot | Flashstep | Macro", "▣")
+    AddCard(Home, "Script Version", "v21.0 - Soru Fixed", "◈")
+    AddCard(Home, "Quick Stats", "Soru Aimbot | Macro", "▣")
     AddCard(Home, "Mobile Only", "No PC inputs, no freezes", "◎")
     AddCard(Home, "Anti-Detection", "Silent aim leaves no trace", "◇")
     AddCard(Home, "Performance", "Optimized for mobile devices", "◉")
     AddCard(Home, "Updates", "Join Discord for latest updates", "✦")
 
-    -- Aimbot Page
-    AddToggle(AimbotPage, "Aimbot", "Aim at nearest target", function(enabled)
-        Aimbot.Enabled = enabled
-        if enabled then
-            Status.Text = "●  AIMBOT"
-            Status.TextColor3 = RED
-        else
-            Status.Text = "●  ONLINE"
-            Status.TextColor3 = GREEN
-            Aimbot.CurrentTarget = nil
-        end
-    end, "◎")
-    AddToggle(AimbotPage, "Target Players", "Aim at players", function(enabled)
-        Aimbot.TargetPlayers = enabled
-    end, "👤")
-    AddToggle(AimbotPage, "Target NPCs", "Aim at NPCs", function(enabled)
-        Aimbot.TargetNPCs = enabled
-    end, "🤖")
-    AddSlider(AimbotPage, "Max Distance", 500, 5000, 3000, function(val)
-        Aimbot.MaxDistance = val
-    end, "📐")
-    AddSlider(AimbotPage, "Prediction", 0, 1, 0.15, function(val)
-        Aimbot.Prediction = val
-    end, "▣")
-
     -- Combat Page
-    AddToggle(CombatPage, "Soru Button", "Show Soru button", function(enabled)
-        Combat.SoruButtonVisible = enabled
-        SoruButton.Visible = enabled
-    end, "⚡")
     AddToggle(CombatPage, "Soru Aimbot", "Toggle Soru aimbot (ON/OFF)", function(enabled)
         Combat.SoruAimbotEnabled = enabled
         UpdateSoruToggleVisual()
     end, "🎯")
+    AddToggle(CombatPage, "Target Players", "Soru targets players", function(enabled)
+        Combat.TargetPlayers = enabled
+    end, "👤")
+    AddToggle(CombatPage, "Target NPCs", "Soru targets NPCs", function(enabled)
+        Combat.TargetNPCs = enabled
+    end, "🤖")
     AddToggle(CombatPage, "Anti Stun", "Prevents stun effects", function(enabled)
         Combat.AntiStun = enabled
     end, "🛡")
@@ -954,7 +957,7 @@ local function LoadFullScript()
     AddCard(CreditsPage, "Discord", "Ivory999", "◈")
     AddCard(CreditsPage, "Ideas By", "Rayo", "✦")
     AddCard(CreditsPage, "Discord", "rayo06996", "◎")
-    AddCard(CreditsPage, "Version", "v19.0 - Soru Toggle", "▣")
+    AddCard(CreditsPage, "Version", "v21.0 - Soru Fixed", "▣")
     AddCard(CreditsPage, "Special Thanks", "All supporters and testers", "♡")
     AddCard(CreditsPage, "Updates", "Join Discord for latest updates", "↻")
 
@@ -1013,20 +1016,19 @@ local function LoadFullScript()
     end
 
     CreateTab("Home", 1, "◆")
-    CreateTab("Aimbot", 2, "◎")
-    CreateTab("Combat", 3, "⚔")
-    CreateTab("Movement", 4, "»")
-    CreateTab("Visuals", 5, "▣")
-    CreateTab("Macros", 6, "⌨")
-    CreateTab("Credits", 7, "♛")
-    CreateTab("Settings", 8, "⚙")
+    CreateTab("Combat", 2, "⚔")
+    CreateTab("Movement", 3, "»")
+    CreateTab("Visuals", 4, "▣")
+    CreateTab("Macros", 5, "⌨")
+    CreateTab("Credits", 6, "♛")
+    CreateTab("Settings", 7, "⚙")
 
     Tabs.Home.Button.BackgroundColor3 = IVORY
     Tabs.Home.Button.TextColor3 = BLACK
     Tabs.Home.Accent.Visible = true
     Home.Visible = true
 
-    -- Draggable for main frame only (Toggle button is simple click)
+    -- Draggable for main frame only
     local function MakeDraggableSimple(Object, DragObject)
         local dragging = false
         local dragStart, startPos
@@ -1064,125 +1066,7 @@ local function LoadFullScript()
     Toggle.MouseButton1Click:Connect(function() if Open then HideUI() else ShowUI() end end)
     Close.MouseButton1Click:Connect(HideUI)
 
-    -- Macro Button Click (already handled via draggable click)
-    -- Soru Button Click (already handled)
-    -- Soru Toggle Click (already handled)
-
-    -- Aimbot Functions
-    local function isIn180FOV(position)
-        if not position or not Camera then return false end
-        local char = Player.Character
-        if not char then return false end
-        local root = char:FindFirstChild("HumanoidRootPart")
-        if not root then return false end
-        local lookVector = Camera.CFrame.LookVector
-        local dirToTarget = (position - root.Position).Unit
-        local dot = lookVector:Dot(dirToTarget)
-        return dot >= 0
-    end
-
-    local function getScreenCenterDistance(position)
-        if not position or not Camera then return math.huge end
-        local screenPos, onScreen = Camera:WorldToViewportPoint(position)
-        if not onScreen then return math.huge end
-        local center = Camera.ViewportSize / 2
-        return (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
-    end
-
-    local function getClosestEnemy()
-        local char = Player.Character
-        if not char then return nil end
-        local root = char:FindFirstChild("HumanoidRootPart")
-        if not root then return nil end
-        local myPos = root.Position
-        local best = nil
-        local bestScore = math.huge
-        if Aimbot.TargetPlayers then
-            for _, p in pairs(Players:GetPlayers()) do
-                if p ~= Player and p.Character then
-                    local hum = p.Character:FindFirstChildOfClass("Humanoid")
-                    local part = p.Character:FindFirstChild("HumanoidRootPart")
-                    if hum and hum.Health > 0 and part then
-                        if Player.Team and p.Team and Player.Team == p.Team then continue end
-                        local pos = part.Position
-                        local dist = (pos - myPos).Magnitude
-                        if dist <= Aimbot.MaxDistance and isIn180FOV(pos) then
-                            local centerDist = getScreenCenterDistance(pos)
-                            local score = centerDist + dist * 0.001
-                            if score < bestScore then bestScore = score; best = part end
-                        end
-                    end
-                end
-            end
-        end
-        if Aimbot.TargetNPCs then
-            local enemies = workspace:FindFirstChild("Enemies")
-            if enemies then
-                for _, npc in pairs(enemies:GetChildren()) do
-                    if npc:IsA("Model") then
-                        local hum = npc:FindFirstChildOfClass("Humanoid")
-                        local part = npc:FindFirstChild("HumanoidRootPart")
-                        if hum and hum.Health > 0 and part then
-                            local pos = part.Position
-                            local dist = (pos - myPos).Magnitude
-                            if dist <= Aimbot.MaxDistance and isIn180FOV(pos) then
-                                local centerDist = getScreenCenterDistance(pos)
-                                local score = centerDist + dist * 0.001
-                                if score < bestScore then bestScore = score; best = part end
-                            end
-                        end
-                    end
-                end
-            end
-        end
-        return best
-    end
-
-    RunService.Heartbeat:Connect(function()
-        if Aimbot.Enabled and KeyValid then
-            Aimbot.CurrentTarget = getClosestEnemy()
-        else
-            Aimbot.CurrentTarget = nil
-        end
-    end)
-
-    -- Silent Aim Hook
-    local OldNamecall
-    OldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
-        local args = {...}
-        local method = getnamecallmethod()
-        if Aimbot.Enabled and KeyValid and not checkcaller() then
-            if method == "FireServer" or method == "InvokeServer" then
-                local remoteName = self.Name or ""
-                local attackKeywords = {"Attack", "Melee", "Sword", "Fruit", "Gun", "Click", "Fire", "Damage", "Combat", "Ability", "Hit", "Shoot"}
-                local isAttack = false
-                for _, kw in ipairs(attackKeywords) do
-                    if string.find(remoteName:lower(), kw:lower()) then isAttack = true; break end
-                end
-                if isAttack and Aimbot.CurrentTarget then
-                    local targetRoot = Aimbot.CurrentTarget
-                    local character = Player.Character
-                    if character and character:FindFirstChild("HumanoidRootPart") then
-                        local root = character.HumanoidRootPart
-                        local predictedPos = targetRoot.Position
-                        if targetRoot.Parent and targetRoot.Parent:FindFirstChildOfClass("Humanoid") then
-                            local hum = targetRoot.Parent:FindFirstChildOfClass("Humanoid")
-                            local velocity = hum.MoveDirection * hum.WalkSpeed
-                            predictedPos = targetRoot.Position + velocity * Aimbot.Prediction
-                        end
-                        local originalCFrame = root.CFrame
-                        root.CFrame = CFrame.lookAt(root.Position, predictedPos)
-                        local result = OldNamecall(self, unpack(args))
-                        root.CFrame = originalCFrame
-                        return result
-                    end
-                end
-            end
-        end
-        return OldNamecall(self, ...)
-    end)
-
-    -- Main Loop
+    -- ESP Loop
     RunService.RenderStepped:Connect(function()
         if not KeyValid then return end
         if Combat.SpeedHack and Player.Character and Player.Character:FindFirstChild("Humanoid") then
@@ -1207,18 +1091,17 @@ local function LoadFullScript()
             Combat.ESPNames = {}
             Combat.ESPDistance = {}
             local targets = {}
-            if Aimbot.TargetPlayers then
+            if Combat.TargetPlayers then
                 for _, p in pairs(Players:GetPlayers()) do
                     if p ~= Player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
                         table.insert(targets, p.Character)
                     end
                 end
             end
-            if Aimbot.TargetNPCs then
-                local enemies = workspace:FindFirstChild("Enemies")
-                if enemies then
-                    for _, model in pairs(enemies:GetChildren()) do
-                        if model:IsA("Model") and model:FindFirstChild("Humanoid") and model:FindFirstChild("HumanoidRootPart") then
+            if Combat.TargetNPCs then
+                for _, model in pairs(workspace:GetChildren()) do
+                    if model:IsA("Model") and model:FindFirstChild("Humanoid") and model:FindFirstChild("HumanoidRootPart") then
+                        if not Players:GetPlayerFromCharacter(model) then
                             table.insert(targets, model)
                         end
                     end
@@ -1267,28 +1150,7 @@ local function LoadFullScript()
     end)
 end
 
---// KEY BUTTON CLICK
-KeyButton.MouseButton1Click:Connect(function()
-    if KeyBox.Text == VALID_KEY then
-        KeyButton.Text = "✓ UNLOCKED"
-        tween(KeyButton, 0.3, {BackgroundColor3 = Color3.fromRGB(0, 255, 100)})
-        task.wait(0.5)
-        LoadFullScript()
-    else
-        KeyBox.Text = ""
-        KeyBox.PlaceholderText = "WRONG KEY"
-        KeyBox.PlaceholderColor3 = RED
-        tween(KeyFrame, 0.1, {Position = UDim2.new(0.5, -170, 0.5, -105)})
-        task.wait(0.1)
-        tween(KeyFrame, 0.1, {Position = UDim2.new(0.5, -170, 0.5, -100)})
-        task.wait(1)
-        KeyBox.PlaceholderText = "ENTER KEY"
-        KeyBox.PlaceholderColor3 = GREY
-    end
-end)
-
-KeyBox.FocusLost:Connect(function(enterPressed)
-    if enterPressed then
-        KeyButton.MouseButton1Click:Fire()
-    end
-end)
+-- If key already valid, load script directly
+if KeyValid then
+    LoadFullScript()
+end
