@@ -1,16 +1,14 @@
---// IVORY HUB — FULL SCRIPT (Key System + 180° Aimbot + Fixed Soru + Macro Builder)
---// Key: Ivory | Mobile Only | Black & White Premium
+--// IVORY HUB — FIXED (NoClip Toggle + Soru Flashstep Animation)
+--// Soru now does TRUE flashstep (short dash with afterimages), NOT teleport
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Player = Players.LocalPlayer
 local PlayerGui = Player:WaitForChild("PlayerGui")
 local Camera = workspace.CurrentCamera
-local mouse = Player:GetMouse()
 
 pcall(function()
     PlayerGui:FindFirstChild("IvoryHub"):Destroy()
@@ -33,24 +31,19 @@ local function tween(obj, time, props)
     TweenService:Create(obj, TweenInfo.new(time, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), props):Play()
 end
 
---// KEY SYSTEM
-local VALID_KEY = "Ivory"
+--// VARIABLES
 local KeyValid = false
+local VALID_KEY = "Ivory"
 
---// AIMBOT VARIABLES
 local Aimbot = {
     Enabled = false,
     MaxDistance = 3000,
     TargetPlayers = true,
     TargetNPCs = false,
-    ShowLine = false,
-    ShowFOV = false,
     CurrentTarget = nil,
-    FOV = 180,
     Prediction = 0.15
 }
 
---// COMBAT VARIABLES
 local Combat = {
     ESPEnabled = false,
     ESPBoxes = {},
@@ -64,7 +57,6 @@ local Combat = {
     SoruButtonVisible = false,
     SoruCooldown = 1.5,
     LastSoru = 0,
-    SoruDistance = 20,
     AntiStun = false,
     MacroEnabled = false,
     MacroSteps = {},
@@ -78,7 +70,7 @@ local MoveLists = {
     Gun = {"Z", "X"}
 }
 
---// KEY GUI (Black & White Premium)
+--// KEY GUI
 local KeyGui = Instance.new("ScreenGui")
 KeyGui.Name = "IvoryKeyGui"
 KeyGui.ResetOnSpawn = false
@@ -161,6 +153,93 @@ end)
 KeyButton.MouseLeave:Connect(function()
     tween(KeyButton, 0.2, {BackgroundColor3 = IVORY})
 end)
+
+--// FIXED SORU (TRUE FLASHSTEP)
+local function DoSoru()
+    if tick() - Combat.LastSoru < Combat.SoruCooldown then return end
+    Combat.LastSoru = tick()
+
+    local character = Player.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+    local root = character.HumanoidRootPart
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+
+    -- Find closest target
+    local targetRoot = nil
+    local shortestDist = math.huge
+
+    if Aimbot.TargetPlayers then
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= Player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                local otherRoot = p.Character.HumanoidRootPart
+                local dist = (root.Position - otherRoot.Position).Magnitude
+                if dist < shortestDist then
+                    shortestDist = dist
+                    targetRoot = otherRoot
+                end
+            end
+        end
+    end
+
+    if Aimbot.TargetNPCs then
+        local enemies = workspace:FindFirstChild("Enemies")
+        if enemies then
+            for _, npc in pairs(enemies:GetChildren()) do
+                if npc:IsA("Model") and npc:FindFirstChild("HumanoidRootPart") then
+                    local otherRoot = npc.HumanoidRootPart
+                    local dist = (root.Position - otherRoot.Position).Magnitude
+                    if dist < shortestDist then
+                        shortestDist = dist
+                        targetRoot = otherRoot
+                    end
+                end
+            end
+        end
+    end
+
+    if not targetRoot then return end
+
+    -- Get direction to target
+    local direction = (targetRoot.Position - root.Position).Unit
+
+    -- TRUE FLASHSTEP: rapid small teleports with afterimages
+    local steps = 5
+    local stepDistance = 4 -- 4 studs per step = 20 studs total
+
+    for i = 1, steps do
+        -- Create afterimage at current position
+        local afterimage = Instance.new("Part")
+        afterimage.Size = root.Size
+        afterimage.CFrame = root.CFrame
+        afterimage.Anchored = true
+        afterimage.CanCollide = false
+        afterimage.Transparency = 0.4 + (i * 0.1)
+        afterimage.Color = IVORY
+        afterimage.Material = Enum.Material.ForceField
+        afterimage.Parent = workspace
+        game:GetService("Debris"):AddItem(afterimage, 0.2)
+
+        -- Move forward small step
+        root.CFrame = root.CFrame + (direction * stepDistance)
+        
+        task.wait(0.03)
+    end
+
+    -- Flash effect at landing
+    local flash = Instance.new("Part")
+    flash.Size = Vector3.new(2, 2, 2)
+    flash.Position = root.Position
+    flash.Anchored = true
+    flash.CanCollide = false
+    flash.Transparency = 0.5
+    flash.Color = IVORY
+    flash.Material = Enum.Material.Neon
+    flash.Parent = workspace
+    game:GetService("Debris"):AddItem(flash, 0.3)
+
+    -- Face target
+    root.CFrame = CFrame.lookAt(root.Position, targetRoot.Position)
+end
 
 --// LOAD FULL SCRIPT
 local function LoadFullScript()
@@ -559,8 +638,8 @@ local function LoadFullScript()
     -- Home
     AddCard(Home, "Welcome to Ivory PVP", "Mobile optimized Blox Fruits PVP", "◆")
     AddCard(Home, "Current Status", "All systems operational", "●")
-    AddCard(Home, "Script Version", "v16.0 - Fixed Soru", "◈")
-    AddCard(Home, "Quick Stats", "180° Aimbot | Soru | Macro", "▣")
+    AddCard(Home, "Script Version", "v17.0 - True Flashstep", "◈")
+    AddCard(Home, "Quick Stats", "180° Aimbot | Flashstep | Macro", "▣")
     AddCard(Home, "Mobile Only", "No PC inputs, no freezes", "◎")
     AddCard(Home, "Anti-Detection", "Silent aim leaves no trace", "◇")
     AddCard(Home, "Performance", "Optimized for mobile devices", "◉")
@@ -592,18 +671,23 @@ local function LoadFullScript()
     end, "▣")
 
     -- Combat Page
-    AddToggle(CombatPage, "Soru Button", "Show Soru button on screen", function(enabled)
+    AddToggle(CombatPage, "Soru Button", "True flashstep with animation", function(enabled)
         Combat.SoruButtonVisible = enabled
         SoruButton.Visible = enabled
-    end, "⚡")
-    AddSlider(CombatPage, "Soru Distance", 10, 30, 20, function(val)
-        Combat.SoruDistance = val
     end, "⚡")
     AddToggle(CombatPage, "Anti Stun", "Prevents stun effects", function(enabled)
         Combat.AntiStun = enabled
     end, "🛡")
     AddToggle(CombatPage, "No Clip", "Walk through walls", function(enabled)
         Combat.NoClip = enabled
+        -- FIXED: Immediately apply or remove noclip
+        if Player.Character then
+            for _, part in pairs(Player.Character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = not enabled
+                end
+            end
+        end
     end, "◌")
 
     -- Movement Page
@@ -777,7 +861,7 @@ local function LoadFullScript()
     AddCard(CreditsPage, "Discord", "Ivory999", "◈")
     AddCard(CreditsPage, "Ideas By", "Rayo", "✦")
     AddCard(CreditsPage, "Discord", "rayo06996", "◎")
-    AddCard(CreditsPage, "Version", "v16.0 - Fixed Soru", "▣")
+    AddCard(CreditsPage, "Version", "v17.0 - True Flashstep", "▣")
     AddCard(CreditsPage, "Special Thanks", "All supporters and testers", "♡")
     AddCard(CreditsPage, "Updates", "Join Discord for latest updates", "↻")
 
@@ -900,84 +984,8 @@ local function LoadFullScript()
         end
     end)
 
-    -- FIXED SORU HANDLER (normal flashstep distance + animation)
-    SoruButton.MouseButton1Click:Connect(function()
-        if not Combat.SoruButtonVisible then return end
-        if tick() - Combat.LastSoru < Combat.SoruCooldown then return end
-        Combat.LastSoru = tick()
-
-        local character = Player.Character
-        if not character or not character:FindFirstChild("HumanoidRootPart") then return end
-        local root = character.HumanoidRootPart
-
-        local targetRoot = nil
-        local shortestDist = math.huge
-
-        if Aimbot.TargetPlayers then
-            for _, p in pairs(Players:GetPlayers()) do
-                if p ~= Player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                    local otherRoot = p.Character.HumanoidRootPart
-                    local dist = (root.Position - otherRoot.Position).Magnitude
-                    if dist < shortestDist then
-                        shortestDist = dist
-                        targetRoot = otherRoot
-                    end
-                end
-            end
-        end
-
-        if Aimbot.TargetNPCs then
-            local enemies = workspace:FindFirstChild("Enemies")
-            if enemies then
-                for _, npc in pairs(enemies:GetChildren()) do
-                    if npc:IsA("Model") and npc:FindFirstChild("HumanoidRootPart") then
-                        local otherRoot = npc.HumanoidRootPart
-                        local dist = (root.Position - otherRoot.Position).Magnitude
-                        if dist < shortestDist then
-                            shortestDist = dist
-                            targetRoot = otherRoot
-                        end
-                    end
-                end
-            end
-        end
-
-        if not targetRoot then return end
-
-        -- Normal flashstep: only move SHORT distance toward target
-        local direction = (targetRoot.Position - root.Position).Unit
-        local flashstepPos = root.Position + direction * Combat.SoruDistance
-
-        -- Animation: afterimages
-        for i = 1, 5 do
-            local afterimage = Instance.new("Part")
-            afterimage.Size = root.Size
-            afterimage.CFrame = root.CFrame
-            afterimage.Anchored = true
-            afterimage.CanCollide = false
-            afterimage.Transparency = 0.3 + (i * 0.15)
-            afterimage.Color = IVORY
-            afterimage.Material = Enum.Material.ForceField
-            afterimage.Parent = workspace
-            game:GetService("Debris"):AddItem(afterimage, 0.15)
-            task.wait(0.02)
-        end
-
-        -- Flash effect
-        local flash = Instance.new("Part")
-        flash.Size = Vector3.new(2, 2, 2)
-        flash.Position = flashstepPos
-        flash.Anchored = true
-        flash.CanCollide = false
-        flash.Transparency = 0.5
-        flash.Color = IVORY
-        flash.Material = Enum.Material.Neon
-        flash.Parent = workspace
-        game:GetService("Debris"):AddItem(flash, 0.3)
-
-        -- Move player
-        root.CFrame = CFrame.new(flashstepPos)
-    end)
+    -- Soru Handler (TRUE FLASHSTEP)
+    SoruButton.MouseButton1Click:Connect(DoSoru)
 
     -- Aimbot Functions
     local function isIn180FOV(position)
@@ -1093,15 +1101,18 @@ local function LoadFullScript()
         return OldNamecall(self, ...)
     end)
 
-    -- Main Loop
+    -- Main Loop (FIXED NOCLIP)
     RunService.RenderStepped:Connect(function()
         if not KeyValid then return end
         if Combat.SpeedHack and Player.Character and Player.Character:FindFirstChild("Humanoid") then
             Player.Character.Humanoid.WalkSpeed = 16 * Combat.SpeedMultiplier
         end
+        -- FIXED: Only apply noclip when enabled, restore when disabled
         if Combat.NoClip and Player.Character then
             for _, part in pairs(Player.Character:GetDescendants()) do
-                if part:IsA("BasePart") then part.CanCollide = false end
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
             end
         end
         if Combat.AntiStun and Player.Character and Player.Character:FindFirstChild("Humanoid") then
