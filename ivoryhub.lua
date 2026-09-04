@@ -1,6 +1,8 @@
 --// IVORY HUB
---// Black & White UI with Integrated Aimbot & Features
+--// Black & White UI with Integrated Aimbot
 --// Credits: lvory999 (Developer), rayo06996 (Ideas)
+
+print("Loading Ivory Hub...")
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -14,6 +16,7 @@ local mouse = player:GetMouse()
 
 local PlayerGui = player:WaitForChild("PlayerGui")
 
+-- Delete old GUI
 local Old = PlayerGui:FindFirstChild("IvoryHub")
 if Old then Old:Destroy() end
 
@@ -261,7 +264,7 @@ local ToggleStroke = Instance.new("UIStroke",Toggle)
 ToggleStroke.Color = WHITE
 ToggleStroke.Thickness = 1
 
---// DRAG FUNCTION
+--// DRAG FUNCTION (fixed)
 local function MakeDraggable(Object)
     local Dragging = false
     local DragStart
@@ -296,55 +299,6 @@ end
 
 MakeDraggable(Main)
 MakeDraggable(Toggle)
-
---// SORU MANUAL BUTTON (hidden by default, shown when Soru Teleport toggle is ON)
-local SoruButton = Instance.new("TextButton")
-SoruButton.Name = "SoruAimbotButton"
-SoruButton.Size = UDim2.fromOffset(80,32)
-SoruButton.Position = UDim2.new(0.5,-40,0.7,0)
-SoruButton.BackgroundColor3 = BLACK
-SoruButton.BorderSizePixel = 0
-SoruButton.Text = "SORU"
-SoruButton.TextColor3 = WHITE
-SoruButton.TextSize = 12
-SoruButton.Font = Enum.Font.GothamBold
-SoruButton.AutoButtonColor = false
-SoruButton.Visible = false
-SoruButton.Parent = Gui
-SoruButton.ZIndex = 20
-
-Instance.new("UICorner",SoruButton).CornerRadius = UDim.new(0,8)
-local SoruStroke = Instance.new("UIStroke",SoruButton)
-SoruStroke.Color = WHITE
-SoruStroke.Thickness = 1
-
-MakeDraggable(SoruButton)
-
--- Soru button action (manual teleport)
-SoruButton.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        if aimbotUI and aimbotUI.getEnabled() then
-            local target = aimbotUI.getTarget()
-            if target then
-                local targetPos = target.Position
-                local char = player.Character
-                if char then
-                    local hrp = char:FindFirstChild("HumanoidRootPart")
-                    if hrp then
-                        hrp.CFrame = CFrame.new(targetPos)
-                        local remotes = ReplicatedStorage:FindFirstChild("Remotes")
-                        if remotes then
-                            local commF = remotes:FindFirstChild("CommF_")
-                            if commF then
-                                pcall(function() commF:InvokeServer("Flashstep", targetPos) end)
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-end)
 
 --// OPEN/CLOSE
 local Open = true
@@ -629,7 +583,8 @@ local function createAimbotUI()
 
     local soruToggle = CreateToggle(AimbotPage, "SORU TELEPORT", false, function(state)
         soruAimbot = state
-        SoruButton.Visible = state
+        -- Show/hide Soru button when toggled
+        if SoruButton then SoruButton.Visible = state end
     end)
 
     local excludeFToggle = CreateToggle(AimbotPage, "F SKILL (EXCLUDED)", true, function(state)
@@ -762,7 +717,7 @@ local function createAimbotUI()
     }
 end
 
---// Drawing support
+--// Drawing support (must be defined before aimbotUI)
 local hasDrawing = pcall(function()
     local c = Drawing.new("Circle")
     c:Remove()
@@ -787,6 +742,55 @@ if hasDrawing then
 end
 
 local aimbotUI = createAimbotUI()
+
+--// SORU MANUAL BUTTON (created after aimbotUI is defined)
+local SoruButton = Instance.new("TextButton")
+SoruButton.Name = "SoruAimbotButton"
+SoruButton.Size = UDim2.fromOffset(80,32)
+SoruButton.Position = UDim2.new(0.5,-40,0.7,0)
+SoruButton.BackgroundColor3 = BLACK
+SoruButton.BorderSizePixel = 0
+SoruButton.Text = "SORU"
+SoruButton.TextColor3 = WHITE
+SoruButton.TextSize = 12
+SoruButton.Font = Enum.Font.GothamBold
+SoruButton.AutoButtonColor = false
+SoruButton.Visible = false  -- hidden until Soru Teleport is ON
+SoruButton.Parent = Gui
+SoruButton.ZIndex = 20
+
+Instance.new("UICorner",SoruButton).CornerRadius = UDim.new(0,8)
+local SoruStroke = Instance.new("UIStroke",SoruButton)
+SoruStroke.Color = WHITE
+SoruStroke.Thickness = 1
+
+MakeDraggable(SoruButton)
+
+-- Soru button action (manual teleport)
+SoruButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if aimbotUI and aimbotUI.getEnabled() then
+            local target = aimbotUI.getTarget()
+            if target then
+                local targetPos = target.Position
+                local char = player.Character
+                if char then
+                    local hrp = char:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        hrp.CFrame = CFrame.new(targetPos)
+                        local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+                        if remotes then
+                            local commF = remotes:FindFirstChild("CommF_")
+                            if commF then
+                                pcall(function() commF:InvokeServer("Flashstep", targetPos) end)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
 
 function updateTargetLabel()
     aimbotUI.updateStatus()
@@ -1241,9 +1245,11 @@ local function applyTheme(dark)
         ToggleStroke.Color = WHITE
         Close.BackgroundColor3 = LIGHT
         Close.TextColor3 = WHITE
-        SoruButton.BackgroundColor3 = BLACK
-        SoruButton.TextColor3 = WHITE
-        SoruStroke.Color = WHITE
+        if SoruButton then
+            SoruButton.BackgroundColor3 = BLACK
+            SoruButton.TextColor3 = WHITE
+            SoruStroke.Color = WHITE
+        end
         if infoText then infoText.TextColor3 = WHITE end
         if creditsText then creditsText.TextColor3 = WHITE end
     else
@@ -1259,9 +1265,11 @@ local function applyTheme(dark)
         ToggleStroke.Color = BLACK
         Close.BackgroundColor3 = Color3.fromRGB(220,220,220)
         Close.TextColor3 = BLACK
-        SoruButton.BackgroundColor3 = WHITE
-        SoruButton.TextColor3 = BLACK
-        SoruStroke.Color = BLACK
+        if SoruButton then
+            SoruButton.BackgroundColor3 = WHITE
+            SoruButton.TextColor3 = BLACK
+            SoruStroke.Color = BLACK
+        end
         if infoText then infoText.TextColor3 = BLACK end
         if creditsText then creditsText.TextColor3 = BLACK end
     end
@@ -1284,8 +1292,6 @@ local themeToggle = CreateToggle(SettingsPage, "DARK THEME", true, function(stat
 end)
 
 applyTheme(true)
-
--- Save/Load Config removed to avoid errors on mobile
 
 --// Info Page
 infoText = Instance.new("TextLabel")
@@ -1313,8 +1319,6 @@ creditsText.TextXAlignment = Enum.TextXAlignment.Left
 creditsText.TextYAlignment = Enum.TextYAlignment.Top
 creditsText.Parent = CreditsPage
 
-print("✅ Ivory Hub loaded with integrated Aimbot, ESP, and features!")
-print("📌 Toggle GUI with the 'I' button (middle-left).")
-print("📌 All toggles show ON/OFF text, buttons stay gray.")
-print("📌 'SORU' button appears only when Soru Teleport toggle is ON.")
-print("📌 Save/Load removed for mobile stability.")
+print("✅ Ivory Hub loaded successfully!")
+print("📌 Click the 'I' button on the left to toggle the GUI.")
+print("📌 All features are ready to use.")
