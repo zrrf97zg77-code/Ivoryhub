@@ -1,315 +1,611 @@
 --// IVORY HUB
---// PURE BLACK / PURE WHITE
---// Compact • Mobile • Draggable • Toggleable
+--// Pure Black & White UI
+--// Creator: Ivory
+--// Ideas / Concepts: Rayo
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UIS = game:GetService("UserInputService")
 
 local Player = Players.LocalPlayer
-local PlayerGui = Player:WaitForChild("PlayerGui")
 
-local BLACK = Color3.fromRGB(0,0,0)
+--==================================================
+-- SETTINGS
+--==================================================
+
 local WHITE = Color3.fromRGB(255,255,255)
+local BLACK = Color3.fromRGB(0,0,0)
 
-local GUI = Instance.new("ScreenGui")
-GUI.Name = "IVORY"
-GUI.ResetOnSpawn = false
-GUI.IgnoreGuiInset = true
-GUI.Parent = PlayerGui
-
-local function Corner(obj,r)
-	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0,r)
-	c.Parent = obj
-end
-
-local function Stroke(obj)
-	local s = Instance.new("UIStroke")
-	s.Color = WHITE
-	s.Thickness = 1
-	s.Parent = obj
-end
+local FONT = Enum.Font.GothamBold
+local FONT_LIGHT = Enum.Font.Gotham
 
 --==================================================
--- MAIN
+-- GUI
 --==================================================
 
-local Main = Instance.new("Frame")
-Main.Size = UDim2.fromOffset(400,240)
-Main.Position = UDim2.new(.5,-200,.5,-120)
-Main.BackgroundColor3 = BLACK
-Main.BorderSizePixel = 0
-Main.Parent = GUI
-
-Corner(Main,12)
-Stroke(Main)
-
---==================================================
--- HEADER
---==================================================
-
-local Header = Instance.new("Frame")
-Header.Size = UDim2.new(1,0,0,45)
-Header.BackgroundColor3 = BLACK
-Header.BorderSizePixel = 0
-Header.Parent = Main
-
-Corner(Header,12)
-
-local Logo = Instance.new("TextButton")
-Logo.Size = UDim2.fromOffset(31,31)
-Logo.Position = UDim2.fromOffset(8,7)
-Logo.BackgroundColor3 = WHITE
-Logo.BorderSizePixel = 0
-Logo.Text = "I"
-Logo.TextColor3 = BLACK
-Logo.TextSize = 17
-Logo.Font = Enum.Font.GothamBlack
-Logo.Parent = Header
-
-Corner(Logo,8)
-
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.fromOffset(150,25)
-Title.Position = UDim2.fromOffset(48,5)
-Title.BackgroundTransparency = 1
-Title.Text = "IVORY"
-Title.TextColor3 = WHITE
-Title.TextSize = 15
-Title.Font = Enum.Font.GothamBlack
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.Parent = Header
-
-local Subtitle = Instance.new("TextLabel")
-Subtitle.Size = UDim2.fromOffset(180,15)
-Subtitle.Position = UDim2.fromOffset(49,25)
-Subtitle.BackgroundTransparency = 1
-Subtitle.Text = "PURE MONOCHROME"
-Subtitle.TextColor3 = WHITE
-Subtitle.TextSize = 7
-Subtitle.Font = Enum.Font.GothamBold
-Subtitle.TextXAlignment = Enum.TextXAlignment.Left
-Subtitle.Parent = Header
-
---==================================================
--- CLOSE
---==================================================
-
-local Close = Instance.new("TextButton")
-Close.Size = UDim2.fromOffset(28,28)
-Close.Position = UDim2.new(1,-37,0,8)
-Close.BackgroundColor3 = BLACK
-Close.BorderSizePixel = 1
-Close.BorderColor3 = WHITE
-Close.Text = "×"
-Close.TextColor3 = WHITE
-Close.TextSize = 18
-Close.Font = Enum.Font.GothamBold
-Close.AutoButtonColor = false
-Close.Parent = Header
-
-Corner(Close,7)
-
-Close.MouseEnter:Connect(function()
-	TweenService:Create(Close,TweenInfo.new(.15),{
-		BackgroundColor3 = WHITE,
-		TextColor3 = BLACK
-	}):Play()
-end)
-
-Close.MouseLeave:Connect(function()
-	TweenService:Create(Close,TweenInfo.new(.15),{
-		BackgroundColor3 = BLACK,
-		TextColor3 = WHITE
-	}):Play()
-end)
-
---==================================================
--- CONTENT
---==================================================
-
-local Content = Instance.new("Frame")
-Content.Size = UDim2.new(1,-20,1,-58)
-Content.Position = UDim2.fromOffset(10,52)
-Content.BackgroundTransparency = 1
-Content.Parent = Main
-
-local Layout = Instance.new("UIListLayout")
-Layout.Padding = UDim.new(0,7)
-Layout.Parent = Content
-
-local function Button(text)
-
-	local B = Instance.new("TextButton")
-	B.Size = UDim2.new(1,0,0,40)
-	B.BackgroundColor3 = BLACK
-	B.BorderSizePixel = 1
-	B.BorderColor3 = WHITE
-	B.Text = text
-	B.TextColor3 = WHITE
-	B.TextSize = 10
-	B.Font = Enum.Font.GothamBold
-	B.AutoButtonColor = false
-	B.Parent = Content
-
-	Corner(B,8)
-
-	B.MouseEnter:Connect(function()
-		TweenService:Create(B,TweenInfo.new(.15),{
-			BackgroundColor3 = WHITE,
-			TextColor3 = BLACK
-		}):Play()
-	end)
-
-	B.MouseLeave:Connect(function()
-		TweenService:Create(B,TweenInfo.new(.15),{
-			BackgroundColor3 = BLACK,
-			TextColor3 = WHITE
-		}):Play()
-	end)
-
-	return B
-end
-
-local Home = Button("HOME")
-local Features = Button("FEATURES")
-local Settings = Button("SETTINGS")
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "IvoryHub"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = Player:WaitForChild("PlayerGui")
 
 --==================================================
 -- FLOATING TOGGLE
 --==================================================
 
 local Toggle = Instance.new("TextButton")
+Toggle.Name = "IvoryToggle"
 Toggle.Size = UDim2.fromOffset(48,48)
-Toggle.Position = UDim2.new(0,20,.5,-24)
+Toggle.Position = UDim2.new(0,35,0.5,-24)
 Toggle.BackgroundColor3 = BLACK
-Toggle.BorderSizePixel = 1
 Toggle.BorderColor3 = WHITE
+Toggle.BorderSizePixel = 2
 Toggle.Text = "I"
 Toggle.TextColor3 = WHITE
-Toggle.TextSize = 20
-Toggle.Font = Enum.Font.GothamBlack
+Toggle.TextSize = 22
+Toggle.Font = FONT
 Toggle.AutoButtonColor = false
-Toggle.Parent = GUI
+Toggle.Parent = ScreenGui
 
-Corner(Toggle,12)
+local ToggleCorner = Instance.new("UICorner")
+ToggleCorner.CornerRadius = UDim.new(0,10)
+ToggleCorner.Parent = Toggle
 
 --==================================================
--- TOGGLE ANIMATION
+-- MAIN WINDOW
 --==================================================
 
-local Open = true
+local Main = Instance.new("Frame")
+Main.Name = "Main"
+Main.Size = UDim2.fromOffset(455,285)
+Main.Position = UDim2.new(0.5,-227,0.5,-142)
+Main.BackgroundColor3 = BLACK
+Main.BorderColor3 = WHITE
+Main.BorderSizePixel = 1
+Main.Parent = ScreenGui
 
-local function OpenHub()
-	Open = true
-	Main.Visible = true
-	Main.Size = UDim2.fromOffset(0,0)
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0,12)
+MainCorner.Parent = Main
 
-	TweenService:Create(
-		Main,
-		TweenInfo.new(.25,Enum.EasingStyle.Quart,Enum.EasingDirection.Out),
-		{Size = UDim2.fromOffset(400,240)}
-	):Play()
+--==================================================
+-- HEADER
+--==================================================
+
+local Header = Instance.new("Frame")
+Header.Size = UDim2.new(1,0,0,52)
+Header.BackgroundColor3 = BLACK
+Header.BorderSizePixel = 0
+Header.Parent = Main
+
+local Logo = Instance.new("TextLabel")
+Logo.Size = UDim2.fromOffset(38,38)
+Logo.Position = UDim2.fromOffset(12,7)
+Logo.BackgroundColor3 = WHITE
+Logo.Text = "I"
+Logo.TextColor3 = BLACK
+Logo.TextSize = 20
+Logo.Font = FONT
+Logo.Parent = Header
+
+local LogoCorner = Instance.new("UICorner")
+LogoCorner.CornerRadius = UDim.new(0,8)
+LogoCorner.Parent = Logo
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.fromOffset(150,24)
+Title.Position = UDim2.fromOffset(60,7)
+Title.BackgroundTransparency = 1
+Title.Text = "IVORY"
+Title.TextColor3 = WHITE
+Title.TextSize = 18
+Title.Font = FONT
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = Header
+
+local Subtitle = Instance.new("TextLabel")
+Subtitle.Size = UDim2.fromOffset(200,17)
+Subtitle.Position = UDim2.fromOffset(60,28)
+Subtitle.BackgroundTransparency = 1
+Subtitle.Text = "CONTROL PANEL"
+Subtitle.TextColor3 = WHITE
+Subtitle.TextTransparency = 0.15
+Subtitle.TextSize = 9
+Subtitle.Font = FONT_LIGHT
+Subtitle.TextXAlignment = Enum.TextXAlignment.Left
+Subtitle.Parent = Header
+
+local HeaderLine = Instance.new("Frame")
+HeaderLine.Size = UDim2.new(1,-24,0,1)
+HeaderLine.Position = UDim2.new(0,12,1,-1)
+HeaderLine.BackgroundColor3 = WHITE
+HeaderLine.BorderSizePixel = 0
+HeaderLine.Parent = Header
+
+--==================================================
+-- SIDEBAR
+--==================================================
+
+local Sidebar = Instance.new("Frame")
+Sidebar.Size = UDim2.new(0,125,1,-53)
+Sidebar.Position = UDim2.new(0,0,0,53)
+Sidebar.BackgroundColor3 = WHITE
+Sidebar.BorderSizePixel = 0
+Sidebar.Parent = Main
+
+local SideCorner = Instance.new("UICorner")
+SideCorner.CornerRadius = UDim.new(0,10)
+SideCorner.Parent = Sidebar
+
+-- Cover right-side rounded corner
+local SideCover = Instance.new("Frame")
+SideCover.Size = UDim2.fromOffset(12,285)
+SideCover.Position = UDim2.new(1,-12,0,0)
+SideCover.BackgroundColor3 = WHITE
+SideCover.BorderSizePixel = 0
+SideCover.Parent = Sidebar
+
+local function SectionLabel(text, y)
+	local Label = Instance.new("TextLabel")
+	Label.Size = UDim2.new(1,-22,0,18)
+	Label.Position = UDim2.fromOffset(11,y)
+	Label.BackgroundTransparency = 1
+	Label.Text = text
+	Label.TextColor3 = BLACK
+	Label.TextSize = 9
+	Label.Font = FONT
+	Label.TextXAlignment = Enum.TextXAlignment.Left
+	Label.Parent = Sidebar
+	return Label
 end
 
-local function CloseHub()
-	Open = false
+SectionLabel("MAIN",10)
+SectionLabel("OTHER",125)
 
-	local Tween = TweenService:Create(
-		Main,
-		TweenInfo.new(.22,Enum.EasingStyle.Quart,Enum.EasingDirection.In),
-		{Size = UDim2.fromOffset(0,0)}
-	)
+--==================================================
+-- CONTENT
+--==================================================
 
-	Tween:Play()
+local Content = Instance.new("Frame")
+Content.Size = UDim2.new(1,-125,1,-53)
+Content.Position = UDim2.new(0,125,0,53)
+Content.BackgroundColor3 = BLACK
+Content.BorderSizePixel = 0
+Content.ClipsDescendants = true
+Content.Parent = Main
 
-	Tween.Completed:Connect(function()
-		if not Open then
-			Main.Visible = false
+--==================================================
+-- PAGE SYSTEM
+--==================================================
+
+local Pages = {}
+
+local function CreatePage(name)
+	local Page = Instance.new("Frame")
+	Page.Name = name
+	Page.Size = UDim2.new(1,0,1,0)
+	Page.BackgroundTransparency = 1
+	Page.Visible = false
+	Page.Parent = Content
+	
+	Pages[name] = Page
+	return Page
+end
+
+local Home = CreatePage("Home")
+local Features = CreatePage("Features")
+local Settings = CreatePage("Settings")
+local Credits = CreatePage("Credits")
+
+--==================================================
+-- HOME PAGE
+--==================================================
+
+local Welcome = Instance.new("TextLabel")
+Welcome.Size = UDim2.new(1,-30,0,35)
+Welcome.Position = UDim2.fromOffset(15,15)
+Welcome.BackgroundTransparency = 1
+Welcome.Text = "WELCOME TO IVORY"
+Welcome.TextColor3 = WHITE
+Welcome.TextSize = 21
+Welcome.Font = FONT
+Welcome.TextXAlignment = Enum.TextXAlignment.Left
+Welcome.Parent = Home
+
+local WelcomeSub = Instance.new("TextLabel")
+WelcomeSub.Size = UDim2.new(1,-30,0,20)
+WelcomeSub.Position = UDim2.fromOffset(16,48)
+WelcomeSub.BackgroundTransparency = 1
+WelcomeSub.Text = "Clean. Simple. Built different."
+WelcomeSub.TextColor3 = WHITE
+WelcomeSub.TextTransparency = 0.2
+WelcomeSub.TextSize = 11
+WelcomeSub.Font = FONT_LIGHT
+WelcomeSub.TextXAlignment = Enum.TextXAlignment.Left
+WelcomeSub.Parent = Home
+
+local CreatorCard = Instance.new("Frame")
+CreatorCard.Size = UDim2.new(1,-30,0,62)
+CreatorCard.Position = UDim2.fromOffset(15,82)
+CreatorCard.BackgroundColor3 = WHITE
+CreatorCard.BorderSizePixel = 0
+CreatorCard.Parent = Home
+
+local CreatorCorner = Instance.new("UICorner")
+CreatorCorner.CornerRadius = UDim.new(0,8)
+CreatorCorner.Parent = CreatorCard
+
+local CreatorTitle = Instance.new("TextLabel")
+CreatorTitle.Size = UDim2.new(1,-20,0,20)
+CreatorTitle.Position = UDim2.fromOffset(10,8)
+CreatorTitle.BackgroundTransparency = 1
+CreatorTitle.Text = "CREATOR"
+CreatorTitle.TextColor3 = BLACK
+CreatorTitle.TextSize = 9
+CreatorTitle.Font = FONT
+CreatorTitle.TextXAlignment = Enum.TextXAlignment.Left
+CreatorTitle.Parent = CreatorCard
+
+local CreatorName = Instance.new("TextLabel")
+CreatorName.Size = UDim2.new(1,-20,0,25)
+CreatorName.Position = UDim2.fromOffset(10,27)
+CreatorName.BackgroundTransparency = 1
+CreatorName.Text = "Ivory"
+CreatorName.TextColor3 = BLACK
+CreatorName.TextSize = 16
+CreatorName.Font = FONT
+CreatorName.TextXAlignment = Enum.TextXAlignment.Left
+CreatorName.Parent = CreatorCard
+
+local IdeaCard = Instance.new("Frame")
+IdeaCard.Size = UDim2.new(1,-30,0,62)
+IdeaCard.Position = UDim2.fromOffset(15,153)
+IdeaCard.BackgroundColor3 = BLACK
+IdeaCard.BorderColor3 = WHITE
+IdeaCard.BorderSizePixel = 1
+IdeaCard.Parent = Home
+
+local IdeaCorner = Instance.new("UICorner")
+IdeaCorner.CornerRadius = UDim.new(0,8)
+IdeaCorner.Parent = IdeaCard
+
+local IdeaTitle = Instance.new("TextLabel")
+IdeaTitle.Size = UDim2.new(1,-20,0,20)
+IdeaTitle.Position = UDim2.fromOffset(10,8)
+IdeaTitle.BackgroundTransparency = 1
+IdeaTitle.Text = "IDEAS / CONCEPTS"
+IdeaTitle.TextColor3 = WHITE
+IdeaTitle.TextSize = 9
+IdeaTitle.Font = FONT
+IdeaTitle.TextXAlignment = Enum.TextXAlignment.Left
+IdeaTitle.Parent = IdeaCard
+
+local IdeaName = Instance.new("TextLabel")
+IdeaName.Size = UDim2.new(1,-20,0,25)
+IdeaName.Position = UDim2.fromOffset(10,27)
+IdeaName.BackgroundTransparency = 1
+IdeaName.Text = "Rayo"
+IdeaName.TextColor3 = WHITE
+IdeaName.TextSize = 16
+IdeaName.Font = FONT
+IdeaName.TextXAlignment = Enum.TextXAlignment.Left
+IdeaName.Parent = IdeaCard
+
+local Status = Instance.new("TextLabel")
+Status.Size = UDim2.new(1,-30,0,20)
+Status.Position = UDim2.new(0,15,1,-25)
+Status.BackgroundTransparency = 1
+Status.Text = "IVORY HUB  //  READY"
+Status.TextColor3 = WHITE
+Status.TextSize = 9
+Status.Font = FONT
+Status.TextXAlignment = Enum.TextXAlignment.Left
+Status.Parent = Home
+
+--==================================================
+-- FEATURES PAGE
+--==================================================
+
+local FeatureTitle = Instance.new("TextLabel")
+FeatureTitle.Size = UDim2.new(1,-30,0,30)
+FeatureTitle.Position = UDim2.fromOffset(15,15)
+FeatureTitle.BackgroundTransparency = 1
+FeatureTitle.Text = "FEATURES"
+FeatureTitle.TextColor3 = WHITE
+FeatureTitle.TextSize = 20
+FeatureTitle.Font = FONT
+FeatureTitle.TextXAlignment = Enum.TextXAlignment.Left
+FeatureTitle.Parent = Features
+
+local function FeatureButton(text, y)
+	local Button = Instance.new("TextButton")
+	Button.Size = UDim2.new(1,-30,0,38)
+	Button.Position = UDim2.fromOffset(15,y)
+	Button.BackgroundColor3 = WHITE
+	Button.Text = text
+	Button.TextColor3 = BLACK
+	Button.TextSize = 11
+	Button.Font = FONT
+	Button.AutoButtonColor = false
+	Button.Parent = Features
+	
+	local Corner = Instance.new("UICorner")
+	Corner.CornerRadius = UDim.new(0,7)
+	Corner.Parent = Button
+	
+	Button.MouseEnter:Connect(function()
+		TweenService:Create(
+			Button,
+			TweenInfo.new(0.15),
+			{BackgroundColor3 = BLACK, TextColor3 = WHITE}
+		):Play()
+	end)
+	
+	Button.MouseLeave:Connect(function()
+		TweenService:Create(
+			Button,
+			TweenInfo.new(0.15),
+			{BackgroundColor3 = WHITE, TextColor3 = BLACK}
+		):Play()
+	end)
+	
+	return Button
+end
+
+FeatureButton("FEATURE 01",55)
+FeatureButton("FEATURE 02",100)
+FeatureButton("FEATURE 03",145)
+FeatureButton("FEATURE 04",190)
+
+--==================================================
+-- SETTINGS PAGE
+--==================================================
+
+local SettingsTitle = Instance.new("TextLabel")
+SettingsTitle.Size = UDim2.new(1,-30,0,30)
+SettingsTitle.Position = UDim2.fromOffset(15,15)
+SettingsTitle.BackgroundTransparency = 1
+SettingsTitle.Text = "SETTINGS"
+SettingsTitle.TextColor3 = WHITE
+SettingsTitle.TextSize = 20
+SettingsTitle.Font = FONT
+SettingsTitle.TextXAlignment = Enum.TextXAlignment.Left
+SettingsTitle.Parent = Settings
+
+local SettingsInfo = Instance.new("TextLabel")
+SettingsInfo.Size = UDim2.new(1,-30,0,50)
+SettingsInfo.Position = UDim2.fromOffset(15,55)
+SettingsInfo.BackgroundTransparency = 1
+SettingsInfo.Text = "Customize your Ivory experience.\nMore options can be added here."
+SettingsInfo.TextColor3 = WHITE
+SettingsInfo.TextSize = 11
+SettingsInfo.Font = FONT_LIGHT
+SettingsInfo.TextXAlignment = Enum.TextXAlignment.Left
+SettingsInfo.TextYAlignment = Enum.TextYAlignment.Top
+SettingsInfo.Parent = Settings
+
+--==================================================
+-- CREDITS PAGE
+--==================================================
+
+local CreditsTitle = Instance.new("TextLabel")
+CreditsTitle.Size = UDim2.new(1,-30,0,35)
+CreditsTitle.Position = UDim2.fromOffset(15,15)
+CreditsTitle.BackgroundTransparency = 1
+CreditsTitle.Text = "CREDITS"
+CreditsTitle.TextColor3 = WHITE
+CreditsTitle.TextSize = 21
+CreditsTitle.Font = FONT
+CreditsTitle.TextXAlignment = Enum.TextXAlignment.Left
+CreditsTitle.Parent = Credits
+
+local CreditsText = Instance.new("TextLabel")
+CreditsText.Size = UDim2.new(1,-30,0,130)
+CreditsText.Position = UDim2.fromOffset(15,60)
+CreditsText.BackgroundTransparency = 1
+CreditsText.Text =
+	"IVORY\n" ..
+	"Creator / Developer\n\n" ..
+	"RAYO\n" ..
+	"Ideas / Concepts\n\n" ..
+	"Built with the Ivory vision."
+CreditsText.TextColor3 = WHITE
+CreditsText.TextSize = 12
+CreditsText.Font = FONT_LIGHT
+CreditsText.TextXAlignment = Enum.TextXAlignment.Left
+CreditsText.TextYAlignment = Enum.TextYAlignment.Top
+CreditsText.Parent = Credits
+
+--==================================================
+-- SIDEBAR BUTTONS
+--==================================================
+
+local CurrentTab = nil
+
+local function CreateTab(text, y, page)
+	local Button = Instance.new("TextButton")
+	Button.Size = UDim2.new(1,-18,0,34)
+	Button.Position = UDim2.fromOffset(9,y)
+	Button.BackgroundColor3 = WHITE
+	Button.Text = text
+	Button.TextColor3 = BLACK
+	Button.TextSize = 10
+	Button.Font = FONT
+	Button.AutoButtonColor = false
+	Button.Parent = Sidebar
+	
+	local Corner = Instance.new("UICorner")
+	Corner.CornerRadius = UDim.new(0,7)
+	Corner.Parent = Button
+	
+	local Indicator = Instance.new("Frame")
+	Indicator.Size = UDim2.fromOffset(3,20)
+	Indicator.Position = UDim2.new(0,4,0.5,-10)
+	Indicator.BackgroundColor3 = BLACK
+	Indicator.BorderSizePixel = 0
+	Indicator.Visible = false
+	Indicator.Parent = Button
+	
+	local function Select()
+		if CurrentTab then
+			CurrentTab.Button.BackgroundColor3 = WHITE
+			CurrentTab.Button.TextColor3 = BLACK
+			CurrentTab.Indicator.Visible = false
+			CurrentTab.Page.Visible = false
+		end
+		
+		CurrentTab = {
+			Button = Button,
+			Indicator = Indicator,
+			Page = page
+		}
+		
+		Button.BackgroundColor3 = BLACK
+		Button.TextColor3 = WHITE
+		Indicator.BackgroundColor3 = WHITE
+		Indicator.Visible = true
+		page.Visible = true
+		
+		page.Position = UDim2.new(0,15,0,0)
+		
+		TweenService:Create(
+			page,
+			TweenInfo.new(0.18,Enum.EasingStyle.Quart,Enum.EasingDirection.Out),
+			{Position = UDim2.new(0,0,0,0)}
+		):Play()
+	end
+	
+	Button.MouseButton1Click:Connect(Select)
+	
+	Button.MouseEnter:Connect(function()
+		if CurrentTab == nil or CurrentTab.Button ~= Button then
+			TweenService:Create(
+				Button,
+				TweenInfo.new(0.12),
+				{BackgroundColor3 = BLACK,TextColor3 = WHITE}
+			):Play()
+		end
+	end)
+	
+	Button.MouseLeave:Connect(function()
+		if CurrentTab == nil or CurrentTab.Button ~= Button then
+			TweenService:Create(
+				Button,
+				TweenInfo.new(0.12),
+				{BackgroundColor3 = WHITE,TextColor3 = BLACK}
+			):Play()
+		end
+	end)
+	
+	return {
+		Button = Button,
+		Indicator = Indicator,
+		Select = Select
+	}
+end
+
+local HomeTab = CreateTab("HOME",35,Home)
+local FeaturesTab = CreateTab("FEATURES",75,Features)
+local SettingsTab = CreateTab("SETTINGS",150,Settings)
+local CreditsTab = CreateTab("CREDITS",190,Credits)
+
+HomeTab.Select()
+
+--==================================================
+-- DRAGGING SYSTEM
+--==================================================
+
+local function MakeDraggable(object, handle)
+	local dragging = false
+	local dragStart
+	local startPos
+	
+	handle.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1
+		or input.UserInputType == Enum.UserInputType.Touch then
+			
+			dragging = true
+			dragStart = input.Position
+			startPos = object.Position
+			
+			input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then
+					dragging = false
+				end
+			end)
+		end
+	end)
+	
+	UIS.InputChanged:Connect(function(input)
+		if not dragging then return end
+		
+		if input.UserInputType == Enum.UserInputType.MouseMovement
+		or input.UserInputType == Enum.UserInputType.Touch then
+			
+			local delta = input.Position - dragStart
+			
+			object.Position = UDim2.new(
+				startPos.X.Scale,
+				startPos.X.Offset + delta.X,
+				startPos.Y.Scale,
+				startPos.Y.Offset + delta.Y
+			)
 		end
 	end)
 end
 
+MakeDraggable(Main,Header)
+MakeDraggable(Toggle,Toggle)
+
+--==================================================
+-- TOGGLE
+--==================================================
+
+local Open = true
+
 Toggle.MouseButton1Click:Connect(function()
+	Open = not Open
+	
 	if Open then
-		CloseHub()
+		Main.Visible = true
+		
+		Main.Size = UDim2.fromOffset(435,270)
+		
+		TweenService:Create(
+			Main,
+			TweenInfo.new(0.2,Enum.EasingStyle.Quart,Enum.EasingDirection.Out),
+			{Size = UDim2.fromOffset(455,285)}
+		):Play()
 	else
-		OpenHub()
+		TweenService:Create(
+			Main,
+			TweenInfo.new(0.15,Enum.EasingStyle.Quart,Enum.EasingDirection.In),
+			{Size = UDim2.fromOffset(435,270)}
+		):Play()
+		
+		task.wait(0.15)
+		Main.Visible = false
 	end
 end)
-
-Close.MouseButton1Click:Connect(CloseHub)
 
 --==================================================
 -- TOGGLE HOVER
 --==================================================
 
 Toggle.MouseEnter:Connect(function()
-	TweenService:Create(Toggle,TweenInfo.new(.15),{
-		BackgroundColor3 = WHITE,
-		TextColor3 = BLACK
-	}):Play()
+	TweenService:Create(
+		Toggle,
+		TweenInfo.new(0.15),
+		{BackgroundColor3 = WHITE,TextColor3 = BLACK}
+	):Play()
 end)
 
 Toggle.MouseLeave:Connect(function()
-	TweenService:Create(Toggle,TweenInfo.new(.15),{
-		BackgroundColor3 = BLACK,
-		TextColor3 = WHITE
-	}):Play()
+	TweenService:Create(
+		Toggle,
+		TweenInfo.new(0.15),
+		{BackgroundColor3 = BLACK,TextColor3 = WHITE}
+	):Play()
 end)
 
---==================================================
--- DRAG FUNCTION
---==================================================
-
-local function MakeDraggable(handle,object)
-
-	local dragging = false
-	local startPosition
-	local startInput
-
-	handle.InputBegan:Connect(function(input)
-
-		if input.UserInputType == Enum.UserInputType.MouseButton1
-		or input.UserInputType == Enum.UserInputType.Touch then
-
-			dragging = true
-			startInput = input.Position
-			startPosition = object.Position
-
-			input.Changed:Connect(function()
-
-				if input.UserInputState == Enum.UserInputState.End then
-					dragging = false
-				end
-
-			end)
-		end
-	end)
-
-	UIS.InputChanged:Connect(function(input)
-
-		if not dragging then
-			return
-		end
-
-		if input.UserInputType == Enum.UserInputType.MouseMovement
-		or input.UserInputType == Enum.UserInputType.Touch then
-
-			local Delta = input.Position - startInput
-
-			object.Position = UDim2.new(
-				startPosition.X.Scale,
-				startPosition.X.Offset + Delta.X,
-				startPosition.Y.Scale,
-				startPosition.Y.Offset + Delta.Y
-			)
-		end
-	end)
-end
-
-MakeDraggable(Header,Main)
-MakeDraggable(Toggle,Toggle)
-
-print("IVORY HUB | PURE BLACK & WHITE | LOADED")
+print("Ivory Hub loaded successfully.")
