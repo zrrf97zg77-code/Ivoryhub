@@ -1,29 +1,57 @@
---// IVORY HUB (FULL PVP EDITION – BLACKLIST + MACRO + AIMBOT)
---// Credits: lvory999, rayo06996
-print("Ivory Hub loading...")
+--// IVORY HUB — BLOX FRUITS PVP SCRIPT
+--// 180° Aimbot + Combat Features
+--// Black & Ivory / Mobile Friendly
 
 local Players = game:GetService("Players")
-local UIS = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
-local player = Players.LocalPlayer
-local PlayerGui = player:WaitForChild("PlayerGui")
-local camera = workspace.CurrentCamera
-local mouse = player:GetMouse()
-local VirtualInputManager
-pcall(function() VirtualInputManager = game:GetService("VirtualInputManager") end)
+local RunService = game:GetService("RunService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
--- Delete old GUI
-local Old = PlayerGui:FindFirstChild("IvoryHub")
-if Old then Old:Destroy() end
+local Player = Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
+local Camera = workspace.CurrentCamera
+
+--// Remove old UI
+pcall(function()
+    PlayerGui:FindFirstChild("IvoryHub"):Destroy()
+end)
 
 --// COLORS
-local BLACK = Color3.fromRGB(10,10,10)
-local DARK = Color3.fromRGB(17,17,17)
-local LIGHT = Color3.fromRGB(30,30,30)
-local WHITE = Color3.fromRGB(245,245,245)
-local GRAY = Color3.fromRGB(145,145,145)
+local BLACK = Color3.fromRGB(8, 8, 8)
+local DARK = Color3.fromRGB(13, 13, 13)
+local PANEL = Color3.fromRGB(17, 17, 17)
+local LIGHT = Color3.fromRGB(235, 235, 235)
+local WHITE = Color3.fromRGB(255, 255, 255)
+local GREY = Color3.fromRGB(145, 145, 145)
+local DARKGREY = Color3.fromRGB(35, 35, 35)
+local RED = Color3.fromRGB(255, 80, 80)
+local GREEN = Color3.fromRGB(80, 255, 120)
+
+local function tween(obj, time, props)
+    TweenService:Create(
+        obj,
+        TweenInfo.new(time, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+        props
+    ):Play()
+end
+
+--// COMBAT VARIABLES
+local Combat = {
+    AimbotEnabled = false,
+    AimbotAngle = 180, -- 180 degree aimbot
+    AimbotTarget = nil,
+    AimbotFOV = 180,
+    AimbotLock = false,
+    AutoAttack = false,
+    AttackCooldown = 0.5,
+    LastAttack = 0,
+    ESPEnabled = false,
+    ESPBoxes = {},
+    AutoDodge = false,
+    DodgeCooldown = 2,
+    LastDodge = 0
+}
 
 --// GUI
 local Gui = Instance.new("ScreenGui")
@@ -32,1540 +60,668 @@ Gui.ResetOnSpawn = false
 Gui.IgnoreGuiInset = true
 Gui.Parent = PlayerGui
 
---// MAIN
-local Main = Instance.new("Frame")
-Main.Size = UDim2.fromOffset(520, 330)
-Main.Position = UDim2.new(.5, -260, .5, -165)
-Main.BackgroundColor3 = BLACK
-Main.BorderSizePixel = 0
-Main.Parent = Gui
-Main.Visible = true
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 14)
-local MainStroke = Instance.new("UIStroke", Main)
-MainStroke.Color = Color3.fromRGB(55, 55, 55)
-MainStroke.Thickness = 1
-
---// TOP
-local Top = Instance.new("Frame")
-Top.Size = UDim2.new(1, 0, 0, 58)
-Top.BackgroundColor3 = DARK
-Top.BorderSizePixel = 0
-Top.Parent = Main
-Instance.new("UICorner", Top).CornerRadius = UDim.new(0, 14)
-
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -100, 0, 28)
-Title.Position = UDim2.fromOffset(18, 7)
-Title.BackgroundTransparency = 1
-Title.Text = "IVORY HUB"
-Title.TextColor3 = WHITE
-Title.TextSize = 19
-Title.Font = Enum.Font.GothamBold
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.Parent = Top
-
-local Sub = Instance.new("TextLabel")
-Sub.Size = UDim2.new(1, -100, 0, 18)
-Sub.Position = UDim2.fromOffset(19, 32)
-Sub.BackgroundTransparency = 1
-Sub.Text = "pvp • clean • simple"
-Sub.TextColor3 = GRAY
-Sub.TextSize = 9
-Sub.Font = Enum.Font.Gotham
-Sub.TextXAlignment = Enum.TextXAlignment.Left
-Sub.Parent = Top
-
---// CLOSE
-local Close = Instance.new("TextButton")
-Close.Size = UDim2.fromOffset(35, 35)
-Close.Position = UDim2.new(1, -45, 0, 11)
-Close.BackgroundColor3 = LIGHT
-Close.Text = "×"
-Close.TextColor3 = WHITE
-Close.TextSize = 22
-Close.Font = Enum.Font.Gotham
-Close.AutoButtonColor = false
-Close.Parent = Top
-Instance.new("UICorner", Close).CornerRadius = UDim.new(0, 9)
-
---// SIDEBAR
-local Sidebar = Instance.new("ScrollingFrame")
-Sidebar.Size = UDim2.new(0, 135, 1, -78)
-Sidebar.Position = UDim2.fromOffset(10, 68)
-Sidebar.BackgroundColor3 = DARK
-Sidebar.BorderSizePixel = 0
-Sidebar.ScrollBarThickness = 2
-Sidebar.ScrollBarImageColor3 = GRAY
-Sidebar.CanvasSize = UDim2.new(0, 0, 0, 0)
-Sidebar.Parent = Main
-Instance.new("UICorner", Sidebar).CornerRadius = UDim.new(0, 11)
-
-local SideLayout = Instance.new("UIListLayout")
-SideLayout.Padding = UDim.new(0, 6)
-SideLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-SideLayout.Parent = Sidebar
-
-local SidePadding = Instance.new("UIPadding")
-SidePadding.PaddingTop = UDim.new(0, 9)
-SidePadding.PaddingBottom = UDim.new(0, 9)
-SidePadding.Parent = Sidebar
-
-SideLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    Sidebar.CanvasSize = UDim2.new(0, 0, 0, SideLayout.AbsoluteContentSize.Y + 18)
-end)
-
---// CONTENT
-local Content = Instance.new("Frame")
-Content.Size = UDim2.new(1, -155, 1, -78)
-Content.Position = UDim2.fromOffset(155, 68)
-Content.BackgroundColor3 = DARK
-Content.BorderSizePixel = 0
-Content.Parent = Main
-Instance.new("UICorner", Content).CornerRadius = UDim.new(0, 11)
-
---// PAGES
-local Pages = {}
-
-local function CreatePage(Name)
-    local Page = Instance.new("ScrollingFrame")
-    Page.Name = Name
-    Page.Size = UDim2.new(1, -20, 1, -20)
-    Page.Position = UDim2.fromOffset(10, 10)
-    Page.BackgroundTransparency = 1
-    Page.BorderSizePixel = 0
-    Page.ScrollBarThickness = 2
-    Page.ScrollBarImageColor3 = GRAY
-    Page.CanvasSize = UDim2.new(0, 0, 0, 0)
-    Page.Visible = false
-    Page.Parent = Content
-
-    local Layout = Instance.new("UIListLayout")
-    Layout.Padding = UDim.new(0, 8)
-    Layout.Parent = Page
-
-    Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        Page.CanvasSize = UDim2.new(0, 0, 0, Layout.AbsoluteContentSize.Y + 10)
-    end)
-
-    Pages[Name] = Page
-    return Page
-end
-
---// CREATE BUTTON
-local function CreateButton(Parent, Text)
-    local Button = Instance.new("TextButton")
-    Button.Size = UDim2.new(1, 0, 0, 32)
-    Button.BackgroundColor3 = LIGHT
-    Button.BorderSizePixel = 0
-    Button.Text = Text
-    Button.TextColor3 = WHITE
-    Button.TextSize = 11
-    Button.Font = Enum.Font.GothamMedium
-    Button.AutoButtonColor = false
-    Button.Parent = Parent
-    Instance.new("UICorner", Button).CornerRadius = UDim.new(0, 8)
-
-    Button.MouseEnter:Connect(function()
-        Button.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    end)
-    Button.MouseLeave:Connect(function()
-        Button.BackgroundColor3 = LIGHT
-    end)
-
-    return Button
-end
-
---// CREATE TOGGLE
-local function CreateToggle(Parent, Text, Default, OnClick)
-    local state = Default or false
-    local btn = CreateButton(Parent, Text .. (state and " ON" or " OFF"))
-    btn.MouseButton1Click:Connect(function()
-        state = not state
-        btn.Text = Text .. (state and " ON" or " OFF")
-        btn.BackgroundColor3 = state and Color3.fromRGB(0, 180, 0) or LIGHT
-        if OnClick then OnClick(state) end
-    end)
-    return btn
-end
-
---// CREATE SLIDER (simple + and -)
-local function CreateSlider(Parent, labelText, minVal, maxVal, step, getter, setter, suffix)
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, 0, 0, 30)
-    frame.BackgroundTransparency = 1
-    frame.Parent = Parent
-
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(0.5, 0, 1, 0)
-    label.BackgroundTransparency = 1
-    label.Text = labelText .. getter()
-    label.TextColor3 = WHITE
-    label.TextSize = 10
-    label.Font = Enum.Font.Gotham
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Parent = frame
-
-    local minus = Instance.new("TextButton")
-    minus.Size = UDim2.new(0, 25, 0, 25)
-    minus.Position = UDim2.new(0.7, 0, 0.5, -12.5)
-    minus.BackgroundColor3 = LIGHT
-    minus.Text = "-"
-    minus.TextColor3 = WHITE
-    minus.TextSize = 12
-    minus.Font = Enum.Font.GothamBold
-    minus.AutoButtonColor = false
-    minus.Parent = frame
-    Instance.new("UICorner", minus).CornerRadius = UDim.new(0, 6)
-
-    local value = Instance.new("TextLabel")
-    value.Size = UDim2.new(0, 30, 0, 25)
-    value.Position = UDim2.new(0.8, 0, 0.5, -12.5)
-    value.BackgroundTransparency = 1
-    value.Text = tostring(getter()) .. (suffix or "")
-    value.TextColor3 = WHITE
-    value.TextSize = 11
-    value.Font = Enum.Font.GothamBold
-    value.TextXAlignment = Enum.TextXAlignment.Center
-    value.Parent = frame
-
-    local plus = Instance.new("TextButton")
-    plus.Size = UDim2.new(0, 25, 0, 25)
-    plus.Position = UDim2.new(0.9, 0, 0.5, -12.5)
-    plus.BackgroundColor3 = LIGHT
-    plus.Text = "+"
-    plus.TextColor3 = WHITE
-    plus.TextSize = 12
-    plus.Font = Enum.Font.GothamBold
-    plus.AutoButtonColor = false
-    plus.Parent = frame
-    Instance.new("UICorner", plus).CornerRadius = UDim.new(0, 6)
-
-    minus.MouseButton1Click:Connect(function()
-        local val = math.max(minVal, getter() - step)
-        setter(val)
-        value.Text = tostring(val) .. (suffix or "")
-        label.Text = labelText .. val
-    end)
-
-    plus.MouseButton1Click:Connect(function()
-        local val = math.min(maxVal, getter() + step)
-        setter(val)
-        value.Text = tostring(val) .. (suffix or "")
-        label.Text = labelText .. val
-    end)
-
-    return { label = label, value = value }
-end
-
---// PAGES
-local Home = CreatePage("Home")
-local MainPage = CreatePage("Main")
-local AimbotPage = CreatePage("Aimbot")
-local BlacklistPage = CreatePage("Blacklist")
-local ComboPage = CreatePage("Combo")
-local VisualsPage = CreatePage("Visuals")
-local PlayersPage = CreatePage("Players")
-local SettingsPage = CreatePage("Settings")
-local InfoPage = CreatePage("Info")
-local CreditsPage = CreatePage("Credits")
-
---// TABS
-local function CreateTab(Text, Page)
-    local Button = Instance.new("TextButton")
-    Button.Size = UDim2.new(1, -18, 0, 35)
-    Button.BackgroundColor3 = LIGHT
-    Button.BorderSizePixel = 0
-    Button.Text = Text
-    Button.TextColor3 = GRAY
-    Button.TextSize = 11
-    Button.Font = Enum.Font.GothamMedium
-    Button.AutoButtonColor = false
-    Button.Parent = Sidebar
-    Instance.new("UICorner", Button).CornerRadius = UDim.new(0, 8)
-
-    Button.MouseButton1Click:Connect(function()
-        for _, P in pairs(Pages) do P.Visible = false end
-        Page.Visible = true
-        for _, B in ipairs(Sidebar:GetChildren()) do
-            if B:IsA("TextButton") then
-                B.BackgroundColor3 = LIGHT
-                B.TextColor3 = GRAY
-            end
-        end
-        Button.BackgroundColor3 = WHITE
-        Button.TextColor3 = BLACK
-    end)
-
-    return Button
-end
-
-local HomeTab = CreateTab("Home", Home)
-CreateTab("Main", MainPage)
-CreateTab("Aimbot", AimbotPage)
-CreateTab("Blacklist", BlacklistPage)
-CreateTab("Combo", ComboPage)
-CreateTab("Visuals", VisualsPage)
-CreateTab("Players", PlayersPage)
-CreateTab("Settings", SettingsPage)
-CreateTab("Info", InfoPage)
-CreateTab("Credits", CreditsPage)
-
-Home.Visible = true
-HomeTab.BackgroundColor3 = WHITE
-HomeTab.TextColor3 = BLACK
-
---// TOGGLE BUTTON (I icon)
+--// FLOATING TOGGLE
 local Toggle = Instance.new("TextButton")
-Toggle.Name = "IvoryToggle"
-Toggle.Size = UDim2.fromOffset(44, 44)
-Toggle.Position = UDim2.new(0, 15, 0.5, -22)
+Toggle.Name = "Toggle"
+Toggle.Size = UDim2.fromOffset(38, 38)
+Toggle.Position = UDim2.new(0, 16, 0.5, -19)
 Toggle.BackgroundColor3 = BLACK
-Toggle.BorderSizePixel = 0
 Toggle.Text = "I"
 Toggle.TextColor3 = WHITE
 Toggle.TextSize = 18
 Toggle.Font = Enum.Font.GothamBold
 Toggle.AutoButtonColor = false
 Toggle.Parent = Gui
-Instance.new("UICorner", Toggle).CornerRadius = UDim.new(0, 12)
-local ToggleStroke = Instance.new("UIStroke", Toggle)
-ToggleStroke.Color = WHITE
+
+local ToggleCorner = Instance.new("UICorner")
+ToggleCorner.CornerRadius = UDim.new(0, 11)
+ToggleCorner.Parent = Toggle
+
+local ToggleStroke = Instance.new("UIStroke")
+ToggleStroke.Color = LIGHT
 ToggleStroke.Thickness = 1
+ToggleStroke.Transparency = 0.35
+ToggleStroke.Parent = Toggle
 
---// DRAG
-local function MakeDraggable(Object)
-    local Dragging = false
-    local DragStart
-    local StartPosition
+--// MAIN
+local Main = Instance.new("Frame")
+Main.Name = "Main"
+Main.Size = UDim2.fromOffset(480, 305)
+Main.Position = UDim2.new(0.5, -240, 0.5, -152)
+Main.BackgroundColor3 = BLACK
+Main.BorderSizePixel = 0
+Main.Visible = true
+Main.Parent = Gui
 
-    Object.InputBegan:Connect(function(Input)
-        if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
-            Dragging = true
-            DragStart = Input.Position
-            StartPosition = Object.Position
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 14)
+MainCorner.Parent = Main
+
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Color = LIGHT
+MainStroke.Thickness = 1
+MainStroke.Transparency = 0.75
+MainStroke.Parent = Main
+
+--// TOP BAR
+local Top = Instance.new("Frame")
+Top.Size = UDim2.new(1, 0, 0, 58)
+Top.BackgroundColor3 = DARK
+Top.BorderSizePixel = 0
+Top.Parent = Main
+
+local TopCorner = Instance.new("UICorner")
+TopCorner.CornerRadius = UDim.new(0, 14)
+TopCorner.Parent = Top
+
+local Title = Instance.new("TextLabel")
+Title.BackgroundTransparency = 1
+Title.Position = UDim2.fromOffset(18, 9)
+Title.Size = UDim2.fromOffset(200, 25)
+Title.Text = "IVORY PVP"
+Title.TextColor3 = WHITE
+Title.TextSize = 17
+Title.Font = Enum.Font.GothamBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = Top
+
+local SubTitle = Instance.new("TextLabel")
+SubTitle.BackgroundTransparency = 1
+SubTitle.Position = UDim2.fromOffset(19, 32)
+SubTitle.Size = UDim2.fromOffset(200, 17)
+SubTitle.Text = "BLOX FRUITS COMBAT"
+SubTitle.TextColor3 = GREY
+SubTitle.TextSize = 8
+SubTitle.Font = Enum.Font.GothamMedium
+SubTitle.TextXAlignment = Enum.TextXAlignment.Left
+SubTitle.Parent = Top
+
+--// STATUS
+local Status = Instance.new("TextLabel")
+Status.BackgroundTransparency = 1
+Status.Position = UDim2.new(1, -130, 0, 20)
+Status.Size = UDim2.fromOffset(80, 20)
+Status.Text = "●  ONLINE"
+Status.TextColor3 = GREEN
+Status.TextSize = 9
+Status.Font = Enum.Font.GothamBold
+Status.TextXAlignment = Enum.TextXAlignment.Right
+Status.Parent = Top
+
+--// CLOSE
+local Close = Instance.new("TextButton")
+Close.Size = UDim2.fromOffset(28, 28)
+Close.Position = UDim2.new(1, -38, 0, 15)
+Close.BackgroundColor3 = DARKGREY
+Close.Text = "×"
+Close.TextColor3 = LIGHT
+Close.TextSize = 18
+Close.Font = Enum.Font.GothamMedium
+Close.AutoButtonColor = false
+Close.Parent = Top
+
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(0, 8)
+CloseCorner.Parent = Close
+
+--// SIDEBAR
+local Sidebar = Instance.new("Frame")
+Sidebar.Name = "Sidebar"
+Sidebar.Position = UDim2.fromOffset(10, 68)
+Sidebar.Size = UDim2.fromOffset(112, 225)
+Sidebar.BackgroundColor3 = DARK
+Sidebar.BorderSizePixel = 0
+Sidebar.Parent = Main
+
+local SidebarCorner = Instance.new("UICorner")
+SidebarCorner.CornerRadius = UDim.new(0, 11)
+SidebarCorner.Parent = Sidebar
+
+local SidePadding = Instance.new("UIPadding")
+SidePadding.PaddingTop = UDim.new(0, 8)
+SidePadding.PaddingLeft = UDim.new(0, 7)
+SidePadding.PaddingRight = UDim.new(0, 7)
+SidePadding.Parent = Sidebar
+
+local SideList = Instance.new("UIListLayout")
+SideList.Padding = UDim.new(0, 4)
+SideList.SortOrder = Enum.SortOrder.LayoutOrder
+SideList.Parent = Sidebar
+
+--// CONTENT
+local Content = Instance.new("Frame")
+Content.Name = "Content"
+Content.Position = UDim2.fromOffset(132, 68)
+Content.Size = UDim2.new(1, -142, 1, -78)
+Content.BackgroundColor3 = DARK
+Content.BorderSizePixel = 0
+Content.ClipsDescendants = true
+Content.Parent = Main
+
+local ContentCorner = Instance.new("UICorner")
+ContentCorner.CornerRadius = UDim.new(0, 11)
+ContentCorner.Parent = Content
+
+--// PAGES
+local Pages = {}
+
+local function CreatePage(name)
+    local Page = Instance.new("ScrollingFrame")
+    Page.Name = name
+    Page.Size = UDim2.new(1, -12, 1, -12)
+    Page.Position = UDim2.fromOffset(6, 6)
+    Page.BackgroundTransparency = 1
+    Page.BorderSizePixel = 0
+    Page.ScrollBarThickness = 2
+    Page.ScrollBarImageColor3 = GREY
+    Page.Visible = false
+    Page.CanvasSize = UDim2.new(0, 0, 0, 0)
+    Page.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    Page.Parent = Content
+
+    local Padding = Instance.new("UIPadding")
+    Padding.PaddingTop = UDim.new(0, 6)
+    Padding.PaddingBottom = UDim.new(0, 6)
+    Padding.PaddingLeft = UDim.new(0, 6)
+    Padding.PaddingRight = UDim.new(0, 6)
+    Padding.Parent = Page
+
+    local List = Instance.new("UIListLayout")
+    List.Padding = UDim.new(0, 7)
+    List.SortOrder = Enum.SortOrder.LayoutOrder
+    List.Parent = Page
+
+    Pages[name] = Page
+    return Page
+end
+
+--// TOGGLE CARD
+local function AddToggle(Page, title, description, callback)
+    local Card = Instance.new("Frame")
+    Card.Size = UDim2.new(1, -2, 0, 60)
+    Card.BackgroundColor3 = PANEL
+    Card.BorderSizePixel = 0
+    Card.Parent = Page
+
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 9)
+    Corner.Parent = Card
+
+    local Stroke = Instance.new("UIStroke")
+    Stroke.Color = LIGHT
+    Stroke.Transparency = 0.92
+    Stroke.Parent = Card
+
+    local T = Instance.new("TextLabel")
+    T.BackgroundTransparency = 1
+    T.Position = UDim2.fromOffset(12, 8)
+    T.Size = UDim2.new(1, -80, 0, 20)
+    T.Text = title
+    T.TextColor3 = WHITE
+    T.TextSize = 12
+    T.Font = Enum.Font.GothamBold
+    T.TextXAlignment = Enum.TextXAlignment.Left
+    T.Parent = Card
+
+    local D = Instance.new("TextLabel")
+    D.BackgroundTransparency = 1
+    D.Position = UDim2.fromOffset(12, 29)
+    D.Size = UDim2.new(1, -80, 0, 20)
+    D.Text = description
+    D.TextColor3 = GREY
+    D.TextSize = 9
+    D.Font = Enum.Font.Gotham
+    D.TextXAlignment = Enum.TextXAlignment.Left
+    D.Parent = Card
+
+    local Switch = Instance.new("TextButton")
+    Switch.Size = UDim2.fromOffset(40, 20)
+    Switch.Position = UDim2.new(1, -52, 0.5, -10)
+    Switch.BackgroundColor3 = DARKGREY
+    Switch.Text = "OFF"
+    Switch.TextColor3 = WHITE
+    Switch.TextSize = 8
+    Switch.Font = Enum.Font.GothamBold
+    Switch.AutoButtonColor = false
+    Switch.Parent = Card
+
+    local SwitchCorner = Instance.new("UICorner")
+    SwitchCorner.CornerRadius = UDim.new(0, 6)
+    SwitchCorner.Parent = Switch
+
+    local Enabled = false
+
+    Switch.MouseButton1Click:Connect(function()
+        Enabled = not Enabled
+        
+        if Enabled then
+            Switch.BackgroundColor3 = GREEN
+            Switch.Text = "ON"
+            Switch.TextColor3 = BLACK
+        else
+            Switch.BackgroundColor3 = DARKGREY
+            Switch.Text = "OFF"
+            Switch.TextColor3 = WHITE
+        end
+        
+        callback(Enabled)
+    end)
+
+    return Card, Switch
+end
+
+--// CREATE PAGES
+local Home = CreatePage("Home")
+local AimbotPage = CreatePage("Aimbot")
+local CombatPage = CreatePage("Combat")
+local VisualPage = CreatePage("Visuals")
+local SettingsPage = CreatePage("Settings")
+
+--// AIMBOT PAGE
+AddToggle(AimbotPage, "180° Aimbot", "Locks onto targets in 180° FOV", function(enabled)
+    Combat.AimbotEnabled = enabled
+    if enabled then
+        Status.Text = "●  AIMBOT ON"
+        Status.TextColor3 = RED
+    else
+        Status.Text = "●  ONLINE"
+        Status.TextColor3 = GREEN
+        Combat.AimbotTarget = nil
+    end
+end)
+
+AddToggle(AimbotPage, "Aimbot Lock", "Hard lock onto target", function(enabled)
+    Combat.AimbotLock = enabled
+end)
+
+AddToggle(AimbotPage, "Auto Attack", "Automatically attacks target", function(enabled)
+    Combat.AutoAttack = enabled
+end)
+
+AddToggle(AimbotPage, "Auto Dodge", "Automatically dodges attacks", function(enabled)
+    Combat.AutoDodge = enabled
+end)
+
+--// COMBAT PAGE
+AddToggle(CombatPage, "ESP", "Show player boxes", function(enabled)
+    Combat.ESPEnabled = enabled
+    if not enabled then
+        for _, box in pairs(Combat.ESPBoxes) do
+            if box then
+                box:Destroy()
+            end
+        end
+        Combat.ESPBoxes = {}
+    end
+end)
+
+--// VISUAL PAGE
+AddToggle(VisualPage, "Aimbot FOV Circle", "Show 180° FOV circle", function(enabled)
+    -- FOV circle implementation
+    local FOVCircle = Drawing.new("Circle")
+    FOVCircle.Visible = enabled
+    FOVCircle.Thickness = 1
+    FOVCircle.Radius = 180
+    FOVCircle.Color = Color3.fromRGB(255, 255, 255)
+    FOVCircle.Position = Camera.ViewportSize / 2
+    FOVCircle.Transparency = 0.7
+    
+    if enabled then
+        RunService.RenderStepped:Connect(function()
+            FOVCircle.Position = Camera.ViewportSize / 2
+        end)
+    end
+end)
+
+--// SETTINGS PAGE
+AddToggle(SettingsPage, "Mobile Mode", "Optimized for mobile", function(enabled)
+    if enabled then
+        Main.Size = UDim2.fromOffset(430, 285)
+        Main.Position = UDim2.new(0.5, -215, 0.5, -142)
+    else
+        Main.Size = UDim2.fromOffset(480, 305)
+        Main.Position = UDim2.new(0.5, -240, 0.5, -152)
+    end
+end)
+
+--// SIDEBAR BUTTONS
+local Tabs = {}
+
+local function CreateTab(name, order)
+    local Button = Instance.new("TextButton")
+    Button.Name = name
+    Button.Size = UDim2.new(1, 0, 0, 25)
+    Button.BackgroundColor3 = DARK
+    Button.Text = name:upper()
+    Button.TextColor3 = GREY
+    Button.TextSize = 9
+    Button.Font = Enum.Font.GothamBold
+    Button.AutoButtonColor = false
+    Button.LayoutOrder = order
+    Button.Parent = Sidebar
+
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 7)
+    Corner.Parent = Button
+
+    local Accent = Instance.new("Frame")
+    Accent.Size = UDim2.fromOffset(2, 13)
+    Accent.Position = UDim2.new(0, 4, 0.5, -6)
+    Accent.BackgroundColor3 = WHITE
+    Accent.BorderSizePixel = 0
+    Accent.Visible = false
+    Accent.Parent = Button
+
+    local AccentCorner = Instance.new("UICorner")
+    AccentCorner.CornerRadius = UDim.new(1, 0)
+    AccentCorner.Parent = Accent
+
+    Tabs[name] = {
+        Button = Button,
+        Accent = Accent
+    }
+
+    Button.MouseEnter:Connect(function()
+        if Button.BackgroundColor3 ~= LIGHT then
+            tween(Button, 0.15, {
+                BackgroundColor3 = Color3.fromRGB(25, 25, 25),
+                TextColor3 = LIGHT
+            })
         end
     end)
 
-    Object.InputEnded:Connect(function(Input)
-        if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
-            Dragging = false
+    Button.MouseLeave:Connect(function()
+        if Button.BackgroundColor3 ~= LIGHT then
+            tween(Button, 0.15, {
+                BackgroundColor3 = DARK,
+                TextColor3 = GREY
+            })
         end
     end)
 
-    UIS.InputChanged:Connect(function(Input)
-        if Dragging and (Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch) then
-            local Delta = Input.Position - DragStart
+    Button.MouseButton1Click:Connect(function()
+        for tabName, data in pairs(Tabs) do
+            tween(data.Button, 0.15, {
+                BackgroundColor3 = DARK,
+                TextColor3 = GREY
+            })
+
+            data.Accent.Visible = false
+        end
+
+        tween(Button, 0.2, {
+            BackgroundColor3 = LIGHT,
+            TextColor3 = BLACK
+        })
+
+        Accent.Visible = true
+
+        for pageName, page in pairs(Pages) do
+            page.Visible = (pageName == name)
+        end
+    end)
+
+    return Button
+end
+
+CreateTab("Home", 1)
+CreateTab("Aimbot", 2)
+CreateTab("Combat", 3)
+CreateTab("Visuals", 4)
+CreateTab("Settings", 5)
+
+--// DEFAULT TAB
+Tabs.Home.Button.BackgroundColor3 = LIGHT
+Tabs.Home.Button.TextColor3 = BLACK
+Tabs.Home.Accent.Visible = true
+Home.Visible = true
+
+--// DRAGGING
+local function MakeDraggable(Object, DragObject)
+    local dragging = false
+    local dragStart
+    local startPos
+
+    DragObject.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+
+            dragging = true
+            dragStart = input.Position
+            startPos = Object.Position
+
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (
+            input.UserInputType == Enum.UserInputType.MouseMovement
+            or input.UserInputType == Enum.UserInputType.Touch
+        ) then
+
+            local delta = input.Position - dragStart
+
             Object.Position = UDim2.new(
-                StartPosition.X.Scale,
-                StartPosition.X.Offset + Delta.X,
-                StartPosition.Y.Scale,
-                StartPosition.Y.Offset + Delta.Y
+                startPos.X.Scale,
+                startPos.X.Offset + delta.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset + delta.Y
             )
         end
     end)
 end
 
-MakeDraggable(Main)
-MakeDraggable(Toggle)
+MakeDraggable(Main, Top)
+MakeDraggable(Toggle, Toggle)
 
---// MACRO BUTTON (floating)
-local MacroButton = Instance.new("TextButton")
-MacroButton.Name = "MacroButton"
-MacroButton.Size = UDim2.fromOffset(80, 32)
-MacroButton.Position = UDim2.new(0.02, 0, 0.85, 0)
-MacroButton.BackgroundColor3 = BLACK
-MacroButton.BorderSizePixel = 0
-MacroButton.Text = "⚡ MACRO"
-MacroButton.TextColor3 = WHITE
-MacroButton.TextSize = 12
-MacroButton.Font = Enum.Font.GothamBold
-MacroButton.AutoButtonColor = false
-MacroButton.Visible = false
-MacroButton.Parent = Gui
-MacroButton.ZIndex = 20
-Instance.new("UICorner", MacroButton).CornerRadius = UDim.new(0, 8)
-local MacroStroke = Instance.new("UIStroke", MacroButton)
-MacroStroke.Color = WHITE
-MacroStroke.Thickness = 1
-MakeDraggable(MacroButton)
-
---// SORU BUTTON (floating, appears when Soru Flashstep is ON)
-local SoruButton = Instance.new("TextButton")
-SoruButton.Name = "SoruButton"
-SoruButton.Size = UDim2.fromOffset(80, 32)
-SoruButton.Position = UDim2.new(0.85, -40, 0.85, 0)
-SoruButton.BackgroundColor3 = BLACK
-SoruButton.BorderSizePixel = 0
-SoruButton.Text = "⚡ SORU"
-SoruButton.TextColor3 = WHITE
-SoruButton.TextSize = 12
-SoruButton.Font = Enum.Font.GothamBold
-SoruButton.AutoButtonColor = false
-SoruButton.Visible = false
-SoruButton.Parent = Gui
-SoruButton.ZIndex = 20
-Instance.new("UICorner", SoruButton).CornerRadius = UDim.new(0, 8)
-local SoruStroke = Instance.new("UIStroke", SoruButton)
-SoruStroke.Color = WHITE
-SoruStroke.Thickness = 1
-MakeDraggable(SoruButton)
-
---// OPEN/CLOSE
+--// OPEN / CLOSE
 local Open = true
 
-local function OpenGUI()
+local function ShowUI()
     Open = true
     Main.Visible = true
+    Main.Size = UDim2.fromOffset(440, 280)
+
+    tween(Main, 0.3, {
+        Size = UDim2.fromOffset(480, 305)
+    })
 end
 
-local function CloseGUI()
+local function HideUI()
     Open = false
-    Main.Visible = false
+
+    tween(Main, 0.25, {
+        Size = UDim2.fromOffset(440, 280)
+    })
+
+    task.delay(0.25, function()
+        if not Open then
+            Main.Visible = false
+        end
+    end)
 end
 
 Toggle.MouseButton1Click:Connect(function()
-    if Open then CloseGUI() else OpenGUI() end
+    if Open then
+        HideUI()
+    else
+        ShowUI()
+    end
 end)
 
 Close.MouseButton1Click:Connect(function()
-    CloseGUI()
+    HideUI()
 end)
 
-OpenGUI()
-
--- ==================================================================
---                   HOME PAGE
--- ==================================================================
-local HomeTitle = Instance.new("TextLabel")
-HomeTitle.Size = UDim2.new(1, 0, 0, 40)
-HomeTitle.BackgroundTransparency = 1
-HomeTitle.Text = "WELCOME TO IVORY HUB"
-HomeTitle.TextColor3 = WHITE
-HomeTitle.TextSize = 16
-HomeTitle.Font = Enum.Font.GothamBold
-HomeTitle.Parent = Home
-
-local HomeSub = Instance.new("TextLabel")
-HomeSub.Size = UDim2.new(1, 0, 0, 30)
-HomeSub.Position = UDim2.new(0, 0, 0, 45)
-HomeSub.BackgroundTransparency = 1
-HomeSub.Text = "PVP • Clean • Simple"
-HomeSub.TextColor3 = GRAY
-HomeSub.TextSize = 11
-HomeSub.Font = Enum.Font.Gotham
-HomeSub.Parent = Home
-
--- ==================================================================
---                   MAIN PAGE – PLAYER STATS
--- ==================================================================
-local function getStat(statName)
-    local ls = player:FindFirstChild("leaderstats")
-    if ls then
-        for _, child in ipairs(ls:GetChildren()) do
-            if string.lower(child.Name):find(string.lower(statName)) then
-                return child.Value
-            end
-        end
-    end
-    return "?"
-end
-
-local statsFrame = Instance.new("Frame")
-statsFrame.Size = UDim2.new(1, 0, 0, 100)
-statsFrame.BackgroundTransparency = 1
-statsFrame.Parent = MainPage
-
-local levelLabel = Instance.new("TextLabel")
-levelLabel.Size = UDim2.new(1, 0, 0, 25)
-levelLabel.BackgroundTransparency = 1
-levelLabel.Text = "Level: " .. tostring(getStat("Level"))
-levelLabel.TextColor3 = WHITE
-levelLabel.TextSize = 14
-levelLabel.Font = Enum.Font.GothamBold
-levelLabel.TextXAlignment = Enum.TextXAlignment.Left
-levelLabel.Parent = statsFrame
-
-local bountyLabel = Instance.new("TextLabel")
-bountyLabel.Size = UDim2.new(1, 0, 0, 25)
-bountyLabel.Position = UDim2.new(0, 0, 0, 30)
-bountyLabel.BackgroundTransparency = 1
-bountyLabel.Text = "Bounty: " .. tostring(getStat("Bounty") or getStat("Honor") or "0")
-bountyLabel.TextColor3 = WHITE
-bountyLabel.TextSize = 14
-bountyLabel.Font = Enum.Font.GothamBold
-bountyLabel.TextXAlignment = Enum.TextXAlignment.Left
-bountyLabel.Parent = statsFrame
-
-local moneyLabel = Instance.new("TextLabel")
-moneyLabel.Size = UDim2.new(1, 0, 0, 25)
-moneyLabel.Position = UDim2.new(0, 0, 0, 60)
-moneyLabel.BackgroundTransparency = 1
-moneyLabel.Text = "Money: $" .. tostring(getStat("Money") or getStat("Cash") or "0")
-moneyLabel.TextColor3 = WHITE
-moneyLabel.TextSize = 14
-moneyLabel.Font = Enum.Font.GothamBold
-moneyLabel.TextXAlignment = Enum.TextXAlignment.Left
-moneyLabel.Parent = statsFrame
-
-spawn(function()
-    while true do
-        task.wait(2)
-        pcall(function()
-            levelLabel.Text = "Level: " .. tostring(getStat("Level"))
-            bountyLabel.Text = "Bounty: " .. tostring(getStat("Bounty") or getStat("Honor") or "0")
-            moneyLabel.Text = "Money: $" .. tostring(getStat("Money") or getStat("Cash") or "0")
-        end)
-    end
+--// BUTTON EFFECTS
+Toggle.MouseEnter:Connect(function()
+    tween(Toggle, 0.15, {
+        BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    })
 end)
 
---// NOCLIP
-local noclipEnabled = false
-local function toggleNoclip()
-    noclipEnabled = not noclipEnabled
-    for _, child in ipairs(MainPage:GetChildren()) do
-        if child:IsA("TextButton") and string.sub(child.Text, 1, 6) == "NOCLIP" then
-            child.Text = noclipEnabled and "NOCLIP: ON" or "NOCLIP: OFF"
-            child.BackgroundColor3 = noclipEnabled and Color3.fromRGB(0, 180, 0) or LIGHT
-            break
-        end
-    end
-    if noclipEnabled then
-        pcall(function()
-            local char = player.Character
-            if char then
-                for _, part in pairs(char:GetDescendants()) do
-                    if part:IsA("BasePart") then part.CanCollide = false end
-                end
-            end
-        end)
+Toggle.MouseLeave:Connect(function()
+    tween(Toggle, 0.15, {
+        BackgroundColor3 = BLACK
+    })
+end)
+
+Close.MouseEnter:Connect(function()
+    tween(Close, 0.15, {
+        BackgroundColor3 = LIGHT,
+        TextColor3 = BLACK
+    })
+end)
+
+Close.MouseLeave:Connect(function()
+    tween(Close, 0.15, {
+        BackgroundColor3 = DARKGREY,
+        TextColor3 = LIGHT
+    })
+end)
+
+--// MOBILE SCALE
+local function UpdateScale()
+    if not Camera then return end
+
+    local Width = Camera.ViewportSize.X
+
+    if Width < 500 then
+        Main.Size = UDim2.fromOffset(430, 285)
+        Main.Position = UDim2.new(0.5, -215, 0.5, -142)
     else
-        pcall(function()
-            local char = player.Character
-            if char then
-                for _, part in pairs(char:GetDescendants()) do
-                    if part:IsA("BasePart") then part.CanCollide = true end
-                end
-            end
-        end)
+        Main.Size = UDim2.fromOffset(480, 305)
+        Main.Position = UDim2.new(0.5, -240, 0.5, -152)
     end
 end
-local noclipBtn = CreateButton(MainPage, "NOCLIP: OFF")
-noclipBtn.MouseButton1Click:Connect(toggleNoclip)
 
---// ANTI-STUN
-local antiStun = false
-local function toggleAntiStun()
-    antiStun = not antiStun
-    for _, child in ipairs(MainPage:GetChildren()) do
-        if child:IsA("TextButton") and string.sub(child.Text, 1, 9) == "ANTI-STUN" then
-            child.Text = antiStun and "ANTI-STUN: ON" or "ANTI-STUN: OFF"
-            child.BackgroundColor3 = antiStun and Color3.fromRGB(0, 180, 0) or LIGHT
-            break
-        end
-    end
-    if antiStun then
-        pcall(function()
-            local char = player.Character
-            if char then
-                char:SetAttribute("AllCooldown", 0)
-                char:SetAttribute("FlashstepCooldown", 1)
-                char:SetAttribute("UsingSkill", false)
-                char:SetAttribute("isUsingSkill", false)
-                char:SetAttribute("Busy", false)
-            end
-        end)
-    else
-        pcall(function()
-            local char = player.Character
-            if char then
-                char:SetAttribute("AllCooldown", nil)
-                char:SetAttribute("FlashstepCooldown", nil)
-            end
-        end)
-    end
-end
-local antiStunBtn = CreateButton(MainPage, "ANTI-STUN: OFF")
-antiStunBtn.MouseButton1Click:Connect(toggleAntiStun)
+UpdateScale()
 
--- ==================================================================
---                   BLACKLIST PAGE (CUSTOM KEYS PER CATEGORY)
--- ==================================================================
--- Define blacklist structure: each category has its own keys
-local blacklist = {
-    Melee = { Z = false, X = false, C = false },
-    Fruit = { Z = false, X = false, C = false, V = false, F = false },
-    Sword = { Z = false, X = false },
-    Gun = { Z = false, X = false },
-}
+Camera:GetPropertyChangedSignal("ViewportSize"):Connect(UpdateScale)
 
--- Category definitions for UI
-local categoryDefs = {
-    { name = "Melee", keys = {"Z","X","C"} },
-    { name = "Fruit", keys = {"Z","X","C","V","F"} },
-    { name = "Sword", keys = {"Z","X"} },
-    { name = "Gun", keys = {"Z","X"} },
-}
-
-local function buildBlacklistUI()
-    -- Clear existing UI in BlacklistPage
-    for _, child in ipairs(BlacklistPage:GetChildren()) do
-        if child:IsA("TextButton") or child:IsA("TextLabel") or child:IsA("Frame") then
-            child:Destroy()
-        end
-    end
-
-    local y = 10
-    for _, catDef in ipairs(categoryDefs) do
-        local catName = catDef.name
-        local keys = catDef.keys
-
-        -- Category header
-        local header = Instance.new("TextLabel")
-        header.Size = UDim2.new(1, 0, 0, 24)
-        header.Position = UDim2.new(0, 0, 0, y)
-        header.BackgroundTransparency = 1
-        header.Text = catName:upper()
-        header.TextColor3 = WHITE
-        header.TextSize = 14
-        header.Font = Enum.Font.GothamBold
-        header.TextXAlignment = Enum.TextXAlignment.Left
-        header.Parent = BlacklistPage
-        y = y + 28
-
-        -- Create a toggle for each key in this category
-        for _, key in ipairs(keys) do
-            local btn = CreateToggle(BlacklistPage, catName .. " " .. key, false, function(state)
-                blacklist[catName][key] = state
-            end)
-            btn.Position = UDim2.new(0.03, 0, 0, y)
-            btn.Size = UDim2.new(0.94, 0, 0, 26)
-            y = y + 30
-        end
-        y = y + 10 -- extra spacing between categories
-    end
-end
-buildBlacklistUI()
-
--- ==================================================================
---                   AIMBOT PAGE (with all controls)
--- ==================================================================
--- Variables for aimbot
-local aimbotEnabled = false
-local targetPlayers = true
-local targetNPCs = true
-local teamCheck = false
-local aimPartName = "HumanoidRootPart"
-local maxDistance = 3000
-local flashstepDistance = 150
-local soruEnabled = false
-local excludeF = true
-local currentTarget = nil
-
--- UI creation in AimbotPage
-local function createAimbotUI()
-    -- Title
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, 0, 0, 30)
-    title.BackgroundTransparency = 1
-    title.Text = "AIMBOT SETTINGS"
-    title.TextColor3 = WHITE
-    title.TextSize = 14
-    title.Font = Enum.Font.GothamBold
-    title.Parent = AimbotPage
-
-    -- Toggle: AIMBOT
-    local aimbotToggle = CreateToggle(AimbotPage, "AIMBOT", false, function(state)
-        aimbotEnabled = state
-    end)
-
-    -- Toggle: TARGET PLAYERS
-    local playersToggle = CreateToggle(AimbotPage, "TARGET PLAYERS", true, function(state)
-        targetPlayers = state
-    end)
-
-    -- Toggle: TARGET NPCS
-    local npcsToggle = CreateToggle(AimbotPage, "TARGET NPCS", true, function(state)
-        targetNPCs = state
-    end)
-
-    -- Toggle: TEAM CHECK
-    local teamToggle = CreateToggle(AimbotPage, "TEAM CHECK", false, function(state)
-        teamCheck = state
-    end)
-
-    -- Aim Part selector (button to cycle)
-    local function updateAimPartBtn()
-        for _, child in ipairs(AimbotPage:GetChildren()) do
-            if child:IsA("TextButton") and string.sub(child.Text, 1, 8) == "AIM PART" then
-                child.Text = "AIM PART: " .. aimPartName
-                break
-            end
-        end
-    end
-    local aimPartBtn = CreateButton(AimbotPage, "AIM PART: " .. aimPartName)
-    aimPartBtn.MouseButton1Click:Connect(function()
-        local parts = {"HumanoidRootPart", "Head", "Torso", "UpperTorso"}
-        local idx = table.find(parts, aimPartName) or 1
-        idx = idx % #parts + 1
-        aimPartName = parts[idx]
-        updateAimPartBtn()
-    end)
-
-    -- Toggle: F SKILL (EXCLUDED)
-    local fToggle = CreateToggle(AimbotPage, "F SKILL (EXCLUDED)", true, function(state)
-        excludeF = state
-    end)
-
-    -- Toggle: SORU FLASHSTEP (shows Soru button)
-    local soruToggle = CreateToggle(AimbotPage, "SORU FLASHSTEP", false, function(state)
-        soruEnabled = state
-        SoruButton.Visible = state
-    end)
-
-    -- Slider: Max Distance
-    local distSlider = CreateSlider(AimbotPage, "Aim Dist: ", 500, 5000, 100, function() return maxDistance end, function(v) maxDistance = v end, "")
-
-    -- Slider: Flashstep Distance
-    local flashSlider = CreateSlider(AimbotPage, "Flash Dist: ", 30, 300, 10, function() return flashstepDistance end, function(v) flashstepDistance = v end, "")
-
-    -- Status label
-    local statusLabel = Instance.new("TextLabel")
-    statusLabel.Size = UDim2.new(1, 0, 0, 20)
-    statusLabel.Position = UDim2.new(0, 0, 1, -20)
-    statusLabel.BackgroundTransparency = 1
-    statusLabel.Text = "Target: None"
-    statusLabel.TextColor3 = GRAY
-    statusLabel.TextSize = 9
-    statusLabel.Font = Enum.Font.Gotham
-    statusLabel.TextXAlignment = Enum.TextXAlignment.Left
-    statusLabel.Parent = AimbotPage
-
-    return {
-        updateStatus = function()
-            if aimbotEnabled and currentTarget then
-                local name = "Unknown"
-                local parent = currentTarget.Parent
-                if parent then
-                    local p = Players:GetPlayerFromCharacter(parent)
-                    if p then name = p.Name else name = parent.Name end
-                end
-                statusLabel.Text = "Target: " .. name
-                statusLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
-            else
-                statusLabel.Text = "Target: None"
-                statusLabel.TextColor3 = GRAY
-            end
-        end
-    }
-end
-
-local aimbotUI = createAimbotUI()
-
--- Helper to update target label
-function updateTargetLabel()
-    aimbotUI.updateStatus()
-end
-
--- ==================================================================
---                   AIMBOT CORE LOGIC
--- ==================================================================
-local function isIn180FOV(pos)
-    if not pos or not camera then return false end
-    local look = camera.CFrame.LookVector
-    local char = player.Character
-    if not char then return false end
-    local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then return false end
-    local dir = (pos - root.Position).Unit
-    return look:Dot(dir) >= 0
-end
-
-local function getScreenCenterDist(pos)
-    if not pos or not camera then return math.huge end
-    local sp, on = camera:WorldToViewportPoint(pos)
-    if not on then return math.huge end
-    local center = camera.ViewportSize / 2
-    return (Vector2.new(sp.X, sp.Y) - center).Magnitude
-end
-
-local function getClosestEnemy()
-    local char = player.Character
-    if not char then return nil end
-    local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then return nil end
-    local myPos = root.Position
-
-    local best, bestScore = nil, math.huge
-
-    if targetPlayers then
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= player and p.Character then
-                local hum = p.Character:FindFirstChildOfClass("Humanoid")
-                local part = p.Character:FindFirstChild(aimPartName) or p.Character:FindFirstChild("HumanoidRootPart")
-                if hum and hum.Health > 0 and part then
-                    if teamCheck then
-                        if player.Team and p.Team and player.Team == p.Team then continue end
-                    end
-                    local pos = part.Position
-                    local dist = (pos - myPos).Magnitude
-                    if dist <= maxDistance and isIn180FOV(pos) then
-                        local score = getScreenCenterDist(pos) + dist * 0.001
-                        if score < bestScore then
-                            bestScore, best = score, part
-                        end
+--// AIMBOT FUNCTION (180° FOV)
+local function GetClosestPlayer()
+    local closest = nil
+    local shortestDistance = 180 -- 180° FOV
+    
+    for _, otherPlayer in pairs(Players:GetPlayers()) do
+        if otherPlayer ~= Player and otherPlayer.Character and otherPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local character = Player.Character
+            if character and character:FindFirstChild("HumanoidRootPart") then
+                local root = character.HumanoidRootPart
+                local otherRoot = otherPlayer.Character.HumanoidRootPart
+                
+                local screenPos, onScreen = Camera:WorldToScreenPoint(otherRoot.Position)
+                
+                if onScreen then
+                    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+                    local distance = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+                    
+                    if distance < shortestDistance then
+                        shortestDistance = distance
+                        closest = otherPlayer
                     end
                 end
             end
         end
     end
-
-    if targetNPCs then
-        local enemies = workspace:FindFirstChild("Enemies")
-        if enemies then
-            for _, npc in pairs(enemies:GetChildren()) do
-                if npc:IsA("Model") then
-                    local hum = npc:FindFirstChildOfClass("Humanoid")
-                    local part = npc:FindFirstChild(aimPartName) or npc:FindFirstChild("HumanoidRootPart")
-                    if hum and hum.Health > 0 and part then
-                        local pos = part.Position
-                        local dist = (pos - myPos).Magnitude
-                        if dist <= maxDistance and isIn180FOV(pos) then
-                            local score = getScreenCenterDist(pos) + dist * 0.001
-                            if score < bestScore then
-                                bestScore, best = score, part
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-
-    return best
+    
+    return closest
 end
 
--- Update target continuously
-RunService.Heartbeat:Connect(function()
-    if aimbotEnabled then
-        currentTarget = getClosestEnemy()
-    else
-        currentTarget = nil
-    end
-    updateTargetLabel()
-end)
-
--- ==================================================================
---                   SORU BUTTON ACTION
--- ==================================================================
-SoruButton.MouseButton1Click:Connect(function()
-    if not aimbotEnabled or not currentTarget then return end
-    local targetIsNPC = false
-    local parent = currentTarget.Parent
-    if parent and not Players:GetPlayerFromCharacter(parent) then
-        targetIsNPC = true
-    end
-    if targetIsNPC and not targetNPCs then return end
-
-    local char = player.Character
-    if not char then return end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-    local myPos = hrp.Position
-    local targetPos = currentTarget.Position
-    local dir = (targetPos - myPos).Unit
-    local actualDist = math.min((targetPos - myPos).Magnitude, flashstepDistance)
-    local newPos = myPos + dir * actualDist
-
-    -- Move character and trigger flashstep remote
-    hrp.CFrame = CFrame.new(newPos)
-    local remotes = ReplicatedStorage:FindFirstChild("Remotes")
-    if remotes then
-        local commF = remotes:FindFirstChild("CommF_")
-        if commF then
-            pcall(function() commF:InvokeServer("Flashstep", newPos) end)
-        end
-    end
-end)
-
--- ==================================================================
---                   SILENT AIM HOOKS (with blacklist)
--- ==================================================================
--- Helper to get current weapon category (used in blacklist)
-local function getCurrentCategory()
-    local char = player.Character
-    local tool = char and char:FindFirstChildOfClass("Tool")
-    if not tool then return "Melee"
-    local tName = string.lower(tool.Name)
-    local tt = ""
-    pcall(function() tt = string.lower(tool.ToolTip or tool:GetAttribute("Type") or "") end)
-    if string.find(tName, "fruit") or string.find(tt, "fruit") or string.find(tt, "bloxfruit") or tool:FindFirstChild("Fruit") then
-        return "Fruit"
-    elseif string.find(tName, "blade") or string.find(tName, "sword") or string.find(tName, "katana") or string.find(tt, "sword") then
-        return "Sword"
-    elseif string.find(tName, "gun") or string.find(tName, "rifle") or string.find(tName, "flintlock") or string.find(tt, "gun") then
-        return "Gun"
-    else
-        return "Melee"
-    end
-end
-
--- Override mouse.Hit and mouse.Target
-local lastKey = nil
-UserInputService.InputBegan:Connect(function(input, gp)
-    if gp then return end
-    if input.KeyCode == Enum.KeyCode.F then
-        lastKey = "F"
-    end
-end)
-
-if mouse then
-    local mt = getrawmetatable(game)
-    if mt then
-        local oldIndex = mt.__index
-        setreadonly(mt, false)
-        mt.__index = newcclosure(function(self, key)
-            if not checkcaller() and self == mouse and (key == "Hit" or key == "Target") then
-                if aimbotEnabled and currentTarget then
-                    if excludeF and lastKey == "F" then return oldIndex(self, key) end
-                    -- Check blacklist for the current skill key
-                    -- We can't easily detect which key is being pressed here, but we'll handle it in remote override.
-                    if key == "Hit" then
-                        return CFrame.new(currentTarget.Position)
-                    elseif key == "Target" then
-                        return currentTarget
-                    end
+--// AIMBOT LOOP
+RunService.RenderStepped:Connect(function()
+    if Combat.AimbotEnabled then
+        local target = GetClosestPlayer()
+        
+        if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+            Combat.AimbotTarget = target
+            
+            local character = Player.Character
+            if character and character:FindFirstChild("HumanoidRootPart") then
+                local root = character.HumanoidRootPart
+                local targetRoot = target.Character.HumanoidRootPart
+                
+                -- 180° aimbot - locks camera to target
+                local lookAt = CFrame.lookAt(root.Position, targetRoot.Position)
+                Camera.CFrame = Camera.CFrame:Lerp(lookAt, 0.5)
+                
+                if Combat.AimbotLock then
+                    Camera.CFrame = lookAt
                 end
-            end
-            return oldIndex(self, key)
-        end)
-        setreadonly(mt, true)
-    end
-end
-
--- Override remote events/functions with blacklist
-local function overrideRemote(remote)
-    if remote:IsA("RemoteEvent") then
-        local oldFire = remote.FireServer
-        remote.FireServer = function(self, ...)
-            if aimbotEnabled and currentTarget then
-                local args = { ... }
-                local skillKey = nil
-                for _, arg in ipairs(args) do
-                    if typeof(arg) == "string" then
-                        local upper = string.upper(arg)
-                        if upper == "Z" or upper == "X" or upper == "C" or upper == "V" or upper == "F" then
-                            skillKey = upper
-                            break
-                        end
-                    end
-                end
-                if excludeF and skillKey == "F" then return oldFire(self, ...) end
-                if skillKey then
-                    local cat = getCurrentCategory()
-                    if blacklist[cat] and blacklist[cat][skillKey] then
-                        return oldFire(self, ...)
-                    end
-                end
-                -- Redirect
-                local targetPos = currentTarget.Position
-                for i, arg in ipairs(args) do
-                    if typeof(arg) == "Vector3" then
-                        args[i] = targetPos
-                    elseif typeof(arg) == "CFrame" then
-                        args[i] = CFrame.new(targetPos)
-                    end
-                end
-                -- Special handling for hit registration
-                local name = self.Name
-                if name == "RE/RegisterHit" or name == "RegisterHit" then
-                    local targetChar = currentTarget.Parent
-                    if targetChar then
-                        args[1] = currentTarget
-                        args[2] = { { targetChar, currentTarget } }
-                    end
-                elseif name == "RE/RegisterAttack" or name == "RegisterAttack" then
-                    local targetChar = currentTarget.Parent
-                    if targetChar then
-                        args[2] = { { targetChar, currentTarget } }
-                    end
-                elseif name == "RE/ShootGunEvent" or name == "ShootGunEvent" then
-                    args[1] = targetPos
-                    if currentTarget.Parent then
-                        args[2] = { currentTarget.Parent }
-                    end
-                end
-                return oldFire(self, unpack(args))
-            end
-            return oldFire(self, ...)
-        end
-    elseif remote:IsA("RemoteFunction") then
-        local oldInvoke = remote.InvokeServer
-        remote.InvokeServer = function(self, ...)
-            if aimbotEnabled and currentTarget then
-                local args = { ... }
-                local skillKey = nil
-                for _, arg in ipairs(args) do
-                    if typeof(arg) == "string" then
-                        local upper = string.upper(arg)
-                        if upper == "Z" or upper == "X" or upper == "C" or upper == "V" or upper == "F" then
-                            skillKey = upper
-                            break
-                        end
-                    end
-                end
-                if excludeF and skillKey == "F" then return oldInvoke(self, ...) end
-                if skillKey then
-                    local cat = getCurrentCategory()
-                    if blacklist[cat] and blacklist[cat][skillKey] then
-                        return oldInvoke(self, ...)
-                    end
-                end
-                local targetPos = currentTarget.Position
-                for i, arg in ipairs(args) do
-                    if typeof(arg) == "Vector3" then
-                        args[i] = targetPos
-                    elseif typeof(arg) == "CFrame" then
-                        args[i] = CFrame.new(targetPos)
-                    end
-                end
-                return oldInvoke(self, unpack(args))
-            end
-            return oldInvoke(self, ...)
-        end
-    end
-end
-
--- Apply overrides to all existing and future remotes
-task.spawn(function()
-    for _, remote in ipairs(ReplicatedStorage:GetDescendants()) do
-        if remote:IsA("RemoteEvent") or remote:IsA("RemoteFunction") then
-            overrideRemote(remote)
-        end
-    end
-    ReplicatedStorage.DescendantAdded:Connect(overrideRemote)
-end)
-
--- Fallback namecall for any missed FireServer/InvokeServer
-local oldNamecall
-local mt2 = getrawmetatable(game)
-if mt2 then
-    oldNamecall = mt2.__namecall
-    setreadonly(mt2, false)
-    mt2.__namecall = newcclosure(function(self, ...)
-        local method = getnamecallmethod()
-        if not checkcaller() and (method == "FireServer" or method == "InvokeServer") then
-            if aimbotEnabled and currentTarget then
-                local args = { ... }
-                local skillKey = nil
-                for _, arg in ipairs(args) do
-                    if typeof(arg) == "string" then
-                        local upper = string.upper(arg)
-                        if upper == "Z" or upper == "X" or upper == "C" or upper == "V" or upper == "F" then
-                            skillKey = upper
-                            break
-                        end
-                    end
-                end
-                if excludeF and skillKey == "F" then return oldNamecall(self, ...) end
-                if skillKey then
-                    local cat = getCurrentCategory()
-                    if blacklist[cat] and blacklist[cat][skillKey] then
-                        return oldNamecall(self, ...)
-                    end
-                end
-                local targetPos = currentTarget.Position
-                for i, arg in ipairs(args) do
-                    if typeof(arg) == "Vector3" then
-                        args[i] = targetPos
-                    elseif typeof(arg) == "CFrame" then
-                        args[i] = CFrame.new(targetPos)
-                    end
-                end
-                return oldNamecall(self, unpack(args))
-            end
-        end
-        return oldNamecall(self, ...)
-    end)
-    setreadonly(mt2, true)
-end
-
--- ==================================================================
---                   COMBO MACRO PAGE (unchanged, but added)
--- ==================================================================
-local comboSteps = {
-    {slot = 1, key = "Z", delay = 0.2},
-    {slot = 1, key = "X", delay = 0.2},
-    {slot = 2, key = "C", delay = 0.2},
-    {slot = 2, key = "V", delay = 0.3},
-}
-local comboEnabled = false
-
-function executeComboSteps()
-    if not comboEnabled then return end
-    task.spawn(function()
-        for _, step in ipairs(comboSteps) do
-            if not comboEnabled then break end
-            pcall(function()
-                local slot = step.slot or 1
-                local key = step.key or "Z"
-                local delay = step.delay or 0.3
-
-                local slotKeys = {Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four}
-                if slot >= 1 and slot <= 4 and VirtualInputManager then
-                    VirtualInputManager:SendKeyEvent(true, slotKeys[slot], false, game)
+                
+                -- Auto attack
+                if Combat.AutoAttack and tick() - Combat.LastAttack > Combat.AttackCooldown then
+                    Combat.LastAttack = tick()
+                    
+                    -- Simulate click for attack
+                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, nil, 0)
                     task.wait(0.05)
-                    VirtualInputManager:SendKeyEvent(false, slotKeys[slot], false, game)
+                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, nil, 0)
                 end
-
-                if key == "M1" then
-                    local remotes = ReplicatedStorage:FindFirstChild("Remotes")
-                    if remotes then
-                        local regAttack = remotes:FindFirstChild("RE/RegisterAttack")
-                        if regAttack then regAttack:FireServer(0) end
-                    end
-                else
-                    local keyCode = Enum.KeyCode[key]
-                    if keyCode and VirtualInputManager then
-                        VirtualInputManager:SendKeyEvent(true, keyCode, false, game)
-                        task.wait(0.05)
-                        VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
+            end
+        else
+            Combat.AimbotTarget = nil
+        end
+    end
+    
+    -- Auto dodge
+    if Combat.AutoDodge and tick() - Combat.LastDodge > Combat.DodgeCooldown then
+        Combat.LastDodge = tick()
+        
+        -- Check for incoming attacks
+        local character = Player.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            local root = character.HumanoidRootPart
+            
+            for _, otherPlayer in pairs(Players:GetPlayers()) do
+                if otherPlayer ~= Player and otherPlayer.Character and otherPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    local otherRoot = otherPlayer.Character.HumanoidRootPart
+                    local distance = (root.Position - otherRoot.Position).Magnitude
+                    
+                    if distance < 15 then
+                        -- Dodge by moving
+                        local dodgeDirection = (root.Position - otherRoot.Position).Unit
+                        root.Velocity = dodgeDirection * Vector3.new(100, 0, 100)
+                        root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(45), 0)
                     end
                 end
-
-                if delay > 0 then task.wait(delay) end
-            end)
-        end
-    end)
-end
-
-local function toggleCombo()
-    comboEnabled = not comboEnabled
-    for _, child in ipairs(ComboPage:GetChildren()) do
-        if child:IsA("TextButton") and string.sub(child.Text, 1, 11) == "COMBO MACRO" then
-            child.Text = comboEnabled and "COMBO MACRO: ON" or "COMBO MACRO: OFF"
-            child.BackgroundColor3 = comboEnabled and Color3.fromRGB(0, 180, 0) or LIGHT
-            break
+            end
         end
     end
-    MacroButton.Visible = comboEnabled
-end
-local comboBtn = CreateButton(ComboPage, "COMBO MACRO: OFF")
-comboBtn.MouseButton1Click:Connect(toggleCombo)
-
-MacroButton.MouseButton1Click:Connect(function()
-    if comboEnabled then executeComboSteps() end
-end)
-
-local stepCountLabel = Instance.new("TextLabel")
-stepCountLabel.Size = UDim2.new(1, 0, 0, 20)
-stepCountLabel.Position = UDim2.new(0, 0, 0, 0)
-stepCountLabel.BackgroundTransparency = 1
-stepCountLabel.Text = "Steps: " .. #comboSteps
-stepCountLabel.TextColor3 = WHITE
-stepCountLabel.TextSize = 10
-stepCountLabel.Font = Enum.Font.Gotham
-stepCountLabel.TextXAlignment = Enum.TextXAlignment.Left
-stepCountLabel.Parent = ComboPage
-
-local function rebuildStepUI()
-    for _, child in ipairs(ComboPage:GetChildren()) do
-        if child:IsA("Frame") and child.Name == "StepContainer" then
-            child:Destroy()
+    
+    -- ESP
+    if Combat.ESPEnabled then
+        -- Clear old ESP boxes
+        for _, box in pairs(Combat.ESPBoxes) do
+            if box then
+                box:Destroy()
+            end
         end
-    end
-
-    local container = Instance.new("Frame")
-    container.Name = "StepContainer"
-    container.Size = UDim2.new(1, 0, 0, 0)
-    container.BackgroundTransparency = 1
-    container.Parent = ComboPage
-
-    local layout = Instance.new("UIListLayout")
-    layout.Padding = UDim.new(0, 4)
-    layout.Parent = container
-
-    for i, step in ipairs(comboSteps) do
-        local row = Instance.new("Frame")
-        row.Size = UDim2.new(1, 0, 0, 28)
-        row.BackgroundTransparency = 1
-        row.Parent = container
-
-        local num = Instance.new("TextLabel")
-        num.Size = UDim2.new(0, 25, 1, 0)
-        num.BackgroundTransparency = 1
-        num.Text = i .. "."
-        num.TextColor3 = WHITE
-        num.TextSize = 10
-        num.Font = Enum.Font.GothamBold
-        num.TextXAlignment = Enum.TextXAlignment.Left
-        num.Parent = row
-
-        local slotBtn = Instance.new("TextButton")
-        slotBtn.Size = UDim2.new(0, 45, 1, 0)
-        slotBtn.Position = UDim2.new(0, 30, 0, 0)
-        slotBtn.BackgroundColor3 = LIGHT
-        slotBtn.BorderSizePixel = 0
-        slotBtn.Text = "S" .. step.slot
-        slotBtn.TextColor3 = WHITE
-        slotBtn.TextSize = 10
-        slotBtn.Font = Enum.Font.GothamMedium
-        slotBtn.AutoButtonColor = false
-        slotBtn.Parent = row
-        Instance.new("UICorner", slotBtn).CornerRadius = UDim.new(0, 4)
-        slotBtn.MouseButton1Click:Connect(function()
-            step.slot = step.slot % 4 + 1
-            slotBtn.Text = "S" .. step.slot
-        end)
-
-        local keyBtn = Instance.new("TextButton")
-        keyBtn.Size = UDim2.new(0, 45, 1, 0)
-        keyBtn.Position = UDim2.new(0, 80, 0, 0)
-        keyBtn.BackgroundColor3 = LIGHT
-        keyBtn.BorderSizePixel = 0
-        keyBtn.Text = step.key
-        keyBtn.TextColor3 = WHITE
-        keyBtn.TextSize = 10
-        keyBtn.Font = Enum.Font.GothamMedium
-        keyBtn.AutoButtonColor = false
-        keyBtn.Parent = row
-        Instance.new("UICorner", keyBtn).CornerRadius = UDim.new(0, 4)
-        local keys = {"Z", "X", "C", "V", "F", "M1"}
-        local keyIdx = table.find(keys, step.key) or 1
-        keyBtn.MouseButton1Click:Connect(function()
-            keyIdx = keyIdx % #keys + 1
-            step.key = keys[keyIdx]
-            keyBtn.Text = step.key
-        end)
-
-        local delayFrame = Instance.new("Frame")
-        delayFrame.Size = UDim2.new(0, 110, 1, 0)
-        delayFrame.Position = UDim2.new(0, 130, 0, 0)
-        delayFrame.BackgroundTransparency = 1
-        delayFrame.Parent = row
-
-        local delayLabel = Instance.new("TextLabel")
-        delayLabel.Size = UDim2.new(0.5, 0, 1, 0)
-        delayLabel.BackgroundTransparency = 1
-        delayLabel.Text = string.format("%.2f", step.delay)
-        delayLabel.TextColor3 = WHITE
-        delayLabel.TextSize = 10
-        delayLabel.Font = Enum.Font.GothamBold
-        delayLabel.TextXAlignment = Enum.TextXAlignment.Right
-        delayLabel.Parent = delayFrame
-
-        local decBtn = Instance.new("TextButton")
-        decBtn.Size = UDim2.new(0, 20, 1, 0)
-        decBtn.Position = UDim2.new(0.55, 0, 0, 0)
-        decBtn.BackgroundColor3 = LIGHT
-        decBtn.BorderSizePixel = 0
-        decBtn.Text = "-"
-        decBtn.TextColor3 = WHITE
-        decBtn.TextSize = 12
-        decBtn.Font = Enum.Font.GothamBold
-        decBtn.AutoButtonColor = false
-        decBtn.Parent = delayFrame
-        Instance.new("UICorner", decBtn).CornerRadius = UDim.new(0, 4)
-        decBtn.MouseButton1Click:Connect(function()
-            step.delay = math.max(0.05, math.floor((step.delay - 0.05) * 100) / 100)
-            delayLabel.Text = string.format("%.2f", step.delay)
-        end)
-
-        local incBtn = Instance.new("TextButton")
-        incBtn.Size = UDim2.new(0, 20, 1, 0)
-        incBtn.Position = UDim2.new(0.8, 0, 0, 0)
-        incBtn.BackgroundColor3 = LIGHT
-        incBtn.BorderSizePixel = 0
-        incBtn.Text = "+"
-        incBtn.TextColor3 = WHITE
-        incBtn.TextSize = 12
-        incBtn.Font = Enum.Font.GothamBold
-        incBtn.AutoButtonColor = false
-        incBtn.Parent = delayFrame
-        Instance.new("UICorner", incBtn).CornerRadius = UDim.new(0, 4)
-        incBtn.MouseButton1Click:Connect(function()
-            step.delay = math.min(2.0, math.floor((step.delay + 0.05) * 100) / 100)
-            delayLabel.Text = string.format("%.2f", step.delay)
-        end)
-
-        local removeBtn = Instance.new("TextButton")
-        removeBtn.Size = UDim2.new(0, 20, 1, 0)
-        removeBtn.Position = UDim2.new(1, -22, 0, 0)
-        removeBtn.BackgroundColor3 = LIGHT
-        removeBtn.BorderSizePixel = 0
-        removeBtn.Text = "✕"
-        removeBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
-        removeBtn.TextSize = 12
-        removeBtn.Font = Enum.Font.GothamBold
-        removeBtn.AutoButtonColor = false
-        removeBtn.Parent = row
-        Instance.new("UICorner", removeBtn).CornerRadius = UDim.new(0, 4)
-        removeBtn.MouseButton1Click:Connect(function()
-            table.remove(comboSteps, i)
-            rebuildStepUI()
-            stepCountLabel.Text = "Steps: " .. #comboSteps
-        end)
-    end
-
-    local addBtn = Instance.new("TextButton")
-    addBtn.Size = UDim2.new(1, 0, 0, 28)
-    addBtn.BackgroundColor3 = LIGHT
-    addBtn.BorderSizePixel = 0
-    addBtn.Text = "+ ADD STEP"
-    addBtn.TextColor3 = WHITE
-    addBtn.TextSize = 11
-    addBtn.Font = Enum.Font.GothamMedium
-    addBtn.AutoButtonColor = false
-    addBtn.Parent = container
-    Instance.new("UICorner", addBtn).CornerRadius = UDim.new(0, 4)
-    addBtn.MouseButton1Click:Connect(function()
-        table.insert(comboSteps, {slot = 1, key = "Z", delay = 0.2})
-        rebuildStepUI()
-        stepCountLabel.Text = "Steps: " .. #comboSteps
-    end)
-
-    container.Size = UDim2.new(1, 0, 0, 28 * #comboSteps + 32)
-    stepCountLabel.Text = "Steps: " .. #comboSteps
-end
-rebuildStepUI()
-
--- ==================================================================
---                   VISUALS (ESP) PAGE (unchanged)
--- ==================================================================
-local espEnabled = false
-local espName = true
-local espDist = true
-local espHealth = false
-
-local function toggleESP()
-    espEnabled = not espEnabled
-    for _, child in ipairs(VisualsPage:GetChildren()) do
-        if child:IsA("TextButton") and string.sub(child.Text, 1, 10) == "ESP MASTER" then
-            child.Text = espEnabled and "ESP MASTER: ON" or "ESP MASTER: OFF"
-            child.BackgroundColor3 = espEnabled and Color3.fromRGB(0, 180, 0) or LIGHT
-            break
-        end
-    end
-    if not espEnabled then
-        for _, v in pairs(workspace:GetDescendants()) do
-            if v:IsA("BillboardGui") and v.Name == "IvoryESP" then v:Destroy() end
-        end
-    end
-end
-local espBtn = CreateButton(VisualsPage, "ESP MASTER: OFF")
-espBtn.MouseButton1Click:Connect(toggleESP)
-
-local function toggleESPName()
-    espName = not espName
-    for _, child in ipairs(VisualsPage:GetChildren()) do
-        if child:IsA("TextButton") and string.sub(child.Text, 1, 9) == "SHOW NAME" then
-            child.Text = espName and "SHOW NAME: ON" or "SHOW NAME: OFF"
-            child.BackgroundColor3 = espName and Color3.fromRGB(0, 180, 0) or LIGHT
-            break
-        end
-    end
-end
-local nameBtn = CreateButton(VisualsPage, "SHOW NAME: ON")
-nameBtn.MouseButton1Click:Connect(toggleESPName)
-
-local function toggleESPDist()
-    espDist = not espDist
-    for _, child in ipairs(VisualsPage:GetChildren()) do
-        if child:IsA("TextButton") and string.sub(child.Text, 1, 13) == "SHOW DISTANCE" then
-            child.Text = espDist and "SHOW DISTANCE: ON" or "SHOW DISTANCE: OFF"
-            child.BackgroundColor3 = espDist and Color3.fromRGB(0, 180, 0) or LIGHT
-            break
-        end
-    end
-end
-local distBtn = CreateButton(VisualsPage, "SHOW DISTANCE: ON")
-distBtn.MouseButton1Click:Connect(toggleESPDist)
-
-local function toggleESPHealth()
-    espHealth = not espHealth
-    for _, child in ipairs(VisualsPage:GetChildren()) do
-        if child:IsA("TextButton") and string.sub(child.Text, 1, 11) == "SHOW HEALTH" then
-            child.Text = espHealth and "SHOW HEALTH: ON" or "SHOW HEALTH: OFF"
-            child.BackgroundColor3 = espHealth and Color3.fromRGB(0, 180, 0) or LIGHT
-            break
-        end
-    end
-end
-local healthBtn = CreateButton(VisualsPage, "SHOW HEALTH: OFF")
-healthBtn.MouseButton1Click:Connect(toggleESPHealth)
-
-RunService.Heartbeat:Connect(function()
-    if not espEnabled then return end
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= player and p.Character then
-            local char = p.Character
-            local head = char:FindFirstChild("Head")
-            if head then
-                local bill = head:FindFirstChild("IvoryESP")
-                if not bill then
-                    bill = Instance.new("BillboardGui")
-                    bill.Name = "IvoryESP"
-                    bill.Size = UDim2.new(0, 200, 0, 50)
-                    bill.Adornee = head
-                    bill.AlwaysOnTop = true
-                    bill.Parent = head
-                    local label = Instance.new("TextLabel")
-                    label.Size = UDim2.new(1, 0, 1, 0)
-                    label.BackgroundTransparency = 1
-                    label.TextColor3 = WHITE
-                    label.TextStrokeColor3 = BLACK
-                    label.TextStrokeTransparency = 0
-                    label.Font = Enum.Font.GothamBold
-                    label.TextSize = 10
-                    label.Parent = bill
-                end
-                local label = bill:FindFirstChild("TextLabel")
-                if label then
-                    local text = ""
-                    if espName then text = text .. p.Name end
-                    if espDist then
-                        local root = char:FindFirstChild("HumanoidRootPart")
-                        local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-                        if root and myRoot then
-                            local dist = math.floor((root.Position - myRoot.Position).Magnitude)
-                            if espName then text = text .. "  " end
-                            text = text .. dist .. "m"
-                        end
-                    end
-                    if espHealth then
-                        local hum = char:FindFirstChildOfClass("Humanoid")
-                        if hum then
-                            local hp = math.floor((hum.Health / hum.MaxHealth) * 100)
-                            if espName or espDist then text = text .. "  " end
-                            text = text .. hp .. "% HP"
-                        end
-                    end
-                    label.Text = text
+        Combat.ESPBoxes = {}
+        
+        for _, otherPlayer in pairs(Players:GetPlayers()) do
+            if otherPlayer ~= Player and otherPlayer.Character and otherPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                local root = otherPlayer.Character.HumanoidRootPart
+                local screenPos, onScreen = Camera:WorldToScreenPoint(root.Position)
+                
+                if onScreen then
+                    local box = Drawing.new("Square")
+                    box.Visible = true
+                    box.Size = Vector2.new(50, 100)
+                    box.Position = Vector2.new(screenPos.X - 25, screenPos.Y - 100)
+                    box.Color = Color3.fromRGB(255, 0, 0)
+                    box.Thickness = 2
+                    box.Filled = false
+                    
+                    table.insert(Combat.ESPBoxes, box)
                 end
             end
         end
     end
 end)
-
--- ==================================================================
---                   PLAYERS & SETTINGS
--- ==================================================================
-CreateButton(PlayersPage, "Player List (Coming Soon)")
-CreateButton(PlayersPage, "Refresh Players")
-
--- Settings: Dark Theme
-local themeBlack = true
-local function applyTheme(dark)
-    themeBlack = dark
-    if dark then
-        Main.BackgroundColor3 = BLACK
-        Top.BackgroundColor3 = DARK
-        Content.BackgroundColor3 = DARK
-        Sidebar.BackgroundColor3 = DARK
-        Title.TextColor3 = WHITE
-        Sub.TextColor3 = GRAY
-        MainStroke.Color = Color3.fromRGB(55,55,55)
-        Toggle.BackgroundColor3 = BLACK
-        Toggle.TextColor3 = WHITE
-        ToggleStroke.Color = WHITE
-        Close.BackgroundColor3 = LIGHT
-        Close.TextColor3 = WHITE
-        MacroButton.BackgroundColor3 = BLACK
-        MacroButton.TextColor3 = WHITE
-        MacroStroke.Color = WHITE
-        SoruButton.BackgroundColor3 = BLACK
-        SoruButton.TextColor3 = WHITE
-        SoruStroke.Color = WHITE
-        for _, page in pairs(Pages) do
-            for _, child in ipairs(page:GetDescendants()) do
-                if child:IsA("TextLabel") then
-                    child.TextColor3 = WHITE
-                end
-                if child:IsA("TextButton") and child.BackgroundColor3 ~= Color3.fromRGB(0, 180, 0) then
-                    child.TextColor3 = WHITE
-                end
-            end
-        end
-    else
-        Main.BackgroundColor3 = WHITE
-        Top.BackgroundColor3 = Color3.fromRGB(230, 230, 230)
-        Content.BackgroundColor3 = Color3.fromRGB(230, 230, 230)
-        Sidebar.BackgroundColor3 = Color3.fromRGB(230, 230, 230)
-        Title.TextColor3 = BLACK
-        Sub.TextColor3 = Color3.fromRGB(80, 80, 80)
-        MainStroke.Color = Color3.fromRGB(200, 200, 200)
-        Toggle.BackgroundColor3 = WHITE
-        Toggle.TextColor3 = BLACK
-        ToggleStroke.Color = BLACK
-        Close.BackgroundColor3 = Color3.fromRGB(220, 220, 220)
-        Close.TextColor3 = BLACK
-        MacroButton.BackgroundColor3 = WHITE
-        MacroButton.TextColor3 = BLACK
-        MacroStroke.Color = BLACK
-        SoruButton.BackgroundColor3 = WHITE
-        SoruButton.TextColor3 = BLACK
-        SoruStroke.Color = BLACK
-        for _, page in pairs(Pages) do
-            for _, child in ipairs(page:GetDescendants()) do
-                if child:IsA("TextLabel") then
-                    child.TextColor3 = BLACK
-                end
-                if child:IsA("TextButton") and child.BackgroundColor3 ~= Color3.fromRGB(0, 180, 0) then
-                    child.TextColor3 = BLACK
-                end
-            end
-        end
-    end
-    for _, obj in ipairs(Sidebar:GetChildren()) do
-        if obj:IsA("TextButton") then
-            if obj.BackgroundColor3 == WHITE then
-                obj.BackgroundColor3 = dark and WHITE or BLACK
-                obj.TextColor3 = dark and BLACK or WHITE
-            else
-                obj.BackgroundColor3 = dark and LIGHT or Color3.fromRGB(220, 220, 220)
-                obj.TextColor3 = dark and WHITE or BLACK
-            end
-        end
-    end
-end
-
-local function toggleTheme()
-    themeBlack = not themeBlack
-    for _, child in ipairs(SettingsPage:GetChildren()) do
-        if child:IsA("TextButton") and string.sub(child.Text, 1, 10) == "DARK THEME" then
-            child.Text = themeBlack and "DARK THEME: ON" or "DARK THEME: OFF"
-            child.BackgroundColor3 = themeBlack and Color3.fromRGB(0, 180, 0) or LIGHT
-            break
-        end
-    end
-    applyTheme(themeBlack)
-end
-local themeBtn = CreateButton(SettingsPage, "DARK THEME: ON")
-themeBtn.MouseButton1Click:Connect(toggleTheme)
-applyTheme(true)
-
--- Info & Credits
-local infoText = Instance.new("TextLabel")
-infoText.Size = UDim2.new(1, 0, 0, 140)
-infoText.Position = UDim2.new(0, 0, 0, 10)
-infoText.BackgroundTransparency = 1
-infoText.Text = "Ivory Hub (Full PVP Edition)\n\nCreated by: lvory999\n\nIdeas: rayo06996\n\nFeatures:\n- Blacklist (per category)\n- Combo Macro (custom steps)\n- Silent Aimbot (180° FOV)\n- Soru Flashstep teleport\n- ESP, Noclip, Anti-Stun"
-infoText.TextColor3 = WHITE
-infoText.TextSize = 11
-infoText.Font = Enum.Font.Gotham
-infoText.TextXAlignment = Enum.TextXAlignment.Left
-infoText.TextYAlignment = Enum.TextYAlignment.Top
-infoText.Parent = InfoPage
-
-local creditsText = Instance.new("TextLabel")
-creditsText.Size = UDim2.new(1, 0, 0, 120)
-creditsText.Position = UDim2.new(0, 0, 0, 10)
-creditsText.BackgroundTransparency = 1
-creditsText.Text = "Ivory Hub\n\nDesign & Development: lvory999\n\nIdeas: rayo06996\n\nSpecial thanks to the community."
-creditsText.TextColor3 = WHITE
-creditsText.TextSize = 11
-creditsText.Font = Enum.Font.Gotham
-creditsText.TextXAlignment = Enum.TextXAlignment.Left
-creditsText.TextYAlignment = Enum.TextYAlignment.Top
-creditsText.Parent = CreditsPage
-
-print("Ivory Hub (Full PVP Edition) loaded successfully!")
