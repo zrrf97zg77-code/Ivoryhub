@@ -36,14 +36,14 @@ popFrame.AutomaticSize = Enum.AutomaticSize.XY
 popFrame.Size = UDim2.new(0, 0, 0, 0)
 popFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 popFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-popFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE BACKGROUND
+popFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK BACKGROUND
 popFrame.BorderSizePixel = 0
 popFrame.Active = true
 popFrame.Draggable = true
 
 Instance.new("UICorner", popFrame).CornerRadius = UDim.new(0, 16)
 local popStroke = Instance.new("UIStroke", popFrame)
-popStroke.Color = Color3.fromRGB(0, 0, 0) -- BLACK OUTLINE
+popStroke.Color = Color3.fromRGB(255, 255, 255) -- WHITE OUTLINE
 popStroke.Thickness = 2
 
 local popPadding = Instance.new("UIPadding", popFrame)
@@ -60,14 +60,14 @@ popLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 -- BOTÓN IDIOMA
 local langBtn = Instance.new("TextButton", popFrame)
 langBtn.Size = UDim2.new(0, 50, 0, 20)
-langBtn.BackgroundColor3 = Color3.fromRGB(230, 230, 230)
+langBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 langBtn.Text = isSpanish and "ES 🌐" or "EN 🌐"
 langBtn.Font = Enum.Font.GothamBold
 langBtn.TextSize = 9
-langBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+langBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 Instance.new("UICorner", langBtn).CornerRadius = UDim.new(0, 6)
 local langStroke = Instance.new("UIStroke", langBtn)
-langStroke.Color = Color3.fromRGB(0, 0, 0)
+langStroke.Color = Color3.fromRGB(255, 255, 255)
 langStroke.Thickness = 1
 
 -- TÍTULO
@@ -77,17 +77,17 @@ popTitle.BackgroundTransparency = 1
 popTitle.Text = "✨ IVORY HUB 12.5"
 popTitle.Font = Enum.Font.GothamBlack
 popTitle.TextSize = 18
-popTitle.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
+popTitle.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
 popTitle.LayoutOrder = 1
 
 -- SUBTÍTULO
 local popSubTitle = Instance.new("TextLabel", popFrame)
 popSubTitle.AutomaticSize = Enum.AutomaticSize.XY
 popSubTitle.BackgroundTransparency = 1
-popSubTitle.Text = "by iSacredRivals"
+popSubTitle.Text = "by: lvory999"
 popSubTitle.Font = Enum.Font.GothamBold
 popSubTitle.TextSize = 11
-popSubTitle.TextColor3 = Color3.fromRGB(80, 80, 80)
+popSubTitle.TextColor3 = Color3.fromRGB(200, 200, 200)
 popSubTitle.LayoutOrder = 2
 
 -- WARNING
@@ -97,7 +97,7 @@ popWarning.Size = UDim2.new(0, 230, 0, 0)
 popWarning.BackgroundTransparency = 1
 popWarning.Font = Enum.Font.GothamBlack
 popWarning.TextSize = 8.5
-popWarning.TextColor3 = Color3.fromRGB(200, 0, 0)
+popWarning.TextColor3 = Color3.fromRGB(255, 200, 50)
 popWarning.TextWrapped = true
 popWarning.TextXAlignment = Enum.TextXAlignment.Center
 popWarning.LayoutOrder = 3
@@ -110,7 +110,7 @@ popContent.Size = UDim2.new(0, 230, 0, 0)
 popContent.BackgroundTransparency = 1
 popContent.Font = Enum.Font.GothamBold
 popContent.TextSize = 8.5
-popContent.TextColor3 = Color3.fromRGB(40, 40, 40)
+popContent.TextColor3 = Color3.fromRGB(220, 220, 220)
 popContent.TextWrapped = true
 popContent.TextXAlignment = Enum.TextXAlignment.Left
 popContent.TextYAlignment = Enum.TextYAlignment.Top
@@ -125,11 +125,11 @@ end
 -- BOTÓN GET STARTED
 local getStartedBtn = Instance.new("TextButton", popFrame)
 getStartedBtn.Size = UDim2.new(0, 140, 0, 32)
-getStartedBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
+getStartedBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
 getStartedBtn.Text = isSpanish and "Empezar" or "Get Started"
 getStartedBtn.Font = Enum.Font.GothamBlack
 getStartedBtn.TextSize = 12
-getStartedBtn.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE TEXT
+getStartedBtn.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK TEXT
 getStartedBtn.LayoutOrder = 5
 Instance.new("UICorner", getStartedBtn).CornerRadius = UDim.new(0, 8)
 
@@ -1422,7 +1422,7 @@ end
 function createESP(targetP)
     if not targetP or targetP == player then return end
     if targetP:GetAttribute("IsAuthor") or 
-       targetP.Name == "iSacredRivals" or 
+       targetP.Name == "lvory999" or 
        targetP.Name == "sjqgduf" or 
        targetP.Name == "huha123444" or 
        targetP.Name == "ksxrcm111" or
@@ -1521,7 +1521,7 @@ function updateESP()
     for _, targetP in ipairs(Players:GetPlayers()) do
         if targetP ~= player then
             local isSpecial = targetP:GetAttribute("IsAuthor") or 
-               targetP.Name == "iSacredRivals" or 
+               targetP.Name == "lvory999" or 
                targetP.Name == "sjqgdu6" or 
                targetP.Name == "huha124444" or 
                targetP.Name == "ksxrcn111" or
@@ -1985,8 +1985,7 @@ function applyFakeHeadless(char)
                     if not isHeadAcc then
                         for _, weld in pairs(handle:GetChildren()) do
                             if weld:IsA("Weld") or weld:IsA("Motor6D") or weld:IsA("WeldConstraint") then
-                                if weld.Part0 == head or weld.Part1 == head then
-                                    isHeadAcc = true
+                                if weld.Part0 == head or weld.Part1 == head then                                    isHeadAcc = true
                                     break
                                 end
                             end
@@ -2400,14 +2399,14 @@ pcall(function()
     if Drawing and Drawing.new then
         FOVCircle = Drawing.new("Circle")
         FOVCircle.Visible = _G.G_SilentAimShowFOV
-        FOVCircle.Color = Color3.fromRGB(0, 0, 0)
+        FOVCircle.Color = Color3.fromRGB(255, 255, 255)
         FOVCircle.Radius = _G.G_SilentAimFOV
         FOVCircle.Thickness = _G.G_SilentAimFOVThickness
         FOVCircle.Filled = false
 
         LockLine = Drawing.new("Line")
         LockLine.Thickness = 2
-        LockLine.Color = Color3.fromRGB(0, 0, 0)
+        LockLine.Color = Color3.fromRGB(255, 255, 255)
         LockLine.Transparency = 1
         LockLine.Visible = false
     end
@@ -2772,11 +2771,11 @@ local THEMES = {
     ["Pure White"] = Color3.fromRGB(255, 255, 255),
     ["Pure Black"] = Color3.fromRGB(0, 0, 0),
 }
-local currentThemeColor = THEMES["Pure White"] -- WHITE BY DEFAULT
+local currentThemeColor = THEMES["Pure Black"] -- BLACK BY DEFAULT
 local COLORS = {
-    Background = Color3.fromRGB(255, 255, 255), -- Pure White
-    PanelBG = Color3.fromRGB(255, 255, 255), -- Pure White
-    TextWhite = Color3.fromRGB(255, 255, 255),
+    Background = Color3.fromRGB(0, 0, 0), -- Pure Black
+    PanelBG = Color3.fromRGB(0, 0, 0), -- Pure Black
+    TextWhite = Color3.fromRGB(0, 0, 0),
     TextGray = Color3.fromRGB(200, 200, 210),
     ToggleOff = Color3.fromRGB(200, 200, 200), -- Light Gray
 }
@@ -2934,7 +2933,7 @@ function makeFloatingWidget(parent, pos, title)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(0, 130, 0, 36)
     btn.Position = pos
-    btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+    btn.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
     btn.BackgroundTransparency = 0 -- OPAQUE
     btn.Font = Enum.Font.GothamBold
     btn.TextColor3 = COLORS.TextWhite
@@ -2946,7 +2945,7 @@ function makeFloatingWidget(parent, pos, title)
     btn.Parent = parent
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
     local sk = Instance.new("UIStroke", btn)
-    sk.Color = Color3.fromRGB(0, 0, 0) -- BLACK
+    sk.Color = Color3.fromRGB(255, 255, 255) -- WHITE
     sk.Thickness = 1.5
     table.insert(themeStrokes, sk)
     return btn
@@ -2975,7 +2974,7 @@ function makeWidget(parent, pos)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(0, 115, 0, 36)
     btn.Position = pos
-    btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+    btn.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
     btn.BackgroundTransparency = 0 -- OPAQUE
     btn.Font = Enum.Font.GothamBold
     btn.TextColor3 = COLORS.TextWhite
@@ -2986,7 +2985,7 @@ function makeWidget(parent, pos)
     btn.Parent = parent
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
     local sk = Instance.new("UIStroke", btn)
-    sk.Color = Color3.fromRGB(0, 0, 0) -- BLACK
+    sk.Color = Color3.fromRGB(255, 255, 255) -- WHITE
     sk.Thickness = 1.5
     table.insert(themeStrokes, sk)
     return btn
@@ -3011,7 +3010,7 @@ local mainFrame = Instance.new("Frame")
 mainFrame.Name = "IvoryMainFrame"
 mainFrame.Size = UDim2.new(0, 480, 0, 315)
 mainFrame.Position = UDim2.new(0.5, -240, 0.5, -157)
-mainFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE BACKGROUND
+mainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK BACKGROUND
 mainFrame.BackgroundTransparency = 0 -- FULLY OPAQUE
 mainFrame.Visible = true
 mainFrame.Active = true
@@ -3020,7 +3019,7 @@ mainFrame.Parent = screenGui
 Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 24) -- Esquinas extra redondeadas
 
 local mainFrameStroke = Instance.new("UIStroke", mainFrame)
-mainFrameStroke.Color = Color3.fromRGB(0, 0, 0) -- BLACK
+mainFrameStroke.Color = Color3.fromRGB(255, 255, 255) -- WHITE
 mainFrameStroke.Thickness = 2
 table.insert(themeStrokes, mainFrameStroke)
 
@@ -3061,7 +3060,7 @@ function createIntenseRainDrop()
     drop.Name = "RainDrop"
     drop.Size = UDim2.new(0, 2, 0, math.random(14, 26))
     drop.Position = UDim2.new(math.random(1, 99) / 100, 0, -0.15, 0)
-    drop.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK RAIN
+    drop.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE RAIN
     drop.BackgroundTransparency = math.random(2, 5) / 10
     drop.BorderSizePixel = 0
     Instance.new("UICorner", drop).CornerRadius = UDim.new(1, 0)
@@ -3097,7 +3096,7 @@ end
 local openButton = Instance.new("TextButton")
 openButton.Size = UDim2.new(0, 42, 0, 42)
 openButton.Position = UDim2.new(0, 15, 0, 15)
-openButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+openButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
 openButton.BackgroundTransparency = 0
 openButton.Text = ""
 openButton.Visible = false
@@ -3123,7 +3122,7 @@ Instance.new("UICorner", openButton).CornerRadius = UDim.new(0, 8)
 local openStroke = Instance.new("UIStroke", openButton)
 openStroke.Thickness = 1.8
 openStroke.Transparency = 0
-openStroke.Color = Color3.fromRGB(0, 0, 0) -- BLACK
+openStroke.Color = Color3.fromRGB(255, 255, 255) -- WHITE
 table.insert(themeStrokes, openStroke)
 
 openButton.MouseButton1Click:Connect(function()
@@ -3135,12 +3134,12 @@ local topTikTokLabel = Instance.new("TextLabel", mainFrame)
 topTikTokLabel.Size = UDim2.new(0, 200, 0, 22)
 topTikTokLabel.Position = UDim2.new(0.5, -100, 0, 12)
 topTikTokLabel.BackgroundTransparency = 1
-topTikTokLabel.Text = "🎵 TikTok: @iSacredRivals"
+topTikTokLabel.Text = "🎵 TikTok: @lvory999"
 topTikTokLabel.Font = Enum.Font.GothamBold
 topTikTokLabel.TextSize = 10
-topTikTokLabel.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
+topTikTokLabel.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
 topTikTokLabel.TextStrokeTransparency = 0
-topTikTokLabel.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+topTikTokLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 topTikTokLabel.TextXAlignment = Enum.TextXAlignment.Center
 
 local controlsContainer = Instance.new("Frame", mainFrame)
@@ -3152,7 +3151,7 @@ function createTopControl(text, xOff, color, cb)
     local btn = Instance.new("TextButton", controlsContainer)
     btn.Size = UDim2.new(0, 22, 0, 22)
     btn.Position = UDim2.new(0, xOff, 0, 0)
-    btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+    btn.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
     btn.BackgroundTransparency = 0 -- OPAQUE
     btn.Text = text
     btn.Font = Enum.Font.GothamBlack
@@ -3162,12 +3161,12 @@ function createTopControl(text, xOff, color, cb)
     btn.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
     local tcStroke = Instance.new("UIStroke", btn)
-    tcStroke.Color = Color3.fromRGB(0, 0, 0) -- BLACK
+    tcStroke.Color = Color3.fromRGB(255, 255, 255) -- WHITE
     tcStroke.Thickness = 1
     btn.MouseButton1Click:Connect(cb)
 end
 
-createTopControl("-", 0, Color3.fromRGB(0, 0, 0), function()
+createTopControl("-", 0, Color3.fromRGB(255, 255, 255), function()
     mainFrame.Visible = false
     openButton.Visible = true
 end)
@@ -3190,7 +3189,7 @@ local mainTitle = Instance.new("TextLabel", sidebar)
 mainTitle.Text = "IVORY HUB"
 mainTitle.Font = Enum.Font.GothamBlack
 mainTitle.TextSize = 17
-mainTitle.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
+mainTitle.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
 mainTitle.Size = UDim2.new(0, 110, 0, 20)
 mainTitle.Position = UDim2.new(0, 14, 0, 10)
 mainTitle.BackgroundTransparency = 1
@@ -3218,10 +3217,10 @@ end)
 -- TikTok Button Removed
 
 local subTitle = Instance.new("TextLabel", sidebar)
-subTitle.Text = "by iSacredRivals"
+subTitle.Text = "by lvory999"
 subTitle.Font = Enum.Font.GothamBold
 subTitle.TextSize = 10.5
-subTitle.TextColor3 = Color3.fromRGB(80, 80, 80)
+subTitle.TextColor3 = Color3.fromRGB(200, 200, 200)
 subTitle.Size = UDim2.new(1, 0, 0, 14)
 subTitle.Position = UDim2.new(0, 14, 0, 31)
 subTitle.BackgroundTransparency = 1
@@ -3270,12 +3269,12 @@ StatsPage.Visible = true
 local RightPanel = Instance.new("Frame", mainFrame)
 RightPanel.Size = UDim2.new(0, 160, 1, -55)
 RightPanel.Position = UDim2.new(0, 295, 0, 45)
-RightPanel.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+RightPanel.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
 RightPanel.BackgroundTransparency = 0.3 -- Cristal oscuro sutil que permite ver el wallpaper y hace 100% legibles los nombres de la lista!
 RightPanel.Visible = false
 Instance.new("UICorner", RightPanel).CornerRadius = UDim.new(0, 8)
 local rpStroke = Instance.new("UIStroke", RightPanel)
-rpStroke.Color = Color3.fromRGB(0, 0, 0) -- BLACK
+rpStroke.Color = Color3.fromRGB(255, 255, 255) -- WHITE
 rpStroke.Thickness = 1.5
 table.insert(themeStrokes, rpStroke)
 
@@ -3291,15 +3290,15 @@ Instance.new("UIListLayout", ListScroll).Padding = UDim.new(0, 4)
 local DropLabel = Instance.new("TextButton", ListScroll)
 DropLabel.Name = "DropLabel"
 DropLabel.Size = UDim2.new(1, 0, 0, 24)
-DropLabel.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+DropLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
 DropLabel.BackgroundTransparency = 0 -- OPAQUE
 DropLabel.Text = "🎯 Selector: Nearest"
 DropLabel.Font = Enum.Font.GothamBold
-DropLabel.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
+DropLabel.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
 DropLabel.TextSize = 8.5
 Instance.new("UICorner", DropLabel).CornerRadius = UDim.new(0, 4)
 local dlStroke = Instance.new("UIStroke", DropLabel)
-dlStroke.Color = Color3.fromRGB(0, 0, 0) -- BLACK
+dlStroke.Color = Color3.fromRGB(255, 255, 255) -- WHITE
 dlStroke.Thickness = 1.5
 table.insert(themeStrokes, dlStroke)
 table.insert(themeTexts, DropLabel)
@@ -3411,7 +3410,7 @@ TRANSLATIONS = {
 
         -- Buttons & Labels
         ["Copy Discord Link"] = "💬 Copy Discord Link",
-        ["Copy TikTok"] = "🎵 TikTok: @iSacredRivals",
+        ["Copy TikTok"] = "🎵 TikTok: @lvory999",
         ["Save Config"] = "💾 Save Config",
         ["Reset Config"] = "🔄 Reset Config",
         ["LangBtn"] = "🌐 Language: English (EN)",
@@ -3516,7 +3515,7 @@ TRANSLATIONS = {
 
         -- Buttons & Labels
         ["Copy Discord Link"] = "💬 Copiar Enlace de Discord",
-        ["Copy TikTok"] = "🎵 TikTok: @iSacredRivals",
+        ["Copy TikTok"] = "🎵 TikTok: @lvory999",
         ["Save Config"] = "💾 Guardar Configuración",
         ["Reset Config"] = "🔄 Restablecer Configuración",
         ["LangBtn"] = "🌐 Idioma: Español (ES)",
@@ -3590,7 +3589,7 @@ function updateUILanguage(lang)
 
     if langBtn then langBtn.Text = dict["LangBtn"] or (currentLang == "ES" and "🌐 Idioma: Español (ES)" or "🌐 Language: English (EN)") end
     if copyBtn then copyBtn.Text = dict["Copy Discord Link"] or "💬 Copy Discord Link" end
-    if copyTikTokBtn then copyTikTokBtn.Text = dict["Copy TikTok"] or "🎵 TikTok: @iSacredRivals" end
+    if copyTikTokBtn then copyTikTokBtn.Text = dict["Copy TikTok"] or "🎵 TikTok: @lvory999" end
     if saveBtn then saveBtn.Text = dict["Save Config"] or "💾 Save Config" end
     if resetBtn then resetBtn.Text = dict["Reset Config"] or "🔄 Reset Config" end
 end
@@ -3601,7 +3600,7 @@ for _, cat in ipairs(categories) do
     btn.Text = TRANSLATIONS[currentLang][cat.key] or cat.key
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 11
-    btn.TextColor3 = (cat.page == StatsPage) and Color3.fromRGB(0, 0, 0) or COLORS.TextGray
+    btn.TextColor3 = (cat.page == StatsPage) and Color3.fromRGB(255, 255, 255) or COLORS.TextGray
     btn.Size = UDim2.new(1, -12, 0, 24)
     btn.BackgroundTransparency = 1
     btn.TextXAlignment = Enum.TextXAlignment.Left
@@ -3620,7 +3619,7 @@ for _, cat in ipairs(categories) do
         end
         activeTabBtn = btn
         table.insert(themeTexts, btn)
-        btn.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
         StatsPage.Visible = false; CombatPage.Visible = false; GlitchesPage.Visible = false
         CamLockPage.Visible = false; SoruPage.Visible = false
         AppearancePage.Visible = false; SongsPage.Visible = false; BlacklistPage.Visible = false
@@ -3646,13 +3645,13 @@ uiSteppersRegistry = {}
 function createModuleCard(name, height, targetPage)
     local card = Instance.new("Frame")
     card.Size = UDim2.new(1, -8, 0, height)
-    card.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+    card.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
     card.BackgroundTransparency = 0.2 -- Cristal oscuro sutil que permite ver el wallpaper y hace 100% legibles las letras sobre cualquier fondo!
     card.BorderSizePixel = 0
     card.Parent = targetPage
     Instance.new("UICorner", card).CornerRadius = UDim.new(0, 14)
     local cStroke = Instance.new("UIStroke", card)
-    cStroke.Color = Color3.fromRGB(0, 0, 0) -- BLACK
+    cStroke.Color = Color3.fromRGB(255, 255, 255) -- WHITE
     cStroke.Thickness = 1.5
     cStroke.Transparency = 0.4
     table.insert(themeStrokes, cStroke)
@@ -3661,9 +3660,9 @@ function createModuleCard(name, height, targetPage)
     title.Text = "[ " .. string.upper(name) .. " ]"
     title.Font = Enum.Font.GothamBlack
     title.TextSize = 11
-    title.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
+    title.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
     title.TextStrokeTransparency = 0
-    title.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+    title.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
     title.Size = UDim2.new(1, 0, 0, 22)
     title.Position = UDim2.new(0, 0, 0, 2)
     title.BackgroundTransparency = 1
@@ -3685,9 +3684,9 @@ function addToggleElement(parent, labelText, defaultState, yPos, callback, confi
     label.Text = labelText
     label.Font = Enum.Font.GothamBold
     label.TextSize = 9.5
-    label.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
+    label.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
     label.TextStrokeTransparency = 0
-    label.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+    label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
     label.Size = UDim2.new(0.65, 0, 1, 0)
     label.BackgroundTransparency = 1
     label.TextXAlignment = Enum.TextXAlignment.Left
@@ -3697,36 +3696,36 @@ function addToggleElement(parent, labelText, defaultState, yPos, callback, confi
     local clickBtn = Instance.new("TextButton", frame)
     clickBtn.Size = UDim2.new(0, 36, 0, 16)
     clickBtn.Position = UDim2.new(1, -38, 0.5, -8)
-    clickBtn.BackgroundColor3 = defaultState and Color3.fromRGB(0, 0, 0) or Color3.fromRGB(200, 200, 200)
+    clickBtn.BackgroundColor3 = defaultState and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(50, 50, 50)
     clickBtn.BackgroundTransparency = defaultState and 0.2 or 0.5
     clickBtn.Text = defaultState and "ON" or "OFF"
     clickBtn.Font = Enum.Font.GothamBold
     clickBtn.TextSize = 8.5
-    clickBtn.TextColor3 = defaultState and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(0, 0, 0)
+    clickBtn.TextColor3 = defaultState and Color3.fromRGB(0, 0, 0) or Color3.fromRGB(255, 255, 255)
     clickBtn.TextStrokeTransparency = 0
     clickBtn.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
     Instance.new("UICorner", clickBtn).CornerRadius = UDim.new(0, 6)
     local tStroke = Instance.new("UIStroke", clickBtn)
-    tStroke.Color = Color3.fromRGB(0, 0, 0) -- BLACK
+    tStroke.Color = Color3.fromRGB(255, 255, 255) -- WHITE
     tStroke.Thickness = 1
     table.insert(themeStrokes, tStroke)
 
     local state = defaultState
     local function refresh()
         if state then
-            clickBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
+            clickBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
             clickBtn.BackgroundTransparency = 0.2
             clickBtn.Text = "ON"
-            clickBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-            clickBtn.TextStrokeTransparency = 0
-            clickBtn.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-        else
-            clickBtn.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
-            clickBtn.BackgroundTransparency = 0.5
-            clickBtn.Text = "OFF"
             clickBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
             clickBtn.TextStrokeTransparency = 0
             clickBtn.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+        else
+            clickBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+            clickBtn.BackgroundTransparency = 0.5
+            clickBtn.Text = "OFF"
+            clickBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            clickBtn.TextStrokeTransparency = 0
+            clickBtn.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
         end
     end
 
@@ -3794,14 +3793,14 @@ function addStepper(parent, labelText, yPos, minVal, maxVal, step, getter, sette
     minus.Text = "-"
     minus.Font = Enum.Font.GothamBold
     minus.TextSize = 11
-    minus.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    minus.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
     minus.BackgroundTransparency = 0 -- OPAQUE
     minus.TextColor3 = COLORS.TextWhite
     minus.TextStrokeTransparency = 0
     minus.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
     Instance.new("UICorner", minus).CornerRadius = UDim.new(0, 4)
     local mStroke = Instance.new("UIStroke", minus)
-    mStroke.Color = Color3.fromRGB(0, 0, 0) -- BLACK
+    mStroke.Color = Color3.fromRGB(255, 255, 255) -- WHITE
     mStroke.Thickness = 1.2
     table.insert(themeStrokes, mStroke)
 
@@ -3823,14 +3822,14 @@ function addStepper(parent, labelText, yPos, minVal, maxVal, step, getter, sette
     plus.Text = "+"
     plus.Font = Enum.Font.GothamBold
     plus.TextSize = 11
-    plus.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    plus.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
     plus.BackgroundTransparency = 0 -- OPAQUE
     plus.TextColor3 = COLORS.TextWhite
     plus.TextStrokeTransparency = 0
     plus.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
     Instance.new("UICorner", plus).CornerRadius = UDim.new(0, 4)
     local pStroke = Instance.new("UIStroke", plus)
-    pStroke.Color = Color3.fromRGB(0, 0, 0) -- BLACK
+    pStroke.Color = Color3.fromRGB(255, 255, 255) -- WHITE
     pStroke.Thickness = 1.2
     table.insert(themeStrokes, pStroke)
 
@@ -3868,7 +3867,7 @@ profileImg.ScaleType = Enum.ScaleType.Crop
 profileImg.BorderSizePixel = 0
 Instance.new("UICorner", profileImg).CornerRadius = UDim.new(0, 30) -- Círculo perfecto
 local pStroke = Instance.new("UIStroke", profileImg)
-pStroke.Color = Color3.fromRGB(0, 0, 0) -- BLACK
+pStroke.Color = Color3.fromRGB(255, 255, 255) -- WHITE
 pStroke.Thickness = 2
 table.insert(themeStrokes, pStroke)
 
@@ -3876,9 +3875,9 @@ local nameLabel = Instance.new("TextLabel", statsCard)
 nameLabel.Text = player.Name
 nameLabel.Font = Enum.Font.GothamBlack
 nameLabel.TextSize = 15
-nameLabel.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
+nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
 nameLabel.TextStrokeTransparency = 0.3
-nameLabel.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 nameLabel.Size = UDim2.new(1, 0, 0, 18)
 nameLabel.Position = UDim2.new(0, 0, 0, 96)
 nameLabel.BackgroundTransparency = 1
@@ -3912,9 +3911,9 @@ local statsTitle = Instance.new("TextLabel", statsCard)
 statsTitle.Text = "Script Usage Stats"
 statsTitle.Font = Enum.Font.GothamBold
 statsTitle.TextSize = 10.5
-statsTitle.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
+statsTitle.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
 statsTitle.TextStrokeTransparency = 0.3
-statsTitle.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+statsTitle.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 statsTitle.Size = UDim2.new(1, 0, 0, 16)
 statsTitle.Position = UDim2.new(0, 10, 0, 162)
 statsTitle.BackgroundTransparency = 1
@@ -3935,7 +3934,7 @@ function createStatLabel(parent, yPos, symbol, labelText)
     iconLabel.Text = symbol
     iconLabel.Font = Enum.Font.GothamBold
     iconLabel.TextSize = 12
-    iconLabel.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
+    iconLabel.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
     iconLabel.TextXAlignment = Enum.TextXAlignment.Left
     table.insert(themeTexts, iconLabel)
     
@@ -4089,15 +4088,15 @@ end, "TargetPlayers")
 local aimbotTargetBtn = Instance.new("TextButton", c1)
 aimbotTargetBtn.Size = UDim2.new(1, -12, 0, 20)
 aimbotTargetBtn.Position = UDim2.new(0, 6, 0, 96)
-aimbotTargetBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+aimbotTargetBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
 aimbotTargetBtn.BackgroundTransparency = 0 -- OPAQUE
 aimbotTargetBtn.Text = "🎯 Target: " .. (_G.G_SilentAimSelectedPlayer ~= "" and _G.G_SilentAimSelectedPlayer or "Nearest")
 aimbotTargetBtn.Font = Enum.Font.GothamBold
 aimbotTargetBtn.TextSize = 8.5
-aimbotTargetBtn.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
+aimbotTargetBtn.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
 Instance.new("UICorner", aimbotTargetBtn).CornerRadius = UDim.new(0, 4)
 local aimStroke = Instance.new("UIStroke", aimbotTargetBtn)
-aimStroke.Color = Color3.fromRGB(0, 0, 0) -- BLACK
+aimStroke.Color = Color3.fromRGB(255, 255, 255) -- WHITE
 aimStroke.Thickness = 1
 table.insert(themeStrokes, aimStroke)
 table.insert(themeTexts, aimbotTargetBtn)
@@ -4301,17 +4300,17 @@ local bloxstrapCard = createModuleCard("Bloxstrap (For Mobile)", 60, GlitchesPag
 local bloxstrapBtn = Instance.new("TextButton", bloxstrapCard)
 bloxstrapBtn.Size = UDim2.new(1, -20, 0, 26)
 bloxstrapBtn.Position = UDim2.new(0, 10, 0, 24)
-bloxstrapBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+bloxstrapBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
 bloxstrapBtn.BackgroundTransparency = 0 -- OPAQUE
 bloxstrapBtn.Text = "🚀 Activar Bloxstrap"
 bloxstrapBtn.Font = Enum.Font.GothamBold
 bloxstrapBtn.TextSize = 10
-bloxstrapBtn.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
+bloxstrapBtn.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
 bloxstrapBtn.TextStrokeTransparency = 0.3
-bloxstrapBtn.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+bloxstrapBtn.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 Instance.new("UICorner", bloxstrapBtn).CornerRadius = UDim.new(0, 6)
 local bloxStroke = Instance.new("UIStroke", bloxstrapBtn)
-bloxStroke.Color = Color3.fromRGB(0, 0, 0) -- BLACK
+bloxStroke.Color = Color3.fromRGB(255, 255, 255) -- WHITE
 bloxStroke.Thickness = 1.2
 table.insert(themeStrokes, bloxStroke)
 table.insert(themeTexts, bloxstrapBtn)
@@ -4411,13 +4410,13 @@ function showMacroConfigUI()
     local main = Instance.new("Frame", macroGui)
     main.Size = UDim2.new(0, 280, 0, 520)
     main.Position = UDim2.new(0.5, -140, 0.05, 0)
-    main.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+    main.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
     main.BackgroundTransparency = 0.05
     main.Active = true
     main.Draggable = true
     Instance.new("UICorner", main).CornerRadius = UDim.new(0, 10)
     local stroke = Instance.new("UIStroke", main)
-    stroke.Color = Color3.fromRGB(0, 0, 0) -- BLACK
+    stroke.Color = Color3.fromRGB(255, 255, 255) -- WHITE
     stroke.Thickness = 1.5
 
     local title = Instance.new("TextLabel", main)
@@ -4425,7 +4424,7 @@ function showMacroConfigUI()
     title.Position = UDim2.new(0, 10, 0, 0)
     title.BackgroundTransparency = 1
     title.Text = "MACRO COMBO PRO (6 HABILIDADES)"
-    title.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
+    title.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
     title.Font = Enum.Font.GothamBold
     title.TextSize = 12.5
     title.TextXAlignment = Enum.TextXAlignment.Left
@@ -4444,16 +4443,16 @@ function showMacroConfigUI()
     local saveMacroBtn = Instance.new("TextButton", main)
     saveMacroBtn.Size = UDim2.new(1, -20, 0, 34)
     saveMacroBtn.Position = UDim2.new(0, 10, 0, 34)
-    saveMacroBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
+    saveMacroBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
     saveMacroBtn.BackgroundTransparency = 0
     saveMacroBtn.Text = "💾 GUARDAR CONFIG MACRO"
-    saveMacroBtn.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE TEXT
+    saveMacroBtn.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK TEXT
     saveMacroBtn.Font = Enum.Font.GothamBold
     saveMacroBtn.TextSize = 11
     saveMacroBtn.ZIndex = 25
     Instance.new("UICorner", saveMacroBtn).CornerRadius = UDim.new(0, 6)
     local saveSt = Instance.new("UIStroke", saveMacroBtn)
-    saveSt.Color = Color3.fromRGB(255, 255, 255) -- WHITE
+    saveSt.Color = Color3.fromRGB(0, 0, 0) -- BLACK
     saveSt.Thickness = 1
 
     saveMacroBtn.MouseButton1Click:Connect(function()
@@ -4473,7 +4472,7 @@ function showMacroConfigUI()
     scroll.BackgroundTransparency = 1
     scroll.BorderSizePixel = 0
     scroll.ScrollBarThickness = 5
-    scroll.ScrollBarImageColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
+    scroll.ScrollBarImageColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
     scroll.AutomaticCanvasSize = Enum.AutomaticSize.None
     scroll.CanvasSize = UDim2.new(0, 0, 0, 720)
     local listLayout = Instance.new("UIListLayout", scroll)
@@ -4484,15 +4483,15 @@ function showMacroConfigUI()
         local b = Instance.new("TextButton", parent)
         b.Size = size
         b.Position = pos
-        b.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+        b.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
         b.BackgroundTransparency = 0 -- OPAQUE
         b.Text = text
-        b.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
+        b.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
         b.Font = Enum.Font.GothamBold
         b.TextSize = 10.5
         Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
         local bSt = Instance.new("UIStroke", b)
-        bSt.Color = Color3.fromRGB(0, 0, 0) -- BLACK
+        bSt.Color = Color3.fromRGB(255, 255, 255) -- WHITE
         bSt.Thickness = 1
         return b
     end
@@ -4500,12 +4499,12 @@ function showMacroConfigUI()
     local function createSlotRow(order, labelText, defaultSlot, defaultKey, defaultDelay, allowOff, onSelect)
         local rowFrame = Instance.new("Frame", scroll)
         rowFrame.Size = UDim2.new(1, -8, 0, 105)
-        rowFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+        rowFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
         rowFrame.BackgroundTransparency = 0.4
         rowFrame.LayoutOrder = order
         Instance.new("UICorner", rowFrame).CornerRadius = UDim.new(0, 8)
         local rowStroke = Instance.new("UIStroke", rowFrame)
-        rowStroke.Color = Color3.fromRGB(0, 0, 0) -- BLACK
+        rowStroke.Color = Color3.fromRGB(255, 255, 255) -- WHITE
         rowStroke.Thickness = 0.8
         rowStroke.Transparency = 0.5
 
@@ -4514,7 +4513,7 @@ function showMacroConfigUI()
         lbl.Position = UDim2.new(0, 8, 0, 4)
         lbl.BackgroundTransparency = 1
         lbl.Text = labelText
-        lbl.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
+        lbl.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
         lbl.Font = Enum.Font.GothamBold
         lbl.TextSize = 10.5
         lbl.TextXAlignment = Enum.TextXAlignment.Left
@@ -4529,17 +4528,17 @@ function showMacroConfigUI()
             local b = makeBtn(rowFrame, tostring(s), UDim2.new(0, xOff, 0, 24), UDim2.new(0, 45, 0, 22))
             slotBtns[s] = b
             if s == selectedSlot then
-                b.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
-                b.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+                b.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+                b.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
             end
             b.MouseButton1Click:Connect(function()
                 selectedSlot = s
                 for _, btn in pairs(slotBtns) do
-                    btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-                    btn.TextColor3 = Color3.fromRGB(0, 0, 0)
+                    btn.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+                    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
                 end
-                b.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
-                b.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+                b.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+                b.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
                 onSelect(selectedSlot, selectedKey, selectedDelay)
             end)
             xOff = xOff + 50
@@ -4556,17 +4555,17 @@ function showMacroConfigUI()
             keyBtns[k] = b
             if k == "OFF" then b.TextColor3 = Color3.fromRGB(255, 80, 80) end
             if k == selectedKey then
-                b.BackgroundColor3 = (k == "OFF") and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(0, 0, 0) -- BLACK
-                b.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+                b.BackgroundColor3 = (k == "OFF") and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(255, 255, 255) -- WHITE
+                b.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
             end
             b.MouseButton1Click:Connect(function()
                 selectedKey = k
                 for keyStr, btn in pairs(keyBtns) do
-                    btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-                    btn.TextColor3 = (keyStr == "OFF") and Color3.fromRGB(255, 80, 80) or Color3.fromRGB(0, 0, 0)
+                    btn.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+                    btn.TextColor3 = (keyStr == "OFF") and Color3.fromRGB(255, 80, 80) or Color3.fromRGB(255, 255, 255)
                 end
-                b.BackgroundColor3 = (k == "OFF") and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(0, 0, 0) -- BLACK
-                b.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+                b.BackgroundColor3 = (k == "OFF") and Color3.fromRGB(255, 50, 50) or Color3.fromRGB(255, 255, 255) -- WHITE
+                b.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
                 onSelect(selectedSlot, selectedKey, selectedDelay)
             end)
             xOff = xOff + btnWidth + 6
@@ -4589,7 +4588,7 @@ function showMacroConfigUI()
         valLabel.Position = UDim2.new(0, 80, 0, 75)
         valLabel.BackgroundTransparency = 1
         valLabel.Text = string.format("%.2fs", selectedDelay)
-        valLabel.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
+        valLabel.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
         valLabel.Font = Enum.Font.GothamBold
         valLabel.TextSize = 10.5
         local plusBtn = makeBtn(rowFrame, "+", UDim2.new(0, 130, 0, 75), UDim2.new(0, 22, 0, 22))
@@ -4630,16 +4629,16 @@ function showFloatingComboTrigger(show)
     local floatBtn = Instance.new("TextButton", floatingTriggerGui)
     floatBtn.Size = UDim2.new(0, 110, 0, 36)
     floatBtn.Position = UDim2.new(0.85, -55, 0.7, 0)
-    floatBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
+    floatBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
     floatBtn.Text = "💥 COMBO"
     floatBtn.Font = Enum.Font.GothamBold
     floatBtn.TextSize = 12
-    floatBtn.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE TEXT
+    floatBtn.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK TEXT
     floatBtn.Active = true
     floatBtn.Draggable = true
     Instance.new("UICorner", floatBtn).CornerRadius = UDim.new(0, 8)
     local floatStroke = Instance.new("UIStroke", floatBtn)
-    floatStroke.Color = Color3.fromRGB(255, 255, 255) -- WHITE
+    floatStroke.Color = Color3.fromRGB(0, 0, 0) -- BLACK
     floatStroke.Thickness = 1.2
 
     local SLOT_KEYS = { [1] = Enum.KeyCode.One, [2] = Enum.KeyCode.Two, [3] = Enum.KeyCode.Three, [4] = Enum.KeyCode.Four, [5] = Enum.KeyCode.Five, [6] = Enum.KeyCode.Six }
@@ -4713,15 +4712,15 @@ end, "MacroBeta")
 local macroModeBtn = Instance.new("TextButton", macroCard)
 macroModeBtn.Size = UDim2.new(1, -12, 0, 22)
 macroModeBtn.Position = UDim2.new(0, 6, 0, 50)
-macroModeBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+macroModeBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
 macroModeBtn.BackgroundTransparency = 0 -- OPAQUE
 macroModeBtn.Text = "⚡ Modo Macro: " .. (MacroMode == "Soru" and "Modo Soru (Flashstep)" or "Hacer Combo (Botón Flotante)")
 macroModeBtn.Font = Enum.Font.GothamBold
 macroModeBtn.TextSize = 8.5
-macroModeBtn.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
+macroModeBtn.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
 Instance.new("UICorner", macroModeBtn).CornerRadius = UDim.new(0, 4)
 local mmStroke = Instance.new("UIStroke", macroModeBtn)
-mmStroke.Color = Color3.fromRGB(0, 0, 0) -- BLACK
+mmStroke.Color = Color3.fromRGB(255, 255, 255) -- WHITE
 mmStroke.Thickness = 1
 table.insert(themeStrokes, mmStroke)
 table.insert(themeTexts, macroModeBtn)
@@ -4738,7 +4737,7 @@ end)
 local macroConfigBtn = Instance.new("TextButton", macroCard)
 macroConfigBtn.Size = UDim2.new(1, -12, 0, 22)
 macroConfigBtn.Position = UDim2.new(0, 6, 0, 78)
-macroConfigBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+macroConfigBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
 macroConfigBtn.BackgroundTransparency = 0 -- OPAQUE
 macroConfigBtn.Text = "⚙️ Configurar Macro (Slots/Teclas)"
 macroConfigBtn.Font = Enum.Font.GothamBold
@@ -4746,7 +4745,7 @@ macroConfigBtn.TextSize = 8.5
 macroConfigBtn.TextColor3 = COLORS.TextWhite
 Instance.new("UICorner", macroConfigBtn).CornerRadius = UDim.new(0, 4)
 local mcStroke = Instance.new("UIStroke", macroConfigBtn)
-mcStroke.Color = Color3.fromRGB(0, 0, 0) -- BLACK
+mcStroke.Color = Color3.fromRGB(255, 255, 255) -- WHITE
 mcStroke.Thickness = 1
 table.insert(themeStrokes, mcStroke)
 
@@ -4913,17 +4912,17 @@ addStepper(soruCard, "Sanguine C Delay:", 144, 0.05, 2.0, 0.35, function() retur
 local triggerSelectBtn = Instance.new("TextButton", soruCard)
 triggerSelectBtn.Size = UDim2.new(1, -16, 0, 24)
 triggerSelectBtn.Position = UDim2.new(0, 8, 0, 176)
-triggerSelectBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+triggerSelectBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
 triggerSelectBtn.BackgroundTransparency = 0 -- OPAQUE
 triggerSelectBtn.Text = "⚡ Trigger: " .. (PortalSanguineCTriggerMode == "PortalF" and "Portal F Skill" or "Soru / Flashstep")
 triggerSelectBtn.Font = Enum.Font.GothamBold
 triggerSelectBtn.TextSize = 8.5
-triggerSelectBtn.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
+triggerSelectBtn.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
 triggerSelectBtn.TextStrokeTransparency = 0
-triggerSelectBtn.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+triggerSelectBtn.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 Instance.new("UICorner", triggerSelectBtn).CornerRadius = UDim.new(0, 6)
 local trgStroke = Instance.new("UIStroke", triggerSelectBtn)
-trgStroke.Color = Color3.fromRGB(0, 0, 0) -- BLACK
+trgStroke.Color = Color3.fromRGB(255, 255, 255) -- WHITE
 trgStroke.Thickness = 1
 table.insert(themeStrokes, trgStroke)
 
@@ -4946,17 +4945,17 @@ end, "FlashstepSkill")
 local weaponSelectBtn = Instance.new("TextButton", flashstepCard)
 weaponSelectBtn.Size = UDim2.new(1, -16, 0, 24)
 weaponSelectBtn.Position = UDim2.new(0, 8, 0, 48)
-weaponSelectBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+weaponSelectBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
 weaponSelectBtn.BackgroundTransparency = 0 -- OPAQUE
 weaponSelectBtn.Text = "🗡️ Weapon: " .. (_G.G_FlashstepSkillWeapon or "Fruit")
 weaponSelectBtn.Font = Enum.Font.GothamBold
 weaponSelectBtn.TextSize = 8.5
-weaponSelectBtn.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
+weaponSelectBtn.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
 weaponSelectBtn.TextStrokeTransparency = 0
-weaponSelectBtn.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+weaponSelectBtn.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 Instance.new("UICorner", weaponSelectBtn).CornerRadius = UDim.new(0, 6)
 local wSt = Instance.new("UIStroke", weaponSelectBtn)
-wSt.Color = Color3.fromRGB(0, 0, 0) -- BLACK
+wSt.Color = Color3.fromRGB(255, 255, 255) -- WHITE
 wSt.Thickness = 1
 table.insert(themeStrokes, wSt)
 
@@ -4971,17 +4970,17 @@ end)
 local keySelectBtn = Instance.new("TextButton", flashstepCard)
 keySelectBtn.Size = UDim2.new(1, -16, 0, 24)
 keySelectBtn.Position = UDim2.new(0, 8, 0, 76)
-keySelectBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+keySelectBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
 keySelectBtn.BackgroundTransparency = 0 -- OPAQUE
 keySelectBtn.Text = "⌨️ Skill Key: " .. (_G.G_FlashstepSkillKey or "Z")
 keySelectBtn.Font = Enum.Font.GothamBold
 keySelectBtn.TextSize = 8.5
-keySelectBtn.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
+keySelectBtn.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
 keySelectBtn.TextStrokeTransparency = 0
-keySelectBtn.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+keySelectBtn.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 Instance.new("UICorner", keySelectBtn).CornerRadius = UDim.new(0, 6)
 local kSt = Instance.new("UIStroke", keySelectBtn)
-kSt.Color = Color3.fromRGB(0, 0, 0) -- BLACK
+kSt.Color = Color3.fromRGB(255, 255, 255) -- WHITE
 kSt.Thickness = 1
 table.insert(themeStrokes, kSt)
 
@@ -5005,17 +5004,17 @@ function refreshPlayerListUI()
     local nearestBtn = Instance.new("TextButton", ListScroll)
     nearestBtn.Name = "NearestBtn"
     nearestBtn.Size = UDim2.new(1, 0, 0, 24)
-    nearestBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+    nearestBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
     nearestBtn.BackgroundTransparency = 0 -- OPAQUE
     nearestBtn.Text = (currentLang == "ES" and "🎯 Target: Más Cercano" or "🎯 Target: Nearest")
     nearestBtn.Font = Enum.Font.GothamBold
     nearestBtn.TextSize = 10
-    nearestBtn.TextColor3 = (SelectedSoruTarget == "Nearest") and Color3.fromRGB(0, 0, 0) or Color3.fromRGB(255, 60, 60)
+    nearestBtn.TextColor3 = (SelectedSoruTarget == "Nearest") and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(255, 60, 60)
     nearestBtn.TextStrokeTransparency = 0
-    nearestBtn.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+    nearestBtn.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
     Instance.new("UICorner", nearestBtn).CornerRadius = UDim.new(0, 5)
     local nSt = Instance.new("UIStroke", nearestBtn)
-    nSt.Color = (SelectedSoruTarget == "Nearest") and Color3.fromRGB(0, 0, 0) or Color3.fromRGB(0, 0, 0) -- BLACK
+    nSt.Color = (SelectedSoruTarget == "Nearest") and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(255, 255, 255) -- WHITE
     nSt.Thickness = 1.2
     table.insert(themeStrokes, nSt)
 
@@ -5031,17 +5030,17 @@ function refreshPlayerListUI()
             local pBtn = Instance.new("TextButton", ListScroll)
             pBtn.Name = "PlayerBtn"
             pBtn.Size = UDim2.new(1, 0, 0, 24)
-            pBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+            pBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
             pBtn.BackgroundTransparency = 0 -- OPAQUE
             pBtn.Text = "👤 " .. p.Name
             pBtn.Font = Enum.Font.GothamBold
             pBtn.TextSize = 10
-            pBtn.TextColor3 = isSelected and Color3.fromRGB(0, 0, 0) or Color3.fromRGB(255, 60, 60)
+            pBtn.TextColor3 = isSelected and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(255, 60, 60)
             pBtn.TextStrokeTransparency = 0
-            pBtn.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+            pBtn.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
             Instance.new("UICorner", pBtn).CornerRadius = UDim.new(0, 5)
             local pSt = Instance.new("UIStroke", pBtn)
-            pSt.Color = isSelected and Color3.fromRGB(0, 0, 0) or Color3.fromRGB(0, 0, 0) -- BLACK
+            pSt.Color = isSelected and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(255, 255, 255) -- WHITE
             pSt.Thickness = 1.2
             table.insert(themeStrokes, pSt)
 
@@ -5057,17 +5056,17 @@ function refreshPlayerListUI()
         local refreshBtn = Instance.new("TextButton", ListScroll)
         refreshBtn.Name = "RefreshBtn"
         refreshBtn.Size = UDim2.new(1, 0, 0, 24)
-        refreshBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+        refreshBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
         refreshBtn.BackgroundTransparency = 0 -- OPAQUE
         refreshBtn.Text = (currentLang == "ES" and "⟳ Actualizar Lista" or "⟳ Refresh List")
         refreshBtn.Font = Enum.Font.GothamBold
         refreshBtn.TextSize = 9.5
         refreshBtn.TextColor3 = Color3.fromRGB(255, 60, 60)
         refreshBtn.TextStrokeTransparency = 0
-        refreshBtn.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+        refreshBtn.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
         Instance.new("UICorner", refreshBtn).CornerRadius = UDim.new(0, 5)
         local rfSt = Instance.new("UIStroke", refreshBtn)
-        rfSt.Color = Color3.fromRGB(0, 0, 0) -- BLACK
+        rfSt.Color = Color3.fromRGB(255, 255, 255) -- WHITE
         rfSt.Thickness = 1.2
         table.insert(themeStrokes, rfSt)
         refreshBtn.MouseButton1Click:Connect(refreshPlayerListUI)
@@ -5095,12 +5094,12 @@ fpsOverlayGui.Parent = playerGui
 local fpsBar = Instance.new("Frame", fpsOverlayGui)
 fpsBar.Size = UDim2.new(0, 180, 0, 22)
 fpsBar.Position = UDim2.new(0.5, -90, 0, 0)
-fpsBar.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+fpsBar.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
 fpsBar.BackgroundTransparency = 0.3
 fpsBar.Visible = false
 Instance.new("UICorner", fpsBar).CornerRadius = UDim.new(0, 6)
 local fpsStroke = Instance.new("UIStroke", fpsBar)
-fpsStroke.Color = Color3.fromRGB(0, 0, 0) -- BLACK
+fpsStroke.Color = Color3.fromRGB(255, 255, 255) -- WHITE
 fpsStroke.Thickness = 1
 table.insert(themeStrokes, fpsStroke)
 
@@ -5132,14 +5131,14 @@ do
 local bgSelectorCard = createModuleCard("UI Background Selector", 65, AppearancePage)
 
 local bgOptions = {
-    { name = "Anime 1 (79345150236270)", id = "rbxassetid://79345150236270" },
-    { name = "Anime 2 (91081822837053)", id = "rbxassetid://91081822837053" },
-    { name = "Anime 3 (109470605984573)", id = "rbxassetid://109470605984573" },
-    { name = "Anime 4 (135204446064109)", id = "rbxassetid://135204446064109" },
-    { name = "Anime 5 (133381969265590)", id = "rbxassetid://133381969265590" },
-    { name = "Anime 6 (102851043691652)", id = "rbxassetid://102851043691652" },
-    { name = "Anime 7 (134915662604167)", id = "rbxassetid://134915662604167" },
-    { name = "Anime 8 (132404081379154)", id = "rbxassetid://132404081379154" },
+    { name = "Anime 1 ()", id = "rbxassetid://" },
+    { name = "Anime 2 ()", id = "rbxassetid://" },
+    { name = "Anime 3 ()", id = "rbxassetid://" },
+    { name = "Anime 4 ()", id = "rbxassetid://" },
+    { name = "Anime 5 ()", id = "rbxassetid://" },
+    { name = "Anime 6 ()", id = "rbxassetid://" },
+    { name = "Anime 7 ()", id = "rbxassetid://" },
+    { name = "Anime 8 ()", id = "rbxassetid://" },
     { name = "None", id = "none" }
 }
 
@@ -5148,17 +5147,17 @@ local currentBgIdx = 8
 local bgSelectorBtn = Instance.new("TextButton", bgSelectorCard)
 bgSelectorBtn.Size = UDim2.new(1, -16, 0, 26)
 bgSelectorBtn.Position = UDim2.new(0, 8, 0, 22)
-bgSelectorBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+bgSelectorBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
 bgSelectorBtn.BackgroundTransparency = 0 -- OPAQUE
 bgSelectorBtn.Text = "📷 Wallpaper: " .. bgOptions[8].name
 bgSelectorBtn.Font = Enum.Font.GothamBold
 bgSelectorBtn.TextSize = 9
-bgSelectorBtn.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
+bgSelectorBtn.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
 bgSelectorBtn.TextStrokeTransparency = 0
-bgSelectorBtn.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+bgSelectorBtn.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 Instance.new("UICorner", bgSelectorBtn).CornerRadius = UDim.new(0, 6)
 local bgBtnStroke = Instance.new("UIStroke", bgSelectorBtn)
-bgBtnStroke.Color = Color3.fromRGB(0, 0, 0) -- BLACK
+bgBtnStroke.Color = Color3.fromRGB(255, 255, 255) -- WHITE
 bgBtnStroke.Thickness = 1
 table.insert(themeStrokes, bgBtnStroke)
 
@@ -5233,7 +5232,7 @@ for idx, tData in ipairs(themeBtnList) do
     local row = math.floor((idx - 1) / 3)
     local col = (idx - 1) % 3
     tBtn.Position = UDim2.new(0.03 + (col * 0.32), 0, 0, 26 + (row * 28))
-    tBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+    tBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
     tBtn.BackgroundTransparency = 0 -- OPAQUE
     tBtn.ClipsDescendants = true
     tBtn.Text = tData.label
@@ -5298,7 +5297,7 @@ for idx, item in ipairs(skyBtnGrid) do
     local row = math.floor((idx - 1) / 3)
     local col = (idx - 1) % 3
     sBtn.Position = UDim2.new(0.03 + (col * 0.32), 0, 0, 26 + (row * 28))
-    sBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+    sBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
     sBtn.BackgroundTransparency = 0 -- OPAQUE
     sBtn.Text = item.name
     sBtn.Font = Enum.Font.GothamBold
@@ -5383,15 +5382,15 @@ local blacklistCard = createModuleCard("Silent Aim Blacklist", 30, BlacklistPage
 local refreshListBtn = Instance.new("TextButton", BlacklistPage)
 refreshListBtn.Size = UDim2.new(1, -8, 0, 24)
 refreshListBtn.Position = UDim2.new(0, 4, 0, 36)
-refreshListBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+refreshListBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
 refreshListBtn.BackgroundTransparency = 0 -- OPAQUE
 refreshListBtn.Text = "⟳ Refresh Player List"
 refreshListBtn.Font = Enum.Font.GothamBold
 refreshListBtn.TextSize = 9.5
-refreshListBtn.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
+refreshListBtn.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
 Instance.new("UICorner", refreshListBtn).CornerRadius = UDim.new(0, 6)
 local rfStroke = Instance.new("UIStroke", refreshListBtn)
-rfStroke.Color = Color3.fromRGB(0, 0, 0) -- BLACK
+rfStroke.Color = Color3.fromRGB(255, 255, 255) -- WHITE
 rfStroke.Thickness = 1
 table.insert(themeStrokes, rfStroke)
 table.insert(themeTexts, refreshListBtn)
@@ -5399,7 +5398,7 @@ table.insert(themeTexts, refreshListBtn)
 local blacklistScroll = Instance.new("ScrollingFrame", BlacklistPage)
 blacklistScroll.Size = UDim2.new(1, -8, 1, -70)
 blacklistScroll.Position = UDim2.new(0, 4, 0, 64)
-blacklistScroll.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+blacklistScroll.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
 blacklistScroll.BackgroundTransparency = 1
 blacklistScroll.BorderSizePixel = 0
 blacklistScroll.ScrollBarThickness = 4
@@ -5431,13 +5430,13 @@ function refreshBlacklistUI()
                 local isBlacklisted = BlacklistedPlayers[p.Name] == true
                 local row = Instance.new("Frame", blacklistScroll)
                 row.Size = UDim2.new(1, -10, 0, 26)
-                row.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+                row.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
                 row.BackgroundTransparency = 1
                 row.BorderSizePixel = 0
                 Instance.new("UICorner", row).CornerRadius = UDim.new(0, 4)
                 Instance.new("UIPadding", row).PaddingLeft = UDim.new(0, 8)
                 local rowStroke = Instance.new("UIStroke", row)
-                rowStroke.Color = Color3.fromRGB(0, 0, 0) -- BLACK
+                rowStroke.Color = Color3.fromRGB(255, 255, 255) -- WHITE
                 rowStroke.Thickness = 0.8
                 rowStroke.Transparency = 0.4
                 table.insert(themeStrokes, rowStroke)
@@ -5454,7 +5453,7 @@ function refreshBlacklistUI()
                 local toggleBtn = Instance.new("TextButton", row)
                 toggleBtn.Size = UDim2.new(0, 40, 0, 16)
                 toggleBtn.Position = UDim2.new(1, -48, 0.5, -8)
-                toggleBtn.BackgroundColor3 = isBlacklisted and Color3.fromRGB(255, 60, 60) or Color3.fromRGB(255, 255, 255) -- WHITE
+                toggleBtn.BackgroundColor3 = isBlacklisted and Color3.fromRGB(255, 60, 60) or Color3.fromRGB(0, 0, 0) -- BLACK
                 toggleBtn.BackgroundTransparency = isBlacklisted and 0 or 0 -- OPAQUE
                 toggleBtn.Text = isBlacklisted and "BAN" or "OK"
                 toggleBtn.Font = Enum.Font.GothamBold
@@ -5462,7 +5461,7 @@ function refreshBlacklistUI()
                 toggleBtn.TextColor3 = COLORS.TextWhite
                 Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0, 4)
                 local tRowStroke = Instance.new("UIStroke", toggleBtn)
-                tRowStroke.Color = isBlacklisted and Color3.fromRGB(255, 60, 60) or Color3.fromRGB(0, 0, 0) -- BLACK
+                tRowStroke.Color = isBlacklisted and Color3.fromRGB(255, 60, 60) or Color3.fromRGB(255, 255, 255) -- WHITE
                 tRowStroke.Thickness = 1
                 
                 toggleBtn.MouseButton1Click:Connect(function()
@@ -5496,7 +5495,7 @@ local vfxTitle = Instance.new("TextLabel", vfxMainCard)
 vfxTitle.Text = "✨ IVORY VFX ✨"
 vfxTitle.Font = Enum.Font.GothamBlack
 vfxTitle.TextSize = 16
-vfxTitle.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
+vfxTitle.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
 vfxTitle.Size = UDim2.new(1, -16, 0, 24)
 vfxTitle.Position = UDim2.new(0, 8, 0, 20)
 vfxTitle.BackgroundTransparency = 1
@@ -5514,17 +5513,17 @@ vfxWarning.BackgroundTransparency = 1
 local vfxActionBtn = Instance.new("TextButton", vfxMainCard)
 vfxActionBtn.Size = UDim2.new(1, -20, 0, 28)
 vfxActionBtn.Position = UDim2.new(0, 10, 0, 68)
-vfxActionBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+vfxActionBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
 vfxActionBtn.BackgroundTransparency = 0 -- OPAQUE
 vfxActionBtn.Text = "🚀 Activar Sacred VFX"
 vfxActionBtn.Font = Enum.Font.GothamBold
 vfxActionBtn.TextSize = 11
-vfxActionBtn.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
+vfxActionBtn.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
 vfxActionBtn.TextStrokeTransparency = 0.3
-vfxActionBtn.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+vfxActionBtn.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 Instance.new("UICorner", vfxActionBtn).CornerRadius = UDim.new(0, 8)
 local vfxActionStroke = Instance.new("UIStroke", vfxActionBtn)
-vfxActionStroke.Color = Color3.fromRGB(0, 0, 0) -- BLACK
+vfxActionStroke.Color = Color3.fromRGB(255, 255, 255) -- WHITE
 vfxActionStroke.Thickness = 1.5
 table.insert(themeStrokes, vfxActionStroke)
 table.insert(themeTexts, vfxActionBtn)
@@ -5564,15 +5563,15 @@ end
 local uiFontBtn = Instance.new("TextButton", fontCard)
 uiFontBtn.Size = UDim2.new(1, -20, 0, 24)
 uiFontBtn.Position = UDim2.new(0, 10, 0, 22)
-uiFontBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+uiFontBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
 uiFontBtn.BackgroundTransparency = 0 -- OPAQUE
 uiFontBtn.Text = "🔤 UI Font: " .. fontNames[uiFontIdx]
 uiFontBtn.Font = Enum.Font.GothamBold
 uiFontBtn.TextSize = 9.5
-uiFontBtn.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
+uiFontBtn.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
 Instance.new("UICorner", uiFontBtn).CornerRadius = UDim.new(0, 6)
 local uiFStroke = Instance.new("UIStroke", uiFontBtn)
-uiFStroke.Color = Color3.fromRGB(0, 0, 0) -- BLACK
+uiFStroke.Color = Color3.fromRGB(255, 255, 255) -- WHITE
 uiFStroke.Thickness = 1.2
 table.insert(themeStrokes, uiFStroke)
 table.insert(themeTexts, uiFontBtn)
@@ -5596,17 +5595,17 @@ local langCard = createModuleCard("Language", 60, MiscPage)
 langBtn = Instance.new("TextButton", langCard)
 langBtn.Size = UDim2.new(1, -20, 0, 28)
 langBtn.Position = UDim2.new(0, 10, 0, 24)
-langBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+langBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
 langBtn.BackgroundTransparency = 0 -- OPAQUE
 langBtn.Text = (currentLang == "ES" and "🌐 Idioma: Español (ES)" or "🌐 Language: English (EN)")
 langBtn.Font = Enum.Font.GothamBold
 langBtn.TextSize = 9.5
-langBtn.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
+langBtn.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
 langBtn.TextStrokeTransparency = 0
-langBtn.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+langBtn.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 Instance.new("UICorner", langBtn).CornerRadius = UDim.new(0, 6)
 local langBtnStroke = Instance.new("UIStroke", langBtn)
-langBtnStroke.Color = Color3.fromRGB(0, 0, 0) -- BLACK
+langBtnStroke.Color = Color3.fromRGB(255, 255, 255) -- WHITE
 langBtnStroke.Thickness = 1.2
 table.insert(themeStrokes, langBtnStroke)
 
@@ -5621,17 +5620,17 @@ local socialCard = createModuleCard("Socials & Settings", 205, MiscPage)
 copyBtn = Instance.new("TextButton", socialCard)
 copyBtn.Size = UDim2.new(1, -20, 0, 28)
 copyBtn.Position = UDim2.new(0, 10, 0, 26)
-copyBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+copyBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
 copyBtn.BackgroundTransparency = 0 -- OPAQUE
 copyBtn.Text = "💬 Copy Discord Link"
 copyBtn.Font = Enum.Font.GothamBold
 copyBtn.TextSize = 9.5
-copyBtn.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
+copyBtn.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
 copyBtn.TextStrokeTransparency = 0
-copyBtn.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+copyBtn.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 Instance.new("UICorner", copyBtn).CornerRadius = UDim.new(0, 8)
 local copyStroke = Instance.new("UIStroke", copyBtn)
-copyStroke.Color = Color3.fromRGB(0, 0, 0) -- BLACK
+copyStroke.Color = Color3.fromRGB(255, 255, 255) -- WHITE
 copyStroke.Thickness = 1.2
 table.insert(themeStrokes, copyStroke)
 
@@ -5646,42 +5645,42 @@ end)
 copyTikTokBtn = Instance.new("TextButton", socialCard)
 copyTikTokBtn.Size = UDim2.new(1, -20, 0, 28)
 copyTikTokBtn.Position = UDim2.new(0, 10, 0, 60)
-copyTikTokBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+copyTikTokBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
 copyTikTokBtn.BackgroundTransparency = 0 -- OPAQUE
-copyTikTokBtn.Text = "🎵 TikTok: @iSacredRivals"
+copyTikTokBtn.Text = "🎵 TikTok: @lvory999"
 copyTikTokBtn.Font = Enum.Font.GothamBold
 copyTikTokBtn.TextSize = 9.5
-copyTikTokBtn.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
+copyTikTokBtn.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
 copyTikTokBtn.TextStrokeTransparency = 0
-copyTikTokBtn.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+copyTikTokBtn.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 Instance.new("UICorner", copyTikTokBtn).CornerRadius = UDim.new(0, 8)
 local ttStroke = Instance.new("UIStroke", copyTikTokBtn)
-ttStroke.Color = Color3.fromRGB(0, 0, 0) -- BLACK
+ttStroke.Color = Color3.fromRGB(255, 255, 255) -- WHITE
 ttStroke.Thickness = 1.2
 table.insert(themeStrokes, ttStroke)
 
 copyTikTokBtn.MouseButton1Click:Connect(function()
-    pcall(function() setclipboard("https://www.tiktok.com/@iSacredRivals") end)
+    pcall(function() setclipboard("https://www.tiktok.com/@lvory999") end)
     copyTikTokBtn.Text = currentLang == "ES" and "✅ TikTok Copiado!" or "✅ TikTok Copied!"
     task.delay(1.5, function()
-        copyTikTokBtn.Text = "🎵 TikTok: @iSacredRivals"
+        copyTikTokBtn.Text = "🎵 TikTok: @lvory999"
     end)
 end)
 
 saveBtn = Instance.new("TextButton", socialCard)
 saveBtn.Size = UDim2.new(1, -20, 0, 28)
 saveBtn.Position = UDim2.new(0, 10, 0, 94)
-saveBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+saveBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
 saveBtn.BackgroundTransparency = 0 -- OPAQUE
 saveBtn.Text = "💾 Save Config"
 saveBtn.Font = Enum.Font.GothamBold
 saveBtn.TextSize = 9.5
-saveBtn.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
+saveBtn.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
 saveBtn.TextStrokeTransparency = 0
-saveBtn.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+saveBtn.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 Instance.new("UICorner", saveBtn).CornerRadius = UDim.new(0, 8)
 local saveStroke = Instance.new("UIStroke", saveBtn)
-saveStroke.Color = Color3.fromRGB(0, 0, 0) -- BLACK
+saveStroke.Color = Color3.fromRGB(255, 255, 255) -- WHITE
 saveStroke.Thickness = 1.2
 table.insert(themeStrokes, saveStroke)
 
@@ -5696,17 +5695,17 @@ end)
 resetBtn = Instance.new("TextButton", socialCard)
 resetBtn.Size = UDim2.new(1, -20, 0, 28)
 resetBtn.Position = UDim2.new(0, 10, 0, 128)
-resetBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
+resetBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
 resetBtn.BackgroundTransparency = 0 -- OPAQUE
 resetBtn.Text = "🔄 Reset Config"
 resetBtn.Font = Enum.Font.GothamBold
 resetBtn.TextSize = 9.5
-resetBtn.TextColor3 = Color3.fromRGB(0, 0, 0) -- BLACK
+resetBtn.TextColor3 = Color3.fromRGB(255, 255, 255) -- WHITE
 resetBtn.TextStrokeTransparency = 0
-resetBtn.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+resetBtn.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 Instance.new("UICorner", resetBtn).CornerRadius = UDim.new(0, 8)
 local resetStroke = Instance.new("UIStroke", resetBtn)
-resetStroke.Color = Color3.fromRGB(0, 0, 0) -- BLACK
+resetStroke.Color = Color3.fromRGB(255, 255, 255) -- WHITE
 resetStroke.Thickness = 1.2
 table.insert(themeStrokes, resetStroke)
 table.insert(themeTexts, resetBtn)
@@ -5774,7 +5773,7 @@ function applyNewTheme(themeName)
         rainbowConnection = nil
     end
 
-    currentThemeColor = THEMES[themeName] or THEMES["Pure White"]
+    currentThemeColor = THEMES[themeName] or THEMES["Pure Black"]
 
     local function updateThemeColors(c3)
         currentThemeColor = c3
@@ -5791,9 +5790,9 @@ function applyNewTheme(themeName)
 
         for _, t in ipairs(themeTexts) do 
             if t and t.Parent then
-                t.TextColor3 = Color3.fromRGB(0, 0, 0)
+                t.TextColor3 = Color3.fromRGB(255, 255, 255)
                 t.TextStrokeTransparency = 0 -- 100% Borde blanco nítido!
-                t.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+                t.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
             end 
         end
 
