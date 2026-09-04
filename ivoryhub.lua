@@ -275,61 +275,8 @@ local ToggleStroke = Instance.new("UIStroke",Toggle)
 ToggleStroke.Color = WHITE
 ToggleStroke.Thickness = 1
 
---// SORU AIMBOT MANUAL BUTTON (small draggable)
-local SoruButton = Instance.new("TextButton")
-SoruButton.Name = "SoruAimbotButton"
-SoruButton.Size = UDim2.fromOffset(80,32)
-SoruButton.Position = UDim2.new(0.5,-40,0.7,0)
-SoruButton.BackgroundColor3 = BLACK
-SoruButton.BorderSizePixel = 0
-SoruButton.Text = "SORU"
-SoruButton.TextColor3 = WHITE
-SoruButton.TextSize = 12
-SoruButton.Font = Enum.Font.GothamBold
-SoruButton.AutoButtonColor = false
-SoruButton.Parent = Gui
-
-Instance.new("UICorner",SoruButton).CornerRadius = UDim.new(0,8)
-
-local SoruStroke = Instance.new("UIStroke",SoruButton)
-SoruStroke.Color = WHITE
-SoruStroke.Thickness = 1
-
--- Make it draggable
-MakeDraggable(SoruButton)
-
--- Soru button click: do teleport if aimbot enabled and target exists
-SoruButton.MouseButton1Click:Connect(function()
-    if aimbotUI and aimbotUI.getEnabled() then
-        local target = aimbotUI.getTarget()
-        if target then
-            doSoruTeleportManual(target)
-        end
-    end
-end)
-
--- Manual teleport function (bypasses toggle)
-function doSoruTeleportManual(target)
-    if not target then return end
-    local targetPos = target.Position
-    local char = player.Character
-    if not char then return end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-    hrp.CFrame = CFrame.new(targetPos)
-    local remotes = ReplicatedStorage:FindFirstChild("Remotes")
-    if remotes then
-        local commF = remotes:FindFirstChild("CommF_")
-        if commF then
-            pcall(function()
-                commF:InvokeServer("Flashstep", targetPos)
-            end)
-        end
-    end
-end
-
---// DRAG FUNCTION
-function MakeDraggable(Object)
+--// DRAG FUNCTION (Fixed)
+local function MakeDraggable(Object)
     local Dragging = false
     local DragStart
     local StartPosition
@@ -339,11 +286,12 @@ function MakeDraggable(Object)
             Dragging = true
             DragStart = Input.Position
             StartPosition = Object.Position
-            Input.Changed:Connect(function()
-                if Input.UserInputState == Enum.UserInputState.End then
-                    Dragging = false
-                end
-            end)
+        end
+    end)
+
+    Object.InputEnded:Connect(function(Input)
+        if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+            Dragging = false
         end
     end)
 
@@ -362,6 +310,29 @@ end
 
 MakeDraggable(Main)
 MakeDraggable(Toggle)
+
+--// SORU MANUAL BUTTON (hidden by default, shown when Soru Teleport toggle is ON)
+local SoruButton = Instance.new("TextButton")
+SoruButton.Name = "SoruAimbotButton"
+SoruButton.Size = UDim2.fromOffset(80,32)
+SoruButton.Position = UDim2.new(0.5,-40,0.7,0)
+SoruButton.BackgroundColor3 = BLACK
+SoruButton.BorderSizePixel = 0
+SoruButton.Text = "SORU"
+SoruButton.TextColor3 = WHITE
+SoruButton.TextSize = 12
+SoruButton.Font = Enum.Font.GothamBold
+SoruButton.AutoButtonColor = false
+SoruButton.Visible = false  -- hidden by default
+SoruButton.Parent = Gui
+
+Instance.new("UICorner",SoruButton).CornerRadius = UDim.new(0,8)
+
+local SoruStroke = Instance.new("UIStroke",SoruButton)
+SoruStroke.Color = WHITE
+SoruStroke.Thickness = 1
+
+MakeDraggable(SoruButton)
 
 --// OPEN/CLOSE
 local Open = true
@@ -625,7 +596,7 @@ local function createAimbotUI()
     local lastKey = nil
     local targetPlayers = true
     local targetNPCs = true
-    local soruAimbot = false   -- automatic teleport on flashstep
+    local soruAimbot = false
     local excludeF = true
     local showLine = true
     local showFOV = false
@@ -646,9 +617,10 @@ local function createAimbotUI()
         targetNPCs = state
     end)
 
-    -- Soru teleport toggle (automatic)
+    -- Soru teleport toggle (automatic) - also controls visibility of manual Soru button
     local soruToggle = CreateToggle(AimbotPage, "SORU TELEPORT", false, function(state)
         soruAimbot = state
+        SoruButton.Visible = state  -- show/hide manual button
     end)
 
     CreateToggle(AimbotPage, "F SKILL (EXCLUDED)", true, function(state)
@@ -750,7 +722,7 @@ local function createAimbotUI()
         getExcludeF = function() return excludeF end,
         getTargetPlayers = function() return targetPlayers end,
         getTargetNPCs = function() return targetNPCs end,
-        getSoru = function() return soruAimbot end,   -- automatic soru toggle
+        getSoru = function() return soruAimbot end,
         getMaxDist = function() return maxDistance end,
         getShowLine = function() return showLine end,
         getShowFOV = function() return showFOV end,
@@ -1135,6 +1107,30 @@ end
 if player.Character then onCharacterAdded(player.Character) end
 player.CharacterAdded:Connect(onCharacterAdded)
 
+-- Manual Soru button click: teleport to target
+SoruButton.MouseButton1Click:Connect(function()
+    if aimbotUI.getEnabled() then
+        local target = aimbotUI.getTarget()
+        if target then
+            local targetPos = target.Position
+            local char = player.Character
+            if not char then return end
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            if not hrp then return end
+            hrp.CFrame = CFrame.new(targetPos)
+            local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+            if remotes then
+                local commF = remotes:FindFirstChild("CommF_")
+                if commF then
+                    pcall(function()
+                        commF:InvokeServer("Flashstep", targetPos)
+                    end)
+                end
+            end
+        end
+    end
+end)
+
 -- Hotkey F5
 UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
@@ -1330,4 +1326,4 @@ creditsText.Parent = CreditsPage
 print("✅ Ivory Hub loaded with integrated Aimbot, ESP, and features!")
 print("📌 Toggle GUI with the 'I' button (middle-left).")
 print("📌 All toggles show ON/OFF text, buttons stay gray.")
-print("📌 Small draggable 'SORU' button teleports you to target on click.")
+print("📌 'SORU' button appears only when Soru Teleport toggle is ON.")
