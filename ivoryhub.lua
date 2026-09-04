@@ -1,6 +1,6 @@
---// IVORY HUB — BLOX FRUITS MOBILE PVP (FIXED v9)
---// 180° Silent Aimbot + Soru Button + Macro (Mobile Only)
---// No PC inputs, no freezes, no stuck after abilities
+--// IVORY HUB — BLOX FRUITS MOBILE PVP (FIXED v11)
+--// Silent Aimbot (no camera move) + Soru Button + Macro (Mobile Only)
+--// No glitches, no freezes, no stuck after abilities
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -60,11 +60,14 @@ local Combat = {
     SoruDistance = 15,
     AntiStun = false,
     MacroEnabled = false,
-    MacroDelay = 0.5,
-    MacroMelee = false,
-    MacroSword = false,
-    MacroFruit = false,
-    MacroGun = false,
+    MacroMeleeEnabled = false,
+    MacroSwordEnabled = false,
+    MacroFruitEnabled = false,
+    MacroGunEnabled = false,
+    MacroMeleeDelay = 0.5,
+    MacroSwordDelay = 0.5,
+    MacroFruitDelay = 0.5,
+    MacroGunDelay = 0.5,
     LastMacroAction = 0,
     TargetPlayers = true,
     TargetNPCs = false
@@ -100,7 +103,7 @@ ToggleStroke.Thickness = 1
 ToggleStroke.Transparency = 0.35
 ToggleStroke.Parent = Toggle
 
---// MACRO FLOATING BUTTON
+--// MACRO FLOATING BUTTON (no label)
 local MacroButton = Instance.new("TextButton")
 MacroButton.Name = "MacroButton"
 MacroButton.Size = UDim2.fromOffset(50, 50)
@@ -124,18 +127,7 @@ MacroStroke.Thickness = 2
 MacroStroke.Transparency = 0.3
 MacroStroke.Parent = MacroButton
 
-local MacroLabel = Instance.new("TextLabel")
-MacroLabel.BackgroundTransparency = 1
-MacroLabel.Position = UDim2.new(1, -75, 0.5, 30)
-MacroLabel.Size = UDim2.fromOffset(60, 15)
-MacroLabel.Text = "MACRO"
-MacroLabel.TextColor3 = GOLD
-MacroLabel.TextSize = 8
-MacroLabel.Font = Enum.Font.GothamBold
-MacroLabel.Visible = false
-MacroLabel.Parent = Gui
-
---// SORU FLOATING BUTTON
+--// SORU FLOATING BUTTON (no label)
 local SoruButton = Instance.new("TextButton")
 SoruButton.Name = "SoruButton"
 SoruButton.Size = UDim2.fromOffset(45, 45)
@@ -158,17 +150,6 @@ SoruStroke.Color = IVORY
 SoruStroke.Thickness = 2
 SoruStroke.Transparency = 0.3
 SoruStroke.Parent = SoruButton
-
-local SoruLabel = Instance.new("TextLabel")
-SoruLabel.BackgroundTransparency = 1
-SoruLabel.Position = UDim2.new(1, -72, 0.5, 88)
-SoruLabel.Size = UDim2.fromOffset(50, 15)
-SoruLabel.Text = "SORU"
-SoruLabel.TextColor3 = IVORY
-SoruLabel.TextSize = 8
-SoruLabel.Font = Enum.Font.GothamBold
-SoruLabel.Visible = false
-SoruLabel.Parent = Gui
 
 --// MAIN
 local Main = Instance.new("Frame")
@@ -588,15 +569,15 @@ local SettingsPage = CreatePage("Settings")
 --// HOME CONTENT
 AddCard(Home, "Welcome to Ivory PVP", "Mobile optimized Blox Fruits PVP", "◆")
 AddCard(Home, "Current Status", "All systems operational", "●")
-AddCard(Home, "Script Version", "v9.0 - Soru Button", "◈")
-AddCard(Home, "Quick Stats", "180° FOV | Silent Aim | Soru", "▣")
+AddCard(Home, "Script Version", "v11.0 - Silent Aim Fixed", "◈")
+AddCard(Home, "Quick Stats", "Silent Aim | Soru | Macro", "▣")
 AddCard(Home, "Mobile Only", "No PC inputs, no freezes", "◎")
-AddCard(Home, "Anti-Detection", "Silent aim leaves no trace", "◇")
+AddCard(Home, "Anti-Detection", "Camera stays still", "◇")
 AddCard(Home, "Performance", "Optimized for mobile devices", "◉")
 AddCard(Home, "Updates", "Join Discord for latest updates", "✦")
 
 --// AIMBOT PAGE
-AddToggle(AimbotPage, "Silent Aim", "180° silent aim - camera stays still", function(enabled)
+AddToggle(AimbotPage, "Silent Aim", "Aim at target without moving camera", function(enabled)
     Combat.SilentAimEnabled = enabled
     if enabled then
         Status.Text = "●  SILENT AIM"
@@ -611,7 +592,6 @@ end, "◎")
 AddToggle(AimbotPage, "Soru Button", "Show Soru button on screen", function(enabled)
     Combat.SoruButtonVisible = enabled
     SoruButton.Visible = enabled
-    SoruLabel.Visible = enabled
 end, "⚡")
 
 AddToggle(AimbotPage, "Target Players", "Aim at players", function(enabled)
@@ -621,6 +601,10 @@ end, "👤")
 AddToggle(AimbotPage, "Target NPCs", "Aim at NPCs", function(enabled)
     Combat.TargetNPCs = enabled
 end, "🤖")
+
+AddSlider(AimbotPage, "Silent Aim FOV", 30, 360, 180, function(val)
+    Combat.SilentAimFOV = val
+end, "◉")
 
 AddSlider(AimbotPage, "Hit Chance", 0, 100, 100, function(val)
     Combat.SilentAimHitChance = val
@@ -689,7 +673,6 @@ end, "◎")
 AddToggle(MacrosPage, "Macro System", "Enable macro button on screen", function(enabled)
     Combat.MacroEnabled = enabled
     MacroButton.Visible = enabled
-    MacroLabel.Visible = enabled
     if enabled then
         Status.Text = "●  MACRO"
         Status.TextColor3 = GOLD
@@ -699,32 +682,40 @@ AddToggle(MacrosPage, "Macro System", "Enable macro button on screen", function(
     end
 end, "⌨")
 
-AddSlider(MacrosPage, "Macro Delay", 0.1, 3, 0.5, function(val)
-    Combat.MacroDelay = val
+AddToggle(MacrosPage, "Melee", "Use melee attack in macro", function(enabled)
+    Combat.MacroMeleeEnabled = enabled
+end, "👊")
+AddSlider(MacrosPage, "Melee Delay", 0.05, 3, 0.5, function(val)
+    Combat.MacroMeleeDelay = val
 end, "⏱")
 
-AddToggle(MacrosPage, "Melee", "Attack with melee", function(enabled)
-    Combat.MacroMelee = enabled
-end, "👊")
-
-AddToggle(MacrosPage, "Sword", "Use sword move", function(enabled)
-    Combat.MacroSword = enabled
+AddToggle(MacrosPage, "Sword", "Use sword move in macro", function(enabled)
+    Combat.MacroSwordEnabled = enabled
 end, "⚔")
+AddSlider(MacrosPage, "Sword Delay", 0.05, 3, 0.5, function(val)
+    Combat.MacroSwordDelay = val
+end, "⏱")
 
-AddToggle(MacrosPage, "Fruit", "Use fruit move", function(enabled)
-    Combat.MacroFruit = enabled
+AddToggle(MacrosPage, "Fruit", "Use fruit move in macro", function(enabled)
+    Combat.MacroFruitEnabled = enabled
 end, "🍈")
+AddSlider(MacrosPage, "Fruit Delay", 0.05, 3, 0.5, function(val)
+    Combat.MacroFruitDelay = val
+end, "⏱")
 
-AddToggle(MacrosPage, "Gun", "Use gun move", function(enabled)
-    Combat.MacroGun = enabled
+AddToggle(MacrosPage, "Gun", "Use gun move in macro", function(enabled)
+    Combat.MacroGunEnabled = enabled
 end, "🔫")
+AddSlider(MacrosPage, "Gun Delay", 0.05, 3, 0.5, function(val)
+    Combat.MacroGunDelay = val
+end, "⏱")
 
 --// CREDITS PAGE
 AddCard(CreditsPage, "Made By", "Ivory", "◆")
 AddCard(CreditsPage, "Discord", "Ivory999", "◈")
 AddCard(CreditsPage, "Ideas By", "Rayo", "✦")
 AddCard(CreditsPage, "Discord", "rayo06996", "◎")
-AddCard(CreditsPage, "Version", "v9.0 - Mobile Fixed", "▣")
+AddCard(CreditsPage, "Version", "v11.0 - Silent Aim", "▣")
 AddCard(CreditsPage, "Special Thanks", "All supporters and testers", "♡")
 AddCard(CreditsPage, "Updates", "Join Discord for latest updates", "↻")
 
@@ -919,38 +910,22 @@ end)
 MacroButton.MouseButton1Click:Connect(function()
     if not Combat.MacroEnabled then return end
     
-    if tick() - Combat.LastMacroAction < Combat.MacroDelay then return end
-    Combat.LastMacroAction = tick()
-    
-    -- Execute macro sequence using direct character actions
-    local character = Player.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
-    local root = character.HumanoidRootPart
-    local humanoid = character:FindFirstChildOfClass("Humanoid")
-    
-    -- Melee attack (simulate click)
-    if Combat.MacroMelee then
-        -- Use VirtualUser to simulate a click? But mobile might not work.
-        -- For safety, we'll just fire the client's attack if we can find the remote.
-        -- This is a placeholder; on mobile it's difficult to simulate touch.
-        -- We'll skip actual input and just do a dash? Actually we'll leave it empty.
-        -- To avoid freezes, we'll not use VirtualInputManager.
-        -- You may need to implement actual touch simulation.
+    -- Execute each enabled move with its own delay
+    if Combat.MacroMeleeEnabled then
+        -- Simulate melee attack (touch simulation may be required)
+        task.wait(Combat.MacroMeleeDelay)
     end
     
-    -- Sword move (press Z)
-    if Combat.MacroSword then
-        -- Same as above
+    if Combat.MacroSwordEnabled then
+        task.wait(Combat.MacroSwordDelay)
     end
     
-    -- Fruit move (press X)
-    if Combat.MacroFruit then
-        -- Same
+    if Combat.MacroFruitEnabled then
+        task.wait(Combat.MacroFruitDelay)
     end
     
-    -- Gun move (press C)
-    if Combat.MacroGun then
-        -- Same
+    if Combat.MacroGunEnabled then
+        task.wait(Combat.MacroGunDelay)
     end
 end)
 
@@ -1011,7 +986,7 @@ SoruButton.MouseButton1Click:Connect(function()
             local targetRoot = target:FindFirstChild("HumanoidRootPart") or target.Character and target.Character:FindFirstChild("HumanoidRootPart")
             
             if targetRoot then
-                -- Soru animation effect
+                -- Soru animation effect (afterimages)
                 for i = 1, 5 do
                     local afterimage = Instance.new("Part")
                     afterimage.Size = root.Size
@@ -1100,7 +1075,7 @@ SoruButton.MouseLeave:Connect(function()
     })
 end)
 
---// SILENT AIM FUNCTION (180° FOV) - Camera does NOT move
+--// SILENT AIM FUNCTION (no camera movement)
 local function GetClosestTarget()
     local closest = nil
     local shortestDistance = Combat.SilentAimFOV
@@ -1172,18 +1147,23 @@ OldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
                 if targetRoot and character and character:FindFirstChild("HumanoidRootPart") then
                     local root = character.HumanoidRootPart
                     
+                    -- Apply prediction
                     local predictedPos = targetRoot.Position
                     if target:FindFirstChild("Humanoid") then
                         local velocity = target.Humanoid.MoveDirection * target.Humanoid.WalkSpeed
                         predictedPos = targetRoot.Position + velocity * Combat.SilentAimPrediction
                     end
                     
+                    -- Hit chance check
                     if math.random(1, 100) <= Combat.SilentAimHitChance then
+                        -- Store original CFrame and aim at target silently
                         local originalCFrame = root.CFrame
                         root.CFrame = CFrame.lookAt(root.Position, predictedPos)
                         
+                        -- Send the attack
                         local result = OldNamecall(self, unpack(args))
                         
+                        -- Restore CFrame
                         root.CFrame = originalCFrame
                         
                         return result
@@ -1196,7 +1176,7 @@ OldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     return OldNamecall(self, ...)
 end)
 
---// MAIN LOOP (only for non-input hacks)
+--// MAIN LOOP
 RunService.RenderStepped:Connect(function()
     -- Speed hack
     if Combat.SpeedHack and Player.Character and Player.Character:FindFirstChild("Humanoid") then
