@@ -1,4 +1,4 @@
---// IVORY HUB (Blacklist + Macro Edition)
+--// IVORY HUB (Blacklist + Macro - Final)
 --// Credits: lvory999, rayo06996
 print("Ivory Hub loading...")
 
@@ -22,6 +22,7 @@ local DARK = Color3.fromRGB(17,17,17)
 local LIGHT = Color3.fromRGB(30,30,30)
 local WHITE = Color3.fromRGB(245,245,245)
 local GRAY = Color3.fromRGB(145,145,145)
+local DARKER = Color3.fromRGB(22,22,28)
 
 --// GUI
 local Gui = Instance.new("ScreenGui")
@@ -173,13 +174,37 @@ local function CreateButton(Parent, Text)
     return Button
 end
 
---// CREATE TOGGLE
-local function CreateToggle(Parent, Text, Default, OnClick)
+--// IMPROVED TOGGLE FOR BLACKLIST (with checkmark)
+local function CreateBlacklistToggle(Parent, Text, Default, OnClick)
     local state = Default or false
-    local btn = CreateButton(Parent, Text .. (state and " ON" or " OFF"))
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 0, 28)
+    btn.BackgroundColor3 = state and Color3.fromRGB(0, 180, 0) or DARKER
+    btn.BorderSizePixel = 0
+    btn.Text = Text .. (state and " ✅" or " ❌")
+    btn.TextColor3 = state and WHITE or GRAY
+    btn.TextSize = 10
+    btn.Font = Enum.Font.GothamMedium
+    btn.AutoButtonColor = false
+    btn.Parent = Parent
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    local stroke = Instance.new("UIStroke", btn)
+    stroke.Color = state and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(55, 55, 55)
+    stroke.Thickness = 1.2
+
+    btn.MouseEnter:Connect(function()
+        btn.BackgroundColor3 = state and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(45, 45, 45)
+    end)
+    btn.MouseLeave:Connect(function()
+        btn.BackgroundColor3 = state and Color3.fromRGB(0, 180, 0) or DARKER
+    end)
+
     btn.MouseButton1Click:Connect(function()
         state = not state
-        btn.Text = Text .. (state and " ON" or " OFF")
+        btn.Text = Text .. (state and " ✅" or " ❌")
+        btn.BackgroundColor3 = state and Color3.fromRGB(0, 180, 0) or DARKER
+        btn.TextColor3 = state and WHITE or GRAY
+        stroke.Color = state and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(55, 55, 55)
         if OnClick then OnClick(state) end
     end)
     return btn
@@ -294,6 +319,27 @@ end
 MakeDraggable(Main)
 MakeDraggable(Toggle)
 
+--// MACRO BUTTON (floating, appears when Combo Macro is ON)
+local MacroButton = Instance.new("TextButton")
+MacroButton.Name = "MacroButton"
+MacroButton.Size = UDim2.fromOffset(80, 32)
+MacroButton.Position = UDim2.new(0.02, 0, 0.85, 0)
+MacroButton.BackgroundColor3 = BLACK
+MacroButton.BorderSizePixel = 0
+MacroButton.Text = "⚡ MACRO"
+MacroButton.TextColor3 = WHITE
+MacroButton.TextSize = 12
+MacroButton.Font = Enum.Font.GothamBold
+MacroButton.AutoButtonColor = false
+MacroButton.Visible = false
+MacroButton.Parent = Gui
+MacroButton.ZIndex = 20
+Instance.new("UICorner", MacroButton).CornerRadius = UDim.new(0, 8)
+local MacroStroke = Instance.new("UIStroke", MacroButton)
+MacroStroke.Color = WHITE
+MacroStroke.Thickness = 1
+MakeDraggable(MacroButton)
+
 --// OPEN/CLOSE
 local Open = true
 
@@ -402,9 +448,18 @@ end)
 
 --// NOCLIP
 local noclipEnabled = false
-CreateToggle(MainPage, "NOCLIP", false, function(state)
-    noclipEnabled = state
-    if state then
+CreateButton(MainPage, "NOCLIP: OFF"):MouseButton1Click:Connect(function()
+    noclipEnabled = not noclipEnabled
+    local btn = noclipEnabled and "NOCLIP: ON" or "NOCLIP: OFF"
+    local parent = MainPage
+    for _, child in ipairs(parent:GetChildren()) do
+        if child:IsA("TextButton") and string.sub(child.Text, 1, 6) == "NOCLIP" then
+            child.Text = btn
+            child.BackgroundColor3 = noclipEnabled and Color3.fromRGB(0, 180, 0) or LIGHT
+            break
+        end
+    end
+    if noclipEnabled then
         pcall(function()
             local char = player.Character
             if char then
@@ -427,9 +482,18 @@ end)
 
 --// ANTI-STUN
 local antiStun = false
-CreateToggle(MainPage, "ANTI-STUN", false, function(state)
-    antiStun = state
-    if state then
+CreateButton(MainPage, "ANTI-STUN: OFF"):MouseButton1Click:Connect(function()
+    antiStun = not antiStun
+    local btn = antiStun and "ANTI-STUN: ON" or "ANTI-STUN: OFF"
+    local parent = MainPage
+    for _, child in ipairs(parent:GetChildren()) do
+        if child:IsA("TextButton") and string.sub(child.Text, 1, 9) == "ANTI-STUN" then
+            child.Text = btn
+            child.BackgroundColor3 = antiStun and Color3.fromRGB(0, 180, 0) or LIGHT
+            break
+        end
+    end
+    if antiStun then
         pcall(function()
             local char = player.Character
             if char then
@@ -452,7 +516,7 @@ CreateToggle(MainPage, "ANTI-STUN", false, function(state)
 end)
 
 -- ==================================================================
---                   BLACKLIST PAGE
+--                   BLACKLIST PAGE (Improved UI)
 -- ==================================================================
 local blacklist = {
     Fruit = { Z = false, X = false, C = false, V = false, F = false },
@@ -461,85 +525,45 @@ local blacklist = {
     Melee = { Z = false, X = false, C = false, V = false, F = false },
 }
 
-local function buildBlacklistUI()
-    local categories = { "Fruit", "Sword", "Gun", "Melee" }
-    local keys = { "Z", "X", "C", "V", "F" }
-    local yOffset = 30
-    for _, cat in ipairs(categories) do
-        local header = Instance.new("TextLabel")
-        header.Size = UDim2.new(1, 0, 0, 20)
-        header.Position = UDim2.new(0, 0, 0, yOffset)
-        header.BackgroundTransparency = 1
-        header.Text = cat:upper() .. " BLACKLIST"
-        header.TextColor3 = WHITE
-        header.TextSize = 11
-        header.Font = Enum.Font.GothamBold
-        header.TextXAlignment = Enum.TextXAlignment.Left
-        header.Parent = BlacklistPage
-        yOffset = yOffset + 24
-        for _, key in ipairs(keys) do
-            CreateToggle(BlacklistPage, cat .. " " .. key, false, function(state)
-                blacklist[cat][key] = state
-            end)
-            -- Position manually because UIListLayout handles layout; we just need to set LayoutOrder
-            -- But we use UIListLayout, so we just create them; they'll stack automatically.
-            -- But we need to set LayoutOrder; we can assign them after creation.
-            -- Actually the last created will be at the bottom; we'll set LayoutOrder.
-            -- Let's set LayoutOrder on the Frame that contains the toggle? Our CreateToggle returns the button only, but we need to set the parent frame's LayoutOrder.
-            -- We'll wrap each toggle in a frame with LayoutOrder.
-            -- Simpler: we can just put them in order; UIListLayout sorts by order of creation.
-            -- We'll create a frame for each and set LayoutOrder.
-            local container = Instance.new("Frame")
-            container.Size = UDim2.new(1, 0, 0, 0)
-            container.BackgroundTransparency = 1
-            container.Parent = BlacklistPage
-            -- The toggle will be added to BlacklistPage directly; we'll just let them stack.
-            -- But we need to ensure they are in order. They are created sequentially, so they'll be in order.
-        end
-        yOffset = yOffset + 10
-    end
-end
-
--- We'll recreate the UI with proper layout:
 local function rebuildBlacklistUI()
-    -- Clear existing
     for _, child in ipairs(BlacklistPage:GetChildren()) do
-        if child:IsA("TextButton") or child:IsA("TextLabel") or child:IsA("Frame") then
+        if child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("Frame") then
             child:Destroy()
         end
     end
 
     local categories = { "Fruit", "Sword", "Gun", "Melee" }
     local keys = { "Z", "X", "C", "V", "F" }
-    local y = 30
+    local y = 10
     for _, cat in ipairs(categories) do
         local header = Instance.new("TextLabel")
-        header.Size = UDim2.new(1, 0, 0, 20)
+        header.Size = UDim2.new(1, 0, 0, 24)
         header.Position = UDim2.new(0, 0, 0, y)
         header.BackgroundTransparency = 1
-        header.Text = cat:upper() .. " BLACKLIST"
+        header.Text = "⚔️ " .. cat:upper() .. " BLACKLIST"
         header.TextColor3 = WHITE
-        header.TextSize = 11
+        header.TextSize = 12
         header.Font = Enum.Font.GothamBold
         header.TextXAlignment = Enum.TextXAlignment.Left
         header.Parent = BlacklistPage
-        y = y + 24
+        y = y + 28
+
         for _, key in ipairs(keys) do
-            local btn = CreateToggle(BlacklistPage, cat .. " " .. key, false, function(state)
+            local btn = CreateBlacklistToggle(BlacklistPage, cat .. " " .. key, false, function(state)
                 blacklist[cat][key] = state
             end)
-            btn.Position = UDim2.new(0, 0, 0, y)
-            btn.Size = UDim2.new(0.9, 0, 0, 24)
-            y = y + 28
+            btn.Position = UDim2.new(0.03, 0, 0, y)
+            btn.Size = UDim2.new(0.94, 0, 0, 26)
+            y = y + 30
         end
-        y = y + 10
+        y = y + 8
     end
 end
 
 rebuildBlacklistUI()
 
 -- ==================================================================
---                   COMBO MACRO PAGE
+--                   COMBO MACRO PAGE (with Macro Button)
 -- ==================================================================
 local comboSteps = {
     {slot = 1, key = "Z", delay = 0.2},
@@ -587,16 +611,21 @@ function executeComboSteps()
     end)
 end
 
--- Combo toggle
-CreateToggle(ComboPage, "COMBO MACRO", false, function(state)
-    comboEnabled = state
+-- Combo toggle (shows/hides Macro button)
+CreateButton(ComboPage, "COMBO MACRO: OFF"):MouseButton1Click:Connect(function()
+    comboEnabled = not comboEnabled
+    local parent = ComboPage
+    for _, child in ipairs(parent:GetChildren()) do
+        if child:IsA("TextButton") and string.sub(child.Text, 1, 11) == "COMBO MACRO" then
+            child.Text = comboEnabled and "COMBO MACRO: ON" or "COMBO MACRO: OFF"
+            child.BackgroundColor3 = comboEnabled and Color3.fromRGB(0, 180, 0) or LIGHT
+            break
+        end
+    end
+    MacroButton.Visible = comboEnabled
 end)
 
--- Execute button
-local execBtn = CreateButton(ComboPage, "EXECUTE COMBO")
-execBtn.MouseButton1Click:Connect(executeComboSteps)
-
--- Step count label
+-- Step counter label
 local stepCountLabel = Instance.new("TextLabel")
 stepCountLabel.Size = UDim2.new(1, 0, 0, 20)
 stepCountLabel.Position = UDim2.new(0, 0, 0, 0)
@@ -771,6 +800,13 @@ end
 
 rebuildStepUI()
 
+-- Macro button click -> execute combo
+MacroButton.MouseButton1Click:Connect(function()
+    if comboEnabled then
+        executeComboSteps()
+    end
+end)
+
 -- ==================================================================
 --                   VISUALS (ESP) PAGE
 -- ==================================================================
@@ -779,9 +815,17 @@ local espName = true
 local espDist = true
 local espHealth = false
 
-CreateToggle(VisualsPage, "ESP MASTER", false, function(state)
-    espEnabled = state
-    if not state then
+CreateButton(VisualsPage, "ESP MASTER: OFF"):MouseButton1Click:Connect(function()
+    espEnabled = not espEnabled
+    local parent = VisualsPage
+    for _, child in ipairs(parent:GetChildren()) do
+        if child:IsA("TextButton") and string.sub(child.Text, 1, 10) == "ESP MASTER" then
+            child.Text = espEnabled and "ESP MASTER: ON" or "ESP MASTER: OFF"
+            child.BackgroundColor3 = espEnabled and Color3.fromRGB(0, 180, 0) or LIGHT
+            break
+        end
+    end
+    if not espEnabled then
         for _, v in pairs(workspace:GetDescendants()) do
             if v:IsA("BillboardGui") and v.Name == "IvoryESP" then
                 v:Destroy()
@@ -790,9 +834,41 @@ CreateToggle(VisualsPage, "ESP MASTER", false, function(state)
     end
 end)
 
-CreateToggle(VisualsPage, "SHOW NAME", true, function(state) espName = state end)
-CreateToggle(VisualsPage, "SHOW DISTANCE", true, function(state) espDist = state end)
-CreateToggle(VisualsPage, "SHOW HEALTH", false, function(state) espHealth = state end)
+CreateButton(VisualsPage, "SHOW NAME: ON"):MouseButton1Click:Connect(function()
+    espName = not espName
+    local parent = VisualsPage
+    for _, child in ipairs(parent:GetChildren()) do
+        if child:IsA("TextButton") and string.sub(child.Text, 1, 9) == "SHOW NAME" then
+            child.Text = espName and "SHOW NAME: ON" or "SHOW NAME: OFF"
+            child.BackgroundColor3 = espName and Color3.fromRGB(0, 180, 0) or LIGHT
+            break
+        end
+    end
+end)
+
+CreateButton(VisualsPage, "SHOW DISTANCE: ON"):MouseButton1Click:Connect(function()
+    espDist = not espDist
+    local parent = VisualsPage
+    for _, child in ipairs(parent:GetChildren()) do
+        if child:IsA("TextButton") and string.sub(child.Text, 1, 13) == "SHOW DISTANCE" then
+            child.Text = espDist and "SHOW DISTANCE: ON" or "SHOW DISTANCE: OFF"
+            child.BackgroundColor3 = espDist and Color3.fromRGB(0, 180, 0) or LIGHT
+            break
+        end
+    end
+end)
+
+CreateButton(VisualsPage, "SHOW HEALTH: OFF"):MouseButton1Click:Connect(function()
+    espHealth = not espHealth
+    local parent = VisualsPage
+    for _, child in ipairs(parent:GetChildren()) do
+        if child:IsA("TextButton") and string.sub(child.Text, 1, 11) == "SHOW HEALTH" then
+            child.Text = espHealth and "SHOW HEALTH: ON" or "SHOW HEALTH: OFF"
+            child.BackgroundColor3 = espHealth and Color3.fromRGB(0, 180, 0) or LIGHT
+            break
+        end
+    end
+end)
 
 RunService.Heartbeat:Connect(function()
     if not espEnabled then return end
@@ -848,7 +924,7 @@ RunService.Heartbeat:Connect(function()
 end)
 
 -- ==================================================================
---                   PLAYERS & SETTINGS (placeholders)
+--                   PLAYERS & SETTINGS
 -- ==================================================================
 CreateButton(PlayersPage, "Player List (Coming Soon)")
 CreateButton(PlayersPage, "Refresh Players")
@@ -870,6 +946,20 @@ local function applyTheme(dark)
         ToggleStroke.Color = WHITE
         Close.BackgroundColor3 = LIGHT
         Close.TextColor3 = WHITE
+        MacroButton.BackgroundColor3 = BLACK
+        MacroButton.TextColor3 = WHITE
+        MacroStroke.Color = WHITE
+        -- Update all text labels in pages
+        for _, page in pairs(Pages) do
+            for _, child in ipairs(page:GetDescendants()) do
+                if child:IsA("TextLabel") then
+                    child.TextColor3 = WHITE
+                end
+                if child:IsA("TextButton") and child.BackgroundColor3 ~= Color3.fromRGB(0, 180, 0) then
+                    child.TextColor3 = WHITE
+                end
+            end
+        end
     else
         Main.BackgroundColor3 = WHITE
         Top.BackgroundColor3 = Color3.fromRGB(230, 230, 230)
@@ -883,7 +973,22 @@ local function applyTheme(dark)
         ToggleStroke.Color = BLACK
         Close.BackgroundColor3 = Color3.fromRGB(220, 220, 220)
         Close.TextColor3 = BLACK
+        MacroButton.BackgroundColor3 = WHITE
+        MacroButton.TextColor3 = BLACK
+        MacroStroke.Color = BLACK
+        -- Update all text labels in pages to BLACK
+        for _, page in pairs(Pages) do
+            for _, child in ipairs(page:GetDescendants()) do
+                if child:IsA("TextLabel") then
+                    child.TextColor3 = BLACK
+                end
+                if child:IsA("TextButton") and child.BackgroundColor3 ~= Color3.fromRGB(0, 180, 0) then
+                    child.TextColor3 = BLACK
+                end
+            end
+        end
     end
+    -- Update sidebar tabs (keep selected tab white or black)
     for _, obj in ipairs(Sidebar:GetChildren()) do
         if obj:IsA("TextButton") then
             if obj.BackgroundColor3 == WHITE then
@@ -897,7 +1002,18 @@ local function applyTheme(dark)
     end
 end
 
-CreateToggle(SettingsPage, "DARK THEME", true, function(state) applyTheme(state) end)
+CreateButton(SettingsPage, "DARK THEME: ON"):MouseButton1Click:Connect(function()
+    themeBlack = not themeBlack
+    local parent = SettingsPage
+    for _, child in ipairs(parent:GetChildren()) do
+        if child:IsA("TextButton") and string.sub(child.Text, 1, 10) == "DARK THEME" then
+            child.Text = themeBlack and "DARK THEME: ON" or "DARK THEME: OFF"
+            child.BackgroundColor3 = themeBlack and Color3.fromRGB(0, 180, 0) or LIGHT
+            break
+        end
+    end
+    applyTheme(themeBlack)
+end)
 applyTheme(true)
 
 -- Info & Credits
@@ -925,5 +1041,5 @@ creditsText.TextXAlignment = Enum.TextXAlignment.Left
 creditsText.TextYAlignment = Enum.TextYAlignment.Top
 creditsText.Parent = CreditsPage
 
-print("Ivory Hub with Blacklist & Macro loaded successfully!")
-print("GUI should be visible. Click the 'I' button to toggle.")
+print("Ivory Hub (Blacklist + Macro) loaded successfully!")
+print("GUI is visible. Click 'I' to toggle. Macro button appears when Combo Macro is ON.")
