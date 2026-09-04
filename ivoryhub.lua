@@ -48,29 +48,19 @@ local Combat = {
     SilentAimFOV = 180,
     SilentAimHitChance = 100,
     SilentAimPrediction = 0.15,
-    AutoAttack = false,
-    AttackCooldown = 0.3,
-    LastAttack = 0,
     ESPEnabled = false,
     ESPBoxes = {},
     ESPNames = {},
     ESPNamesEnabled = false,
     ESPDistance = {},
     ESPDistanceEnabled = false,
-    FOVCircleEnabled = false,
     AutoDodge = false,
     DodgeCooldown = 1.5,
     LastDodge = 0,
-    KillAura = false,
-    KillAuraRange = 50,
-    KillAuraDelay = 0.2,
-    LastKillAura = 0,
     NoCooldown = false,
     InfiniteEnergy = false,
     SpeedHack = false,
-    SpeedMultiplier = 2,
-    FlyHack = false,
-    FlySpeed = 50,
+    SpeedMultiplier = 5,
     NoClip = false
 }
 
@@ -521,8 +511,8 @@ local SettingsPage = CreatePage("Settings")
 --// HOME CONTENT
 AddCard(Home, "Welcome to Ivory PVP", "Premium Blox Fruits combat interface", "◆")
 AddCard(Home, "Current Status", "All systems operational and ready", "●")
-AddCard(Home, "Script Version", "v2.0 - Silent Aim Edition", "◈")
-AddCard(Home, "Quick Stats", "180° FOV | Silent Aim | Auto Attack", "▣")
+AddCard(Home, "Script Version", "v3.0 - Silent Aim Edition", "◈")
+AddCard(Home, "Quick Stats", "180° FOV | Silent Aim | Speed Hack", "▣")
 AddCard(Home, "Performance", "Optimized for low-end devices", "◉")
 AddCard(Home, "Mobile Support", "Touch controls fully supported", "◎")
 AddCard(Home, "Anti-Detection", "Silent aim leaves no visual trace", "◇")
@@ -540,14 +530,6 @@ AddToggle(AimbotPage, "Silent Aim", "180° silent aim - camera stays still", fun
         Combat.SilentAimTarget = nil
     end
 end, "◎")
-
-AddToggle(AimbotPage, "Auto Attack", "Automatically attacks target", function(enabled)
-    Combat.AutoAttack = enabled
-end, "⚔")
-
-AddToggle(AimbotPage, "Kill Aura", "Attacks all nearby enemies", function(enabled)
-    Combat.KillAura = enabled
-end, "☠")
 
 AddSlider(AimbotPage, "Hit Chance", 0, 100, 100, function(val)
     Combat.SilentAimHitChance = val
@@ -575,14 +557,6 @@ AddToggle(CombatPage, "Auto Dodge", "Automatically dodges attacks", function(ena
     Combat.AutoDodge = enabled
 end, "↗")
 
-AddSlider(CombatPage, "Kill Aura Range", 10, 100, 50, function(val)
-    Combat.KillAuraRange = val
-end, "◈")
-
-AddSlider(CombatPage, "Attack Speed", 0.1, 2, 0.3, function(val)
-    Combat.AttackCooldown = val
-end, "⚔")
-
 --// MOVEMENT PAGE
 AddToggle(MovementPage, "Speed Hack", "Multiply your movement speed", function(enabled)
     Combat.SpeedHack = enabled
@@ -591,23 +565,12 @@ AddToggle(MovementPage, "Speed Hack", "Multiply your movement speed", function(e
     end
 end, "»")
 
-AddSlider(MovementPage, "Speed Multiplier", 1, 10, 2, function(val)
+AddSlider(MovementPage, "Speed Multiplier", 1, 50, 5, function(val)
     Combat.SpeedMultiplier = val
     if Combat.SpeedHack and Player.Character and Player.Character:FindFirstChild("Humanoid") then
         Player.Character.Humanoid.WalkSpeed = 16 * val
     end
 end, "»")
-
-AddToggle(MovementPage, "Fly Hack", "Enable flight mode", function(enabled)
-    Combat.FlyHack = enabled
-    if not enabled and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
-        Player.Character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
-    end
-end, "✈")
-
-AddSlider(MovementPage, "Fly Speed", 10, 200, 50, function(val)
-    Combat.FlySpeed = val
-end, "✈")
 
 AddToggle(MovementPage, "No Clip", "Walk through walls", function(enabled)
     Combat.NoClip = enabled
@@ -640,16 +603,12 @@ AddToggle(VisualPage, "ESP Distance", "Show distance to players", function(enabl
     Combat.ESPDistanceEnabled = enabled
 end, "◎")
 
-AddToggle(VisualPage, "FOV Circle", "Show 180° FOV circle", function(enabled)
-    Combat.FOVCircleEnabled = enabled
-end, "◉")
-
 --// CREDITS PAGE
 AddCard(CreditsPage, "Made By", "Ivory", "◆")
 AddCard(CreditsPage, "Discord", "Ivory999", "◈")
 AddCard(CreditsPage, "Ideas By", "Rayo", "✦")
 AddCard(CreditsPage, "Discord", "rayo06996", "◎")
-AddCard(CreditsPage, "Version", "v2.0 - Premium Edition", "▣")
+AddCard(CreditsPage, "Version", "v3.0 - Premium Edition", "▣")
 AddCard(CreditsPage, "Special Thanks", "All supporters and testers", "♡")
 AddCard(CreditsPage, "Updates", "Join Discord for latest updates", "↻")
 AddCard(CreditsPage, "Copyright", "© Ivory Hub 2024", "©")
@@ -678,7 +637,7 @@ local Tabs = {}
 local function CreateTab(name, order, icon)
     local Button = Instance.new("TextButton")
     Button.Name = name
-    Button.Size = UDim2.new(1, 0, 0, 26)
+    Button.Size = UDim2.new(1, 0, 0, 30)
     Button.BackgroundColor3 = DARK
     Button.Text = icon .. " " .. name:upper()
     Button.TextColor3 = GREY
@@ -971,44 +930,6 @@ end)
 
 --// MAIN LOOP
 RunService.RenderStepped:Connect(function()
-    -- Auto attack
-    if Combat.AutoAttack and tick() - Combat.LastAttack > Combat.AttackCooldown then
-        Combat.LastAttack = tick()
-        
-        local target = GetClosestPlayer()
-        if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-            -- Simulate click for attack
-            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, nil, 0)
-            task.wait(0.05)
-            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, nil, 0)
-        end
-    end
-    
-    -- Kill Aura
-    if Combat.KillAura and tick() - Combat.LastKillAura > Combat.KillAuraDelay then
-        Combat.LastKillAura = tick()
-        
-        local character = Player.Character
-        if character and character:FindFirstChild("HumanoidRootPart") then
-            local root = character.HumanoidRootPart
-            
-            for _, otherPlayer in pairs(Players:GetPlayers()) do
-                if otherPlayer ~= Player and otherPlayer.Character and otherPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    local otherRoot = otherPlayer.Character.HumanoidRootPart
-                    local distance = (root.Position - otherRoot.Position).Magnitude
-                    
-                    if distance <= Combat.KillAuraRange then
-                        -- Attack nearby player
-                        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, nil, 0)
-                        task.wait(0.05)
-                        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, nil, 0)
-                        break
-                    end
-                end
-            end
-        end
-    end
-    
     -- Speed hack
     if Combat.SpeedHack and Player.Character and Player.Character:FindFirstChild("Humanoid") then
         Player.Character.Humanoid.WalkSpeed = 16 * Combat.SpeedMultiplier
@@ -1017,34 +938,6 @@ RunService.RenderStepped:Connect(function()
     -- Infinite energy
     if Combat.InfiniteEnergy and Player.Character and Player.Character:FindFirstChild("Humanoid") then
         Player.Character.Humanoid:SetAttribute("Energy", 999999)
-    end
-    
-    -- Fly hack
-    if Combat.FlyHack and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
-        local root = Player.Character.HumanoidRootPart
-        local direction = Vector3.new(0, 0, 0)
-        
-        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
-            direction = direction + Camera.CFrame.LookVector
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
-            direction = direction - Camera.CFrame.LookVector
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
-            direction = direction - Camera.CFrame.RightVector
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
-            direction = direction + Camera.CFrame.RightVector
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-            direction = direction + Vector3.new(0, 1, 0)
-        end
-        
-        if direction.Magnitude > 0 then
-            root.Velocity = direction.Unit * Combat.FlySpeed
-        else
-            root.Velocity = Vector3.new(0, 0, 0)
-        end
     end
     
     -- No clip
@@ -1137,17 +1030,5 @@ RunService.RenderStepped:Connect(function()
                 end
             end
         end
-    end
-    
-    -- FOV Circle
-    if Combat.FOVCircleEnabled then
-        local fovCircle = Drawing.new("Circle")
-        fovCircle.Visible = true
-        fovCircle.Thickness = 1
-        fovCircle.Radius = Combat.SilentAimFOV
-        fovCircle.Color = Color3.fromRGB(255, 255, 255)
-        fovCircle.Position = Camera.ViewportSize / 2
-        fovCircle.Transparency = 0.7
-        table.insert(Combat.ESPBoxes, fovCircle)
     end
 end)
