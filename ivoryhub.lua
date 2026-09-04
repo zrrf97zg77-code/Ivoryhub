@@ -1,10 +1,11 @@
---// IVORY HUB — FIXED (NoClip Toggle + Soru Flashstep Animation)
---// Soru now does TRUE flashstep (short dash with afterimages), NOT teleport
+--// IVORY HUB — FULL FIXED SCRIPT (Key + Aimbot + Flashstep + Macro)
+--// Fixed: Aimbot works, Macro/Soru buttons clickable (no drag conflict), Macro B/W
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Player = Players.LocalPlayer
 local PlayerGui = Player:WaitForChild("PlayerGui")
@@ -25,7 +26,6 @@ local GREY = Color3.fromRGB(145, 145, 145)
 local DARKGREY = Color3.fromRGB(35, 35, 35)
 local RED = Color3.fromRGB(255, 80, 80)
 local GREEN = Color3.fromRGB(80, 255, 120)
-local GOLD = Color3.fromRGB(255, 215, 0)
 
 local function tween(obj, time, props)
     TweenService:Create(obj, TweenInfo.new(time, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), props):Play()
@@ -39,7 +39,7 @@ local Aimbot = {
     Enabled = false,
     MaxDistance = 3000,
     TargetPlayers = true,
-    TargetNPCs = false,
+    TargetNPCs = true,
     CurrentTarget = nil,
     Prediction = 0.15
 }
@@ -154,7 +154,7 @@ KeyButton.MouseLeave:Connect(function()
     tween(KeyButton, 0.2, {BackgroundColor3 = IVORY})
 end)
 
---// FIXED SORU (TRUE FLASHSTEP)
+--// TRUE FLASHSTEP FUNCTION
 local function DoSoru()
     if tick() - Combat.LastSoru < Combat.SoruCooldown then return end
     Combat.LastSoru = tick()
@@ -162,9 +162,7 @@ local function DoSoru()
     local character = Player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
     local root = character.HumanoidRootPart
-    local humanoid = character:FindFirstChildOfClass("Humanoid")
 
-    -- Find closest target
     local targetRoot = nil
     local shortestDist = math.huge
 
@@ -199,15 +197,10 @@ local function DoSoru()
 
     if not targetRoot then return end
 
-    -- Get direction to target
     local direction = (targetRoot.Position - root.Position).Unit
 
-    -- TRUE FLASHSTEP: rapid small teleports with afterimages
-    local steps = 5
-    local stepDistance = 4 -- 4 studs per step = 20 studs total
-
-    for i = 1, steps do
-        -- Create afterimage at current position
+    -- Flashstep with afterimages (5 steps, 4 studs each = 20 studs)
+    for i = 1, 5 do
         local afterimage = Instance.new("Part")
         afterimage.Size = root.Size
         afterimage.CFrame = root.CFrame
@@ -219,13 +212,10 @@ local function DoSoru()
         afterimage.Parent = workspace
         game:GetService("Debris"):AddItem(afterimage, 0.2)
 
-        -- Move forward small step
-        root.CFrame = root.CFrame + (direction * stepDistance)
-        
+        root.CFrame = root.CFrame + (direction * 4)
         task.wait(0.03)
     end
 
-    -- Flash effect at landing
     local flash = Instance.new("Part")
     flash.Size = Vector3.new(2, 2, 2)
     flash.Position = root.Position
@@ -237,7 +227,6 @@ local function DoSoru()
     flash.Parent = workspace
     game:GetService("Debris"):AddItem(flash, 0.3)
 
-    -- Face target
     root.CFrame = CFrame.lookAt(root.Position, targetRoot.Position)
 end
 
@@ -246,7 +235,6 @@ local function LoadFullScript()
     KeyValid = true
     KeyGui:Destroy()
 
-    --// MAIN GUI
     local Gui = Instance.new("ScreenGui")
     Gui.Name = "IvoryHub"
     Gui.ResetOnSpawn = false
@@ -270,13 +258,13 @@ local function LoadFullScript()
     ToggleStroke.Thickness = 1
     ToggleStroke.Transparency = 0.35
 
-    -- Macro Button
+    -- Macro Button (Black & White, NO DRAG)
     local MacroButton = Instance.new("TextButton")
     MacroButton.Size = UDim2.fromOffset(50, 50)
     MacroButton.Position = UDim2.new(1, -70, 0.5, -25)
     MacroButton.BackgroundColor3 = BLACK
     MacroButton.Text = "M"
-    MacroButton.TextColor3 = GOLD
+    MacroButton.TextColor3 = IVORY
     MacroButton.TextSize = 20
     MacroButton.Font = Enum.Font.GothamBold
     MacroButton.AutoButtonColor = false
@@ -284,11 +272,11 @@ local function LoadFullScript()
     MacroButton.Parent = Gui
     Instance.new("UICorner", MacroButton).CornerRadius = UDim.new(0, 14)
     local MacroStroke = Instance.new("UIStroke", MacroButton)
-    MacroStroke.Color = GOLD
+    MacroStroke.Color = IVORY
     MacroStroke.Thickness = 2
     MacroStroke.Transparency = 0.3
 
-    -- Soru Button
+    -- Soru Button (NO DRAG)
     local SoruButton = Instance.new("TextButton")
     SoruButton.Size = UDim2.fromOffset(45, 45)
     SoruButton.Position = UDim2.new(1, -70, 0.5, 40)
@@ -638,15 +626,15 @@ local function LoadFullScript()
     -- Home
     AddCard(Home, "Welcome to Ivory PVP", "Mobile optimized Blox Fruits PVP", "◆")
     AddCard(Home, "Current Status", "All systems operational", "●")
-    AddCard(Home, "Script Version", "v17.0 - True Flashstep", "◈")
-    AddCard(Home, "Quick Stats", "180° Aimbot | Flashstep | Macro", "▣")
+    AddCard(Home, "Script Version", "v18.0 - Fixed Clicks", "◈")
+    AddCard(Home, "Quick Stats", "Aimbot | Flashstep | Macro", "▣")
     AddCard(Home, "Mobile Only", "No PC inputs, no freezes", "◎")
     AddCard(Home, "Anti-Detection", "Silent aim leaves no trace", "◇")
     AddCard(Home, "Performance", "Optimized for mobile devices", "◉")
     AddCard(Home, "Updates", "Join Discord for latest updates", "✦")
 
     -- Aimbot Page
-    AddToggle(AimbotPage, "180° Aimbot", "Only targets enemies in front of you", function(enabled)
+    AddToggle(AimbotPage, "Aimbot", "Aim at nearest target", function(enabled)
         Aimbot.Enabled = enabled
         if enabled then
             Status.Text = "●  AIMBOT"
@@ -671,7 +659,7 @@ local function LoadFullScript()
     end, "▣")
 
     -- Combat Page
-    AddToggle(CombatPage, "Soru Button", "True flashstep with animation", function(enabled)
+    AddToggle(CombatPage, "Soru Button", "Show Soru button", function(enabled)
         Combat.SoruButtonVisible = enabled
         SoruButton.Visible = enabled
     end, "⚡")
@@ -680,7 +668,6 @@ local function LoadFullScript()
     end, "🛡")
     AddToggle(CombatPage, "No Clip", "Walk through walls", function(enabled)
         Combat.NoClip = enabled
-        -- FIXED: Immediately apply or remove noclip
         if Player.Character then
             for _, part in pairs(Player.Character:GetDescendants()) do
                 if part:IsA("BasePart") then
@@ -705,7 +692,7 @@ local function LoadFullScript()
     end, "»")
 
     -- Visual Page
-    AddToggle(VisualPage, "ESP Boxes", "Show player boxes through walls", function(enabled)
+    AddToggle(VisualPage, "ESP Boxes", "Show player boxes", function(enabled)
         Combat.ESPEnabled = enabled
         if not enabled then
             for _, box in pairs(Combat.ESPBoxes) do if box then box:Destroy() end end
@@ -716,20 +703,20 @@ local function LoadFullScript()
             Combat.ESPDistance = {}
         end
     end, "▣")
-    AddToggle(VisualPage, "ESP Names", "Show player names", function(enabled)
+    AddToggle(VisualPage, "ESP Names", "Show names", function(enabled)
         Combat.ESPNamesEnabled = enabled
     end, "◈")
-    AddToggle(VisualPage, "ESP Distance", "Show distance to players", function(enabled)
+    AddToggle(VisualPage, "ESP Distance", "Show distance", function(enabled)
         Combat.ESPDistanceEnabled = enabled
     end, "◎")
 
     -- Macros Page
-    AddToggle(MacrosPage, "Macro System", "Enable macro button on screen", function(enabled)
+    AddToggle(MacrosPage, "Macro System", "Enable macro button", function(enabled)
         Combat.MacroEnabled = enabled
         MacroButton.Visible = enabled
         if enabled then
             Status.Text = "●  MACRO"
-            Status.TextColor3 = GOLD
+            Status.TextColor3 = GREEN
         else
             Status.Text = "●  ONLINE"
             Status.TextColor3 = GREEN
@@ -842,7 +829,7 @@ local function LoadFullScript()
 
     local AddStepBtn = Instance.new("TextButton")
     AddStepBtn.Size = UDim2.new(1, -2, 0, 40)
-    AddStepBtn.BackgroundColor3 = GOLD
+    AddStepBtn.BackgroundColor3 = IVORY
     AddStepBtn.Text = "+ Add Step"
     AddStepBtn.TextColor3 = BLACK
     AddStepBtn.Font = Enum.Font.GothamBold
@@ -861,7 +848,7 @@ local function LoadFullScript()
     AddCard(CreditsPage, "Discord", "Ivory999", "◈")
     AddCard(CreditsPage, "Ideas By", "Rayo", "✦")
     AddCard(CreditsPage, "Discord", "rayo06996", "◎")
-    AddCard(CreditsPage, "Version", "v17.0 - True Flashstep", "▣")
+    AddCard(CreditsPage, "Version", "v18.0 - Fixed Clicks", "▣")
     AddCard(CreditsPage, "Special Thanks", "All supporters and testers", "♡")
     AddCard(CreditsPage, "Updates", "Join Discord for latest updates", "↻")
 
@@ -933,7 +920,7 @@ local function LoadFullScript()
     Tabs.Home.Accent.Visible = true
     Home.Visible = true
 
-    -- Dragging
+    -- Dragging (only main frame, NOT floating buttons)
     local function MakeDraggable(Object, DragObject)
         local dragging = false
         local dragStart, startPos
@@ -956,8 +943,6 @@ local function LoadFullScript()
     end
     MakeDraggable(Main, Top)
     MakeDraggable(Toggle, Toggle)
-    MakeDraggable(MacroButton, MacroButton)
-    MakeDraggable(SoruButton, SoruButton)
 
     -- Open/Close
     local Open = true
@@ -974,7 +959,7 @@ local function LoadFullScript()
     Toggle.MouseButton1Click:Connect(function() if Open then HideUI() else ShowUI() end end)
     Close.MouseButton1Click:Connect(HideUI)
 
-    -- Macro Handler
+    -- Macro Button Click (FIXED: no drag, only click)
     MacroButton.MouseButton1Click:Connect(function()
         if not Combat.MacroEnabled or #Combat.MacroSteps == 0 then return end
         if tick() - Combat.LastMacroAction < 0.5 then return end
@@ -984,7 +969,7 @@ local function LoadFullScript()
         end
     end)
 
-    -- Soru Handler (TRUE FLASHSTEP)
+    -- Soru Button Click (FIXED: no drag, only click)
     SoruButton.MouseButton1Click:Connect(DoSoru)
 
     -- Aimbot Functions
@@ -1101,18 +1086,15 @@ local function LoadFullScript()
         return OldNamecall(self, ...)
     end)
 
-    -- Main Loop (FIXED NOCLIP)
+    -- Main Loop
     RunService.RenderStepped:Connect(function()
         if not KeyValid then return end
         if Combat.SpeedHack and Player.Character and Player.Character:FindFirstChild("Humanoid") then
             Player.Character.Humanoid.WalkSpeed = 16 * Combat.SpeedMultiplier
         end
-        -- FIXED: Only apply noclip when enabled, restore when disabled
         if Combat.NoClip and Player.Character then
             for _, part in pairs(Player.Character:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    part.CanCollide = false
-                end
+                if part:IsA("BasePart") then part.CanCollide = false end
             end
         end
         if Combat.AntiStun and Player.Character and Player.Character:FindFirstChild("Humanoid") then
