@@ -1,7 +1,5 @@
---// IVORY HUB — FULL SCRIPT (Key + Soru Aimbot + Macro + Soru Toggle)
---// Soru Aimbot Toggle Button (draggable, clickable) + Macro button draggable/clickable
---// Key: Ivory | Mobile & PC Compatible | Soru OFF by default
---// Fixed: Soru goes to target, aimbot targets players/NPCs
+--// IVORY HUB — FULL SCRIPT (Key + Normal Aimbot + Soru Aimbot + Macro)
+--// Key: Ivory | Mobile & PC Compatible | All Features Restored
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -43,6 +41,24 @@ end
 
 local KeyValid = _G.IvoryKeyValid
 
+local NormalAimbot = {
+    Enabled = false,
+    FOV = 180,
+    MaxDistance = 3000,
+    Prediction = 0.15,
+    TargetPlayers = true,
+    TargetNPCs = true,
+    CurrentTarget = nil
+}
+
+local SoruAimbot = {
+    Enabled = false,          -- Soru aimbot toggle (SA button)
+    TargetPlayers = true,
+    TargetNPCs = true,
+    Cooldown = 1.5,
+    LastSoru = 0
+}
+
 local Combat = {
     ESPEnabled = false,
     ESPBoxes = {},
@@ -53,16 +69,10 @@ local Combat = {
     SpeedHack = false,
     SpeedMultiplier = 15,
     NoClip = false,
-    SoruButtonVisible = false,
-    SoruAimbotEnabled = false, -- Soru OFF by default
-    SoruCooldown = 1.5,
-    LastSoru = 0,
     AntiStun = false,
     MacroEnabled = false,
     MacroSteps = {},
-    LastMacroAction = 0,
-    TargetPlayers = true,
-    TargetNPCs = true
+    LastMacroAction = 0
 }
 
 local MoveLists = {
@@ -72,7 +82,7 @@ local MoveLists = {
     Gun = {"Z", "X"}
 }
 
---// KEY GUI (only shown if not already validated)
+--// KEY GUI (only if not validated)
 local KeyGui = Instance.new("ScreenGui")
 KeyGui.Name = "IvoryKeyGui"
 KeyGui.ResetOnSpawn = false
@@ -187,10 +197,10 @@ if not KeyValid then
     end)
 end
 
---// FLASHSTEP FUNCTION (Fixed: teleports to target direction with afterimages)
+--// SORU FLASHSTEP FUNCTION (goes to target)
 local function DoSoru()
-    if tick() - Combat.LastSoru < Combat.SoruCooldown then return end
-    Combat.LastSoru = tick()
+    if tick() - SoruAimbot.LastSoru < SoruAimbot.Cooldown then return end
+    SoruAimbot.LastSoru = tick()
 
     local character = Player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
@@ -199,7 +209,7 @@ local function DoSoru()
     local targetRoot = nil
     local shortestDist = math.huge
 
-    if Combat.TargetPlayers then
+    if SoruAimbot.TargetPlayers then
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= Player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
                 local otherRoot = p.Character.HumanoidRootPart
@@ -212,7 +222,7 @@ local function DoSoru()
         end
     end
 
-    if Combat.TargetNPCs then
+    if SoruAimbot.TargetNPCs then
         for _, model in pairs(workspace:GetChildren()) do
             if model:IsA("Model") and model:FindFirstChild("Humanoid") and model:FindFirstChild("HumanoidRootPart") then
                 if not Players:GetPlayerFromCharacter(model) then
@@ -229,10 +239,9 @@ local function DoSoru()
 
     if not targetRoot then return end
 
-    -- Go to target: direction is FROM player TO target
     local direction = (targetRoot.Position - root.Position).Unit
 
-    -- Flashstep with afterimages (5 steps toward target)
+    -- Flashstep with afterimages
     for i = 1, 5 do
         local afterimage = Instance.new("Part")
         afterimage.Size = root.Size
@@ -263,6 +272,119 @@ local function DoSoru()
     root.CFrame = CFrame.lookAt(root.Position, targetRoot.Position)
 end
 
+--// NORMAL AIMBOT FUNCTIONS (silent aim)
+local function isInFOV(position)
+    if not position or not Camera then return false end
+    local char = Player.Character
+    if not char then return false end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return false end
+    local lookVector = Camera.CFrame.LookVector
+    local dirToTarget = (position - root.Position).Unit
+    local dot = lookVector:Dot(dirToTarget)
+    return dot >= math.cos(math.rad(NormalAimbot.FOV) / 2)  -- Actually want FOV/2? Use threshold 0 for 180 deg (half sphere)
+end
+
+local function getScreenCenterDistance(position)
+    if not position or not Camera then return math.huge end
+    local screenPos, onScreen = Camera:WorldToViewportPoint(position)
+    if not onScreen then return math.huge end
+    local center = Camera.ViewportSize / 2
+    return (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+end
+
+local function getClosestEnemy()
+    local char = Player.Character
+    if not char then return nil end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
+    local myPos = root.Position
+    local best = nil
+    local bestScore = math.huge
+    if NormalAimbot.TargetPlayers then
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= Player and p.Character then
+                local hum = p.Character:FindFirstChildOfClass("Humanoid")
+                local part = p.Character:FindFirstChild("HumanoidRootPart")
+                if hum and hum.Health > 0 and part then
+                    if Player.Team and p.Team and Player.Team == p.Team then continue end
+                    local pos = part.Position
+                    local dist = (pos - myPos).Magnitude
+                    if dist <= NormalAimbot.MaxDistance and isInFOV(pos) then
+                        local centerDist = getScreenCenterDistance(pos)
+                        local score = centerDist + dist * 0.001
+                        if score < bestScore then bestScore = score; best = part end
+                    end
+                end
+            end
+        end
+    end
+    if NormalAimbot.TargetNPCs then
+        for _, model in pairs(workspace:GetChildren()) do
+            if model:IsA("Model") and model:FindFirstChild("Humanoid") and model:FindFirstChild("HumanoidRootPart") then
+                if not Players:GetPlayerFromCharacter(model) then
+                    local hum = model:FindFirstChildOfClass("Humanoid")
+                    local part = model:FindFirstChild("HumanoidRootPart")
+                    if hum and hum.Health > 0 and part then
+                        local pos = part.Position
+                        local dist = (pos - myPos).Magnitude
+                        if dist <= NormalAimbot.MaxDistance and isInFOV(pos) then
+                            local centerDist = getScreenCenterDistance(pos)
+                            local score = centerDist + dist * 0.001
+                            if score < bestScore then bestScore = score; best = part end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return best
+end
+
+RunService.Heartbeat:Connect(function()
+    if NormalAimbot.Enabled and KeyValid then
+        NormalAimbot.CurrentTarget = getClosestEnemy()
+    else
+        NormalAimbot.CurrentTarget = nil
+    end
+end)
+
+--// SILENT AIM HOOK
+local OldNamecall
+OldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+    local args = {...}
+    local method = getnamecallmethod()
+    if NormalAimbot.Enabled and KeyValid and not checkcaller() then
+        if method == "FireServer" or method == "InvokeServer" then
+            local remoteName = self.Name or ""
+            local attackKeywords = {"Attack", "Melee", "Sword", "Fruit", "Gun", "Click", "Fire", "Damage", "Combat", "Ability", "Hit", "Shoot"}
+            local isAttack = false
+            for _, kw in ipairs(attackKeywords) do
+                if string.find(remoteName:lower(), kw:lower()) then isAttack = true; break end
+            end
+            if isAttack and NormalAimbot.CurrentTarget then
+                local targetRoot = NormalAimbot.CurrentTarget
+                local character = Player.Character
+                if character and character:FindFirstChild("HumanoidRootPart") then
+                    local root = character.HumanoidRootPart
+                    local predictedPos = targetRoot.Position
+                    if targetRoot.Parent and targetRoot.Parent:FindFirstChildOfClass("Humanoid") then
+                        local hum = targetRoot.Parent:FindFirstChildOfClass("Humanoid")
+                        local velocity = hum.MoveDirection * hum.WalkSpeed
+                        predictedPos = targetRoot.Position + velocity * NormalAimbot.Prediction
+                    end
+                    local originalCFrame = root.CFrame
+                    root.CFrame = CFrame.lookAt(root.Position, predictedPos)
+                    local result = OldNamecall(self, unpack(args))
+                    root.CFrame = originalCFrame
+                    return result
+                end
+            end
+        end
+    end
+    return OldNamecall(self, ...)
+end)
+
 --// LOAD FULL SCRIPT
 local function LoadFullScript()
     KeyValid = true
@@ -291,7 +413,7 @@ local function LoadFullScript()
     ToggleStroke.Thickness = 1
     ToggleStroke.Transparency = 0.35
 
-    -- Macro Button (draggable + clickable, black/white)
+    -- Macro Button
     local MacroButton = Instance.new("TextButton")
     MacroButton.Size = UDim2.fromOffset(50, 50)
     MacroButton.Position = UDim2.new(1, -70, 0.5, -25)
@@ -309,7 +431,7 @@ local function LoadFullScript()
     MacroStroke.Thickness = 2
     MacroStroke.Transparency = 0.3
 
-    -- Soru Button (draggable + clickable)
+    -- Soru Button (visible when SoruAimbot enabled)
     local SoruButton = Instance.new("TextButton")
     SoruButton.Size = UDim2.fromOffset(45, 45)
     SoruButton.Position = UDim2.new(1, -70, 0.5, 40)
@@ -327,7 +449,7 @@ local function LoadFullScript()
     SoruStroke.Thickness = 2
     SoruStroke.Transparency = 0.3
 
-    -- Soru Aimbot Toggle Button (small, draggable, indicates ON/OFF)
+    -- Soru Aimbot Toggle Button (SA)
     local SoruToggle = Instance.new("TextButton")
     SoruToggle.Size = UDim2.fromOffset(44, 44)
     SoruToggle.Position = UDim2.new(1, -70, 0.5, -80)
@@ -337,7 +459,6 @@ local function LoadFullScript()
     SoruToggle.TextSize = 10
     SoruToggle.Font = Enum.Font.GothamBold
     SoruToggle.AutoButtonColor = false
-    SoruToggle.Visible = false
     SoruToggle.Parent = Gui
     Instance.new("UICorner", SoruToggle).CornerRadius = UDim.new(0, 10)
     local SoruToggleStroke = Instance.new("UIStroke", SoruToggle)
@@ -346,7 +467,7 @@ local function LoadFullScript()
     SoruToggleStroke.Transparency = 0.5
 
     local function UpdateSoruToggleVisual()
-        if Combat.SoruAimbotEnabled then
+        if SoruAimbot.Enabled then
             SoruToggle.Text = "SA: ON"
             SoruToggle.TextColor3 = GREEN
             SoruButton.Visible = true
@@ -358,7 +479,7 @@ local function LoadFullScript()
     end
     UpdateSoruToggleVisual()
 
-    -- Draggable function with drag/click distinction
+    -- Draggable+clickable for floating buttons
     local function MakeDraggableClickable(button)
         local dragThreshold = 10
         local dragging = false
@@ -413,13 +534,13 @@ local function LoadFullScript()
     end)
 
     SoruButton.MouseButton1Click:Connect(function()
-        if Combat.SoruAimbotEnabled then
+        if SoruAimbot.Enabled then
             DoSoru()
         end
     end)
 
     SoruToggle.MouseButton1Click:Connect(function()
-        Combat.SoruAimbotEnabled = not Combat.SoruAimbotEnabled
+        SoruAimbot.Enabled = not SoruAimbot.Enabled
         UpdateSoruToggleVisual()
     end)
 
@@ -744,7 +865,8 @@ local function LoadFullScript()
 
     -- Create Pages
     local Home = CreatePage("Home")
-    local CombatPage = CreatePage("Combat")
+    local AimbotPage = CreatePage("Aimbot")
+    local SoruPage = CreatePage("Soru")
     local MovementPage = CreatePage("Movement")
     local VisualPage = CreatePage("Visuals")
     local MacrosPage = CreatePage("Macros")
@@ -754,37 +876,52 @@ local function LoadFullScript()
     -- Home
     AddCard(Home, "Welcome to Ivory PVP", "Mobile optimized Blox Fruits PVP", "◆")
     AddCard(Home, "Current Status", "All systems operational", "●")
-    AddCard(Home, "Script Version", "v21.0 - Soru Fixed", "◈")
-    AddCard(Home, "Quick Stats", "Soru Aimbot | Macro", "▣")
+    AddCard(Home, "Script Version", "v22.0 - Restored", "◈")
+    AddCard(Home, "Quick Stats", "Aimbot | Soru | Macro", "▣")
     AddCard(Home, "Mobile Only", "No PC inputs, no freezes", "◎")
     AddCard(Home, "Anti-Detection", "Silent aim leaves no trace", "◇")
     AddCard(Home, "Performance", "Optimized for mobile devices", "◉")
     AddCard(Home, "Updates", "Join Discord for latest updates", "✦")
 
-    -- Combat Page
-    AddToggle(CombatPage, "Soru Aimbot", "Toggle Soru aimbot (ON/OFF)", function(enabled)
-        Combat.SoruAimbotEnabled = enabled
+    -- Aimbot Page
+    AddToggle(AimbotPage, "Normal Aimbot", "Aim at nearest target silently", function(enabled)
+        NormalAimbot.Enabled = enabled
+        if enabled then
+            Status.Text = "●  AIMBOT"
+            Status.TextColor3 = RED
+        else
+            Status.Text = "●  ONLINE"
+            Status.TextColor3 = GREEN
+            NormalAimbot.CurrentTarget = nil
+        end
+    end, "◎")
+    AddToggle(AimbotPage, "Target Players", "Aim at players", function(enabled)
+        NormalAimbot.TargetPlayers = enabled
+    end, "👤")
+    AddToggle(AimbotPage, "Target NPCs", "Aim at NPCs", function(enabled)
+        NormalAimbot.TargetNPCs = enabled
+    end, "🤖")
+    AddSlider(AimbotPage, "Max Distance", 500, 5000, 3000, function(val)
+        NormalAimbot.MaxDistance = val
+    end, "📐")
+    AddSlider(AimbotPage, "Prediction", 0, 1, 0.15, function(val)
+        NormalAimbot.Prediction = val
+    end, "▣")
+
+    -- Soru Page
+    AddToggle(SoruPage, "Soru Aimbot", "Toggle Soru aimbot (SA button)", function(enabled)
+        SoruAimbot.Enabled = enabled
         UpdateSoruToggleVisual()
     end, "🎯")
-    AddToggle(CombatPage, "Target Players", "Soru targets players", function(enabled)
-        Combat.TargetPlayers = enabled
+    AddToggle(SoruPage, "Target Players", "Soru targets players", function(enabled)
+        SoruAimbot.TargetPlayers = enabled
     end, "👤")
-    AddToggle(CombatPage, "Target NPCs", "Soru targets NPCs", function(enabled)
-        Combat.TargetNPCs = enabled
+    AddToggle(SoruPage, "Target NPCs", "Soru targets NPCs", function(enabled)
+        SoruAimbot.TargetNPCs = enabled
     end, "🤖")
-    AddToggle(CombatPage, "Anti Stun", "Prevents stun effects", function(enabled)
-        Combat.AntiStun = enabled
-    end, "🛡")
-    AddToggle(CombatPage, "No Clip", "Walk through walls", function(enabled)
-        Combat.NoClip = enabled
-        if Player.Character then
-            for _, part in pairs(Player.Character:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    part.CanCollide = not enabled
-                end
-            end
-        end
-    end, "◌")
+    AddSlider(SoruPage, "Soru Cooldown", 0.5, 5, 1.5, function(val)
+        SoruAimbot.Cooldown = val
+    end, "⏱")
 
     -- Movement Page
     AddToggle(MovementPage, "Speed Hack", "Multiply your movement speed", function(enabled)
@@ -799,6 +936,19 @@ local function LoadFullScript()
             Player.Character.Humanoid.WalkSpeed = 16 * val
         end
     end, "»")
+    AddToggle(MovementPage, "No Clip", "Walk through walls", function(enabled)
+        Combat.NoClip = enabled
+        if Player.Character then
+            for _, part in pairs(Player.Character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = not enabled
+                end
+            end
+        end
+    end, "◌")
+    AddToggle(MovementPage, "Anti Stun", "Prevents stun effects", function(enabled)
+        Combat.AntiStun = enabled
+    end, "🛡")
 
     -- Visual Page
     AddToggle(VisualPage, "ESP Boxes", "Show player boxes", function(enabled)
@@ -957,7 +1107,7 @@ local function LoadFullScript()
     AddCard(CreditsPage, "Discord", "Ivory999", "◈")
     AddCard(CreditsPage, "Ideas By", "Rayo", "✦")
     AddCard(CreditsPage, "Discord", "rayo06996", "◎")
-    AddCard(CreditsPage, "Version", "v21.0 - Soru Fixed", "▣")
+    AddCard(CreditsPage, "Version", "v22.0 - Restored", "▣")
     AddCard(CreditsPage, "Special Thanks", "All supporters and testers", "♡")
     AddCard(CreditsPage, "Updates", "Join Discord for latest updates", "↻")
 
@@ -1016,12 +1166,13 @@ local function LoadFullScript()
     end
 
     CreateTab("Home", 1, "◆")
-    CreateTab("Combat", 2, "⚔")
-    CreateTab("Movement", 3, "»")
-    CreateTab("Visuals", 4, "▣")
-    CreateTab("Macros", 5, "⌨")
-    CreateTab("Credits", 6, "♛")
-    CreateTab("Settings", 7, "⚙")
+    CreateTab("Aimbot", 2, "◎")
+    CreateTab("Soru", 3, "⚡")
+    CreateTab("Movement", 4, "»")
+    CreateTab("Visuals", 5, "▣")
+    CreateTab("Macros", 6, "⌨")
+    CreateTab("Credits", 7, "♛")
+    CreateTab("Settings", 8, "⚙")
 
     Tabs.Home.Button.BackgroundColor3 = IVORY
     Tabs.Home.Button.TextColor3 = BLACK
@@ -1066,7 +1217,7 @@ local function LoadFullScript()
     Toggle.MouseButton1Click:Connect(function() if Open then HideUI() else ShowUI() end end)
     Close.MouseButton1Click:Connect(HideUI)
 
-    -- ESP Loop
+    -- Main Loop (ESP, etc.)
     RunService.RenderStepped:Connect(function()
         if not KeyValid then return end
         if Combat.SpeedHack and Player.Character and Player.Character:FindFirstChild("Humanoid") then
@@ -1091,14 +1242,14 @@ local function LoadFullScript()
             Combat.ESPNames = {}
             Combat.ESPDistance = {}
             local targets = {}
-            if Combat.TargetPlayers then
+            if NormalAimbot.TargetPlayers then
                 for _, p in pairs(Players:GetPlayers()) do
                     if p ~= Player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
                         table.insert(targets, p.Character)
                     end
                 end
             end
-            if Combat.TargetNPCs then
+            if NormalAimbot.TargetNPCs then
                 for _, model in pairs(workspace:GetChildren()) do
                     if model:IsA("Model") and model:FindFirstChild("Humanoid") and model:FindFirstChild("HumanoidRootPart") then
                         if not Players:GetPlayerFromCharacter(model) then
