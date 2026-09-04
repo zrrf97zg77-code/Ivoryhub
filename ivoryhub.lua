@@ -1,4 +1,4 @@
---// IVORY HUB (WORKING VERSION - BLACKLIST + MACRO)
+--// IVORY HUB (FULL PVP EDITION – BLACKLIST + MACRO + AIMBOT)
 --// Credits: lvory999, rayo06996
 print("Ivory Hub loading...")
 
@@ -9,6 +9,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 local PlayerGui = player:WaitForChild("PlayerGui")
+local camera = workspace.CurrentCamera
+local mouse = player:GetMouse()
 local VirtualInputManager
 pcall(function() VirtualInputManager = game:GetService("VirtualInputManager") end)
 
@@ -173,7 +175,7 @@ local function CreateButton(Parent, Text)
     return Button
 end
 
---// CREATE TOGGLE (simple)
+--// CREATE TOGGLE
 local function CreateToggle(Parent, Text, Default, OnClick)
     local state = Default or false
     local btn = CreateButton(Parent, Text .. (state and " ON" or " OFF"))
@@ -186,9 +188,79 @@ local function CreateToggle(Parent, Text, Default, OnClick)
     return btn
 end
 
+--// CREATE SLIDER (simple + and -)
+local function CreateSlider(Parent, labelText, minVal, maxVal, step, getter, setter, suffix)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, 0, 0, 30)
+    frame.BackgroundTransparency = 1
+    frame.Parent = Parent
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.5, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = labelText .. getter()
+    label.TextColor3 = WHITE
+    label.TextSize = 10
+    label.Font = Enum.Font.Gotham
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
+
+    local minus = Instance.new("TextButton")
+    minus.Size = UDim2.new(0, 25, 0, 25)
+    minus.Position = UDim2.new(0.7, 0, 0.5, -12.5)
+    minus.BackgroundColor3 = LIGHT
+    minus.Text = "-"
+    minus.TextColor3 = WHITE
+    minus.TextSize = 12
+    minus.Font = Enum.Font.GothamBold
+    minus.AutoButtonColor = false
+    minus.Parent = frame
+    Instance.new("UICorner", minus).CornerRadius = UDim.new(0, 6)
+
+    local value = Instance.new("TextLabel")
+    value.Size = UDim2.new(0, 30, 0, 25)
+    value.Position = UDim2.new(0.8, 0, 0.5, -12.5)
+    value.BackgroundTransparency = 1
+    value.Text = tostring(getter()) .. (suffix or "")
+    value.TextColor3 = WHITE
+    value.TextSize = 11
+    value.Font = Enum.Font.GothamBold
+    value.TextXAlignment = Enum.TextXAlignment.Center
+    value.Parent = frame
+
+    local plus = Instance.new("TextButton")
+    plus.Size = UDim2.new(0, 25, 0, 25)
+    plus.Position = UDim2.new(0.9, 0, 0.5, -12.5)
+    plus.BackgroundColor3 = LIGHT
+    plus.Text = "+"
+    plus.TextColor3 = WHITE
+    plus.TextSize = 12
+    plus.Font = Enum.Font.GothamBold
+    plus.AutoButtonColor = false
+    plus.Parent = frame
+    Instance.new("UICorner", plus).CornerRadius = UDim.new(0, 6)
+
+    minus.MouseButton1Click:Connect(function()
+        local val = math.max(minVal, getter() - step)
+        setter(val)
+        value.Text = tostring(val) .. (suffix or "")
+        label.Text = labelText .. val
+    end)
+
+    plus.MouseButton1Click:Connect(function()
+        local val = math.min(maxVal, getter() + step)
+        setter(val)
+        value.Text = tostring(val) .. (suffix or "")
+        label.Text = labelText .. val
+    end)
+
+    return { label = label, value = value }
+end
+
 --// PAGES
 local Home = CreatePage("Home")
 local MainPage = CreatePage("Main")
+local AimbotPage = CreatePage("Aimbot")
 local BlacklistPage = CreatePage("Blacklist")
 local ComboPage = CreatePage("Combo")
 local VisualsPage = CreatePage("Visuals")
@@ -229,6 +301,7 @@ end
 
 local HomeTab = CreateTab("Home", Home)
 CreateTab("Main", MainPage)
+CreateTab("Aimbot", AimbotPage)
 CreateTab("Blacklist", BlacklistPage)
 CreateTab("Combo", ComboPage)
 CreateTab("Visuals", VisualsPage)
@@ -315,6 +388,27 @@ local MacroStroke = Instance.new("UIStroke", MacroButton)
 MacroStroke.Color = WHITE
 MacroStroke.Thickness = 1
 MakeDraggable(MacroButton)
+
+--// SORU BUTTON (floating, appears when Soru Flashstep is ON)
+local SoruButton = Instance.new("TextButton")
+SoruButton.Name = "SoruButton"
+SoruButton.Size = UDim2.fromOffset(80, 32)
+SoruButton.Position = UDim2.new(0.85, -40, 0.85, 0)
+SoruButton.BackgroundColor3 = BLACK
+SoruButton.BorderSizePixel = 0
+SoruButton.Text = "⚡ SORU"
+SoruButton.TextColor3 = WHITE
+SoruButton.TextSize = 12
+SoruButton.Font = Enum.Font.GothamBold
+SoruButton.AutoButtonColor = false
+SoruButton.Visible = false
+SoruButton.Parent = Gui
+SoruButton.ZIndex = 20
+Instance.new("UICorner", SoruButton).CornerRadius = UDim.new(0, 8)
+local SoruStroke = Instance.new("UIStroke", SoruButton)
+SoruStroke.Color = WHITE
+SoruStroke.Thickness = 1
+MakeDraggable(SoruButton)
 
 --// OPEN/CLOSE
 local Open = true
@@ -494,52 +588,509 @@ local antiStunBtn = CreateButton(MainPage, "ANTI-STUN: OFF")
 antiStunBtn.MouseButton1Click:Connect(toggleAntiStun)
 
 -- ==================================================================
---                   BLACKLIST PAGE
+--                   BLACKLIST PAGE (CUSTOM KEYS PER CATEGORY)
 -- ==================================================================
+-- Define blacklist structure: each category has its own keys
 local blacklist = {
+    Melee = { Z = false, X = false, C = false },
     Fruit = { Z = false, X = false, C = false, V = false, F = false },
-    Sword = { Z = false, X = false, C = false, V = false, F = false },
-    Gun = { Z = false, X = false, C = false, V = false, F = false },
-    Melee = { Z = false, X = false, C = false, V = false, F = false },
+    Sword = { Z = false, X = false },
+    Gun = { Z = false, X = false },
+}
+
+-- Category definitions for UI
+local categoryDefs = {
+    { name = "Melee", keys = {"Z","X","C"} },
+    { name = "Fruit", keys = {"Z","X","C","V","F"} },
+    { name = "Sword", keys = {"Z","X"} },
+    { name = "Gun", keys = {"Z","X"} },
 }
 
 local function buildBlacklistUI()
+    -- Clear existing UI in BlacklistPage
     for _, child in ipairs(BlacklistPage:GetChildren()) do
         if child:IsA("TextButton") or child:IsA("TextLabel") or child:IsA("Frame") then
             child:Destroy()
         end
     end
 
-    local categories = { "Fruit", "Sword", "Gun", "Melee" }
-    local keys = { "Z", "X", "C", "V", "F" }
     local y = 10
-    for _, cat in ipairs(categories) do
+    for _, catDef in ipairs(categoryDefs) do
+        local catName = catDef.name
+        local keys = catDef.keys
+
+        -- Category header
         local header = Instance.new("TextLabel")
         header.Size = UDim2.new(1, 0, 0, 24)
         header.Position = UDim2.new(0, 0, 0, y)
         header.BackgroundTransparency = 1
-        header.Text = cat:upper() .. " BLACKLIST"
+        header.Text = catName:upper()
         header.TextColor3 = WHITE
-        header.TextSize = 12
+        header.TextSize = 14
         header.Font = Enum.Font.GothamBold
         header.TextXAlignment = Enum.TextXAlignment.Left
         header.Parent = BlacklistPage
         y = y + 28
+
+        -- Create a toggle for each key in this category
         for _, key in ipairs(keys) do
-            local btn = CreateToggle(BlacklistPage, cat .. " " .. key, false, function(state)
-                blacklist[cat][key] = state
+            local btn = CreateToggle(BlacklistPage, catName .. " " .. key, false, function(state)
+                blacklist[catName][key] = state
             end)
             btn.Position = UDim2.new(0.03, 0, 0, y)
             btn.Size = UDim2.new(0.94, 0, 0, 26)
             y = y + 30
         end
-        y = y + 10
+        y = y + 10 -- extra spacing between categories
     end
 end
 buildBlacklistUI()
 
 -- ==================================================================
---                   COMBO MACRO PAGE
+--                   AIMBOT PAGE (with all controls)
+-- ==================================================================
+-- Variables for aimbot
+local aimbotEnabled = false
+local targetPlayers = true
+local targetNPCs = true
+local teamCheck = false
+local aimPartName = "HumanoidRootPart"
+local maxDistance = 3000
+local flashstepDistance = 150
+local soruEnabled = false
+local excludeF = true
+local currentTarget = nil
+
+-- UI creation in AimbotPage
+local function createAimbotUI()
+    -- Title
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, 0, 0, 30)
+    title.BackgroundTransparency = 1
+    title.Text = "AIMBOT SETTINGS"
+    title.TextColor3 = WHITE
+    title.TextSize = 14
+    title.Font = Enum.Font.GothamBold
+    title.Parent = AimbotPage
+
+    -- Toggle: AIMBOT
+    local aimbotToggle = CreateToggle(AimbotPage, "AIMBOT", false, function(state)
+        aimbotEnabled = state
+    end)
+
+    -- Toggle: TARGET PLAYERS
+    local playersToggle = CreateToggle(AimbotPage, "TARGET PLAYERS", true, function(state)
+        targetPlayers = state
+    end)
+
+    -- Toggle: TARGET NPCS
+    local npcsToggle = CreateToggle(AimbotPage, "TARGET NPCS", true, function(state)
+        targetNPCs = state
+    end)
+
+    -- Toggle: TEAM CHECK
+    local teamToggle = CreateToggle(AimbotPage, "TEAM CHECK", false, function(state)
+        teamCheck = state
+    end)
+
+    -- Aim Part selector (button to cycle)
+    local function updateAimPartBtn()
+        for _, child in ipairs(AimbotPage:GetChildren()) do
+            if child:IsA("TextButton") and string.sub(child.Text, 1, 8) == "AIM PART" then
+                child.Text = "AIM PART: " .. aimPartName
+                break
+            end
+        end
+    end
+    local aimPartBtn = CreateButton(AimbotPage, "AIM PART: " .. aimPartName)
+    aimPartBtn.MouseButton1Click:Connect(function()
+        local parts = {"HumanoidRootPart", "Head", "Torso", "UpperTorso"}
+        local idx = table.find(parts, aimPartName) or 1
+        idx = idx % #parts + 1
+        aimPartName = parts[idx]
+        updateAimPartBtn()
+    end)
+
+    -- Toggle: F SKILL (EXCLUDED)
+    local fToggle = CreateToggle(AimbotPage, "F SKILL (EXCLUDED)", true, function(state)
+        excludeF = state
+    end)
+
+    -- Toggle: SORU FLASHSTEP (shows Soru button)
+    local soruToggle = CreateToggle(AimbotPage, "SORU FLASHSTEP", false, function(state)
+        soruEnabled = state
+        SoruButton.Visible = state
+    end)
+
+    -- Slider: Max Distance
+    local distSlider = CreateSlider(AimbotPage, "Aim Dist: ", 500, 5000, 100, function() return maxDistance end, function(v) maxDistance = v end, "")
+
+    -- Slider: Flashstep Distance
+    local flashSlider = CreateSlider(AimbotPage, "Flash Dist: ", 30, 300, 10, function() return flashstepDistance end, function(v) flashstepDistance = v end, "")
+
+    -- Status label
+    local statusLabel = Instance.new("TextLabel")
+    statusLabel.Size = UDim2.new(1, 0, 0, 20)
+    statusLabel.Position = UDim2.new(0, 0, 1, -20)
+    statusLabel.BackgroundTransparency = 1
+    statusLabel.Text = "Target: None"
+    statusLabel.TextColor3 = GRAY
+    statusLabel.TextSize = 9
+    statusLabel.Font = Enum.Font.Gotham
+    statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+    statusLabel.Parent = AimbotPage
+
+    return {
+        updateStatus = function()
+            if aimbotEnabled and currentTarget then
+                local name = "Unknown"
+                local parent = currentTarget.Parent
+                if parent then
+                    local p = Players:GetPlayerFromCharacter(parent)
+                    if p then name = p.Name else name = parent.Name end
+                end
+                statusLabel.Text = "Target: " .. name
+                statusLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
+            else
+                statusLabel.Text = "Target: None"
+                statusLabel.TextColor3 = GRAY
+            end
+        end
+    }
+end
+
+local aimbotUI = createAimbotUI()
+
+-- Helper to update target label
+function updateTargetLabel()
+    aimbotUI.updateStatus()
+end
+
+-- ==================================================================
+--                   AIMBOT CORE LOGIC
+-- ==================================================================
+local function isIn180FOV(pos)
+    if not pos or not camera then return false end
+    local look = camera.CFrame.LookVector
+    local char = player.Character
+    if not char then return false end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return false end
+    local dir = (pos - root.Position).Unit
+    return look:Dot(dir) >= 0
+end
+
+local function getScreenCenterDist(pos)
+    if not pos or not camera then return math.huge end
+    local sp, on = camera:WorldToViewportPoint(pos)
+    if not on then return math.huge end
+    local center = camera.ViewportSize / 2
+    return (Vector2.new(sp.X, sp.Y) - center).Magnitude
+end
+
+local function getClosestEnemy()
+    local char = player.Character
+    if not char then return nil end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
+    local myPos = root.Position
+
+    local best, bestScore = nil, math.huge
+
+    if targetPlayers then
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= player and p.Character then
+                local hum = p.Character:FindFirstChildOfClass("Humanoid")
+                local part = p.Character:FindFirstChild(aimPartName) or p.Character:FindFirstChild("HumanoidRootPart")
+                if hum and hum.Health > 0 and part then
+                    if teamCheck then
+                        if player.Team and p.Team and player.Team == p.Team then continue end
+                    end
+                    local pos = part.Position
+                    local dist = (pos - myPos).Magnitude
+                    if dist <= maxDistance and isIn180FOV(pos) then
+                        local score = getScreenCenterDist(pos) + dist * 0.001
+                        if score < bestScore then
+                            bestScore, best = score, part
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    if targetNPCs then
+        local enemies = workspace:FindFirstChild("Enemies")
+        if enemies then
+            for _, npc in pairs(enemies:GetChildren()) do
+                if npc:IsA("Model") then
+                    local hum = npc:FindFirstChildOfClass("Humanoid")
+                    local part = npc:FindFirstChild(aimPartName) or npc:FindFirstChild("HumanoidRootPart")
+                    if hum and hum.Health > 0 and part then
+                        local pos = part.Position
+                        local dist = (pos - myPos).Magnitude
+                        if dist <= maxDistance and isIn180FOV(pos) then
+                            local score = getScreenCenterDist(pos) + dist * 0.001
+                            if score < bestScore then
+                                bestScore, best = score, part
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    return best
+end
+
+-- Update target continuously
+RunService.Heartbeat:Connect(function()
+    if aimbotEnabled then
+        currentTarget = getClosestEnemy()
+    else
+        currentTarget = nil
+    end
+    updateTargetLabel()
+end)
+
+-- ==================================================================
+--                   SORU BUTTON ACTION
+-- ==================================================================
+SoruButton.MouseButton1Click:Connect(function()
+    if not aimbotEnabled or not currentTarget then return end
+    local targetIsNPC = false
+    local parent = currentTarget.Parent
+    if parent and not Players:GetPlayerFromCharacter(parent) then
+        targetIsNPC = true
+    end
+    if targetIsNPC and not targetNPCs then return end
+
+    local char = player.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local myPos = hrp.Position
+    local targetPos = currentTarget.Position
+    local dir = (targetPos - myPos).Unit
+    local actualDist = math.min((targetPos - myPos).Magnitude, flashstepDistance)
+    local newPos = myPos + dir * actualDist
+
+    -- Move character and trigger flashstep remote
+    hrp.CFrame = CFrame.new(newPos)
+    local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+    if remotes then
+        local commF = remotes:FindFirstChild("CommF_")
+        if commF then
+            pcall(function() commF:InvokeServer("Flashstep", newPos) end)
+        end
+    end
+end)
+
+-- ==================================================================
+--                   SILENT AIM HOOKS (with blacklist)
+-- ==================================================================
+-- Helper to get current weapon category (used in blacklist)
+local function getCurrentCategory()
+    local char = player.Character
+    local tool = char and char:FindFirstChildOfClass("Tool")
+    if not tool then return "Melee"
+    local tName = string.lower(tool.Name)
+    local tt = ""
+    pcall(function() tt = string.lower(tool.ToolTip or tool:GetAttribute("Type") or "") end)
+    if string.find(tName, "fruit") or string.find(tt, "fruit") or string.find(tt, "bloxfruit") or tool:FindFirstChild("Fruit") then
+        return "Fruit"
+    elseif string.find(tName, "blade") or string.find(tName, "sword") or string.find(tName, "katana") or string.find(tt, "sword") then
+        return "Sword"
+    elseif string.find(tName, "gun") or string.find(tName, "rifle") or string.find(tName, "flintlock") or string.find(tt, "gun") then
+        return "Gun"
+    else
+        return "Melee"
+    end
+end
+
+-- Override mouse.Hit and mouse.Target
+local lastKey = nil
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.F then
+        lastKey = "F"
+    end
+end)
+
+if mouse then
+    local mt = getrawmetatable(game)
+    if mt then
+        local oldIndex = mt.__index
+        setreadonly(mt, false)
+        mt.__index = newcclosure(function(self, key)
+            if not checkcaller() and self == mouse and (key == "Hit" or key == "Target") then
+                if aimbotEnabled and currentTarget then
+                    if excludeF and lastKey == "F" then return oldIndex(self, key) end
+                    -- Check blacklist for the current skill key
+                    -- We can't easily detect which key is being pressed here, but we'll handle it in remote override.
+                    if key == "Hit" then
+                        return CFrame.new(currentTarget.Position)
+                    elseif key == "Target" then
+                        return currentTarget
+                    end
+                end
+            end
+            return oldIndex(self, key)
+        end)
+        setreadonly(mt, true)
+    end
+end
+
+-- Override remote events/functions with blacklist
+local function overrideRemote(remote)
+    if remote:IsA("RemoteEvent") then
+        local oldFire = remote.FireServer
+        remote.FireServer = function(self, ...)
+            if aimbotEnabled and currentTarget then
+                local args = { ... }
+                local skillKey = nil
+                for _, arg in ipairs(args) do
+                    if typeof(arg) == "string" then
+                        local upper = string.upper(arg)
+                        if upper == "Z" or upper == "X" or upper == "C" or upper == "V" or upper == "F" then
+                            skillKey = upper
+                            break
+                        end
+                    end
+                end
+                if excludeF and skillKey == "F" then return oldFire(self, ...) end
+                if skillKey then
+                    local cat = getCurrentCategory()
+                    if blacklist[cat] and blacklist[cat][skillKey] then
+                        return oldFire(self, ...)
+                    end
+                end
+                -- Redirect
+                local targetPos = currentTarget.Position
+                for i, arg in ipairs(args) do
+                    if typeof(arg) == "Vector3" then
+                        args[i] = targetPos
+                    elseif typeof(arg) == "CFrame" then
+                        args[i] = CFrame.new(targetPos)
+                    end
+                end
+                -- Special handling for hit registration
+                local name = self.Name
+                if name == "RE/RegisterHit" or name == "RegisterHit" then
+                    local targetChar = currentTarget.Parent
+                    if targetChar then
+                        args[1] = currentTarget
+                        args[2] = { { targetChar, currentTarget } }
+                    end
+                elseif name == "RE/RegisterAttack" or name == "RegisterAttack" then
+                    local targetChar = currentTarget.Parent
+                    if targetChar then
+                        args[2] = { { targetChar, currentTarget } }
+                    end
+                elseif name == "RE/ShootGunEvent" or name == "ShootGunEvent" then
+                    args[1] = targetPos
+                    if currentTarget.Parent then
+                        args[2] = { currentTarget.Parent }
+                    end
+                end
+                return oldFire(self, unpack(args))
+            end
+            return oldFire(self, ...)
+        end
+    elseif remote:IsA("RemoteFunction") then
+        local oldInvoke = remote.InvokeServer
+        remote.InvokeServer = function(self, ...)
+            if aimbotEnabled and currentTarget then
+                local args = { ... }
+                local skillKey = nil
+                for _, arg in ipairs(args) do
+                    if typeof(arg) == "string" then
+                        local upper = string.upper(arg)
+                        if upper == "Z" or upper == "X" or upper == "C" or upper == "V" or upper == "F" then
+                            skillKey = upper
+                            break
+                        end
+                    end
+                end
+                if excludeF and skillKey == "F" then return oldInvoke(self, ...) end
+                if skillKey then
+                    local cat = getCurrentCategory()
+                    if blacklist[cat] and blacklist[cat][skillKey] then
+                        return oldInvoke(self, ...)
+                    end
+                end
+                local targetPos = currentTarget.Position
+                for i, arg in ipairs(args) do
+                    if typeof(arg) == "Vector3" then
+                        args[i] = targetPos
+                    elseif typeof(arg) == "CFrame" then
+                        args[i] = CFrame.new(targetPos)
+                    end
+                end
+                return oldInvoke(self, unpack(args))
+            end
+            return oldInvoke(self, ...)
+        end
+    end
+end
+
+-- Apply overrides to all existing and future remotes
+task.spawn(function()
+    for _, remote in ipairs(ReplicatedStorage:GetDescendants()) do
+        if remote:IsA("RemoteEvent") or remote:IsA("RemoteFunction") then
+            overrideRemote(remote)
+        end
+    end
+    ReplicatedStorage.DescendantAdded:Connect(overrideRemote)
+end)
+
+-- Fallback namecall for any missed FireServer/InvokeServer
+local oldNamecall
+local mt2 = getrawmetatable(game)
+if mt2 then
+    oldNamecall = mt2.__namecall
+    setreadonly(mt2, false)
+    mt2.__namecall = newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+        if not checkcaller() and (method == "FireServer" or method == "InvokeServer") then
+            if aimbotEnabled and currentTarget then
+                local args = { ... }
+                local skillKey = nil
+                for _, arg in ipairs(args) do
+                    if typeof(arg) == "string" then
+                        local upper = string.upper(arg)
+                        if upper == "Z" or upper == "X" or upper == "C" or upper == "V" or upper == "F" then
+                            skillKey = upper
+                            break
+                        end
+                    end
+                end
+                if excludeF and skillKey == "F" then return oldNamecall(self, ...) end
+                if skillKey then
+                    local cat = getCurrentCategory()
+                    if blacklist[cat] and blacklist[cat][skillKey] then
+                        return oldNamecall(self, ...)
+                    end
+                end
+                local targetPos = currentTarget.Position
+                for i, arg in ipairs(args) do
+                    if typeof(arg) == "Vector3" then
+                        args[i] = targetPos
+                    elseif typeof(arg) == "CFrame" then
+                        args[i] = CFrame.new(targetPos)
+                    end
+                end
+                return oldNamecall(self, unpack(args))
+            end
+        end
+        return oldNamecall(self, ...)
+    end)
+    setreadonly(mt2, true)
+end
+
+-- ==================================================================
+--                   COMBO MACRO PAGE (unchanged, but added)
 -- ==================================================================
 local comboSteps = {
     {slot = 1, key = "Z", delay = 0.2},
@@ -778,7 +1329,7 @@ end
 rebuildStepUI()
 
 -- ==================================================================
---                   VISUALS (ESP) PAGE
+--                   VISUALS (ESP) PAGE (unchanged)
 -- ==================================================================
 local espEnabled = false
 local espName = true
@@ -921,6 +1472,9 @@ local function applyTheme(dark)
         MacroButton.BackgroundColor3 = BLACK
         MacroButton.TextColor3 = WHITE
         MacroStroke.Color = WHITE
+        SoruButton.BackgroundColor3 = BLACK
+        SoruButton.TextColor3 = WHITE
+        SoruStroke.Color = WHITE
         for _, page in pairs(Pages) do
             for _, child in ipairs(page:GetDescendants()) do
                 if child:IsA("TextLabel") then
@@ -947,6 +1501,9 @@ local function applyTheme(dark)
         MacroButton.BackgroundColor3 = WHITE
         MacroButton.TextColor3 = BLACK
         MacroStroke.Color = BLACK
+        SoruButton.BackgroundColor3 = WHITE
+        SoruButton.TextColor3 = BLACK
+        SoruStroke.Color = BLACK
         for _, page in pairs(Pages) do
             for _, child in ipairs(page:GetDescendants()) do
                 if child:IsA("TextLabel") then
@@ -986,12 +1543,12 @@ local themeBtn = CreateButton(SettingsPage, "DARK THEME: ON")
 themeBtn.MouseButton1Click:Connect(toggleTheme)
 applyTheme(true)
 
--- Info
+-- Info & Credits
 local infoText = Instance.new("TextLabel")
 infoText.Size = UDim2.new(1, 0, 0, 140)
 infoText.Position = UDim2.new(0, 0, 0, 10)
 infoText.BackgroundTransparency = 1
-infoText.Text = "Ivory Hub (Blacklist + Macro)\n\nCreated by: lvory999\n\nIdeas: rayo06996\n\nFeatures:\n- Blacklist: disable aimbot for specific skills\n- Combo Macro: custom step editor with execute"
+infoText.Text = "Ivory Hub (Full PVP Edition)\n\nCreated by: lvory999\n\nIdeas: rayo06996\n\nFeatures:\n- Blacklist (per category)\n- Combo Macro (custom steps)\n- Silent Aimbot (180° FOV)\n- Soru Flashstep teleport\n- ESP, Noclip, Anti-Stun"
 infoText.TextColor3 = WHITE
 infoText.TextSize = 11
 infoText.Font = Enum.Font.Gotham
@@ -1011,4 +1568,4 @@ creditsText.TextXAlignment = Enum.TextXAlignment.Left
 creditsText.TextYAlignment = Enum.TextYAlignment.Top
 creditsText.Parent = CreditsPage
 
-print("Ivory Hub loaded successfully!")
+print("Ivory Hub (Full PVP Edition) loaded successfully!")
