@@ -61,7 +61,15 @@ local Combat = {
     InfiniteEnergy = false,
     SpeedHack = false,
     SpeedMultiplier = 5,
-    NoClip = false
+    NoClip = false,
+    FlashstepAimbot = false,
+    FlashstepCooldown = 1,
+    LastFlashstep = 0,
+    FlashstepDistance = 20,
+    MacroEnabled = false,
+    MacroKey = Enum.KeyCode.R,
+    MacroAction = "Attack",
+    MacroDelay = 0.5
 }
 
 --// GUI
@@ -499,20 +507,87 @@ local function AddSlider(Page, title, min, max, default, callback, icon)
     return Card
 end
 
+--// BUTTON CARD
+local function AddButton(Page, title, description, callback, icon)
+    local Card = Instance.new("TextButton")
+    Card.Size = UDim2.new(1, -2, 0, 60)
+    Card.BackgroundColor3 = PANEL
+    Card.BorderSizePixel = 0
+    Card.Text = ""
+    Card.AutoButtonColor = false
+    Card.Parent = Page
+
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 9)
+    Corner.Parent = Card
+
+    local Stroke = Instance.new("UIStroke")
+    Stroke.Color = IVORY
+    Stroke.Transparency = 0.92
+    Stroke.Parent = Card
+
+    local Icon = Instance.new("TextLabel")
+    Icon.BackgroundTransparency = 1
+    Icon.Position = UDim2.fromOffset(10, 15)
+    Icon.Size = UDim2.fromOffset(30, 30)
+    Icon.Text = icon or "◆"
+    Icon.TextColor3 = IVORY
+    Icon.TextSize = 16
+    Icon.Font = Enum.Font.GothamBold
+    Icon.Parent = Card
+
+    local T = Instance.new("TextLabel")
+    T.BackgroundTransparency = 1
+    T.Position = UDim2.fromOffset(48, 8)
+    T.Size = UDim2.new(1, -60, 0, 20)
+    T.Text = title
+    T.TextColor3 = WHITE
+    T.TextSize = 12
+    T.Font = Enum.Font.GothamBold
+    T.TextXAlignment = Enum.TextXAlignment.Left
+    T.Parent = Card
+
+    local D = Instance.new("TextLabel")
+    D.BackgroundTransparency = 1
+    D.Position = UDim2.fromOffset(48, 29)
+    D.Size = UDim2.new(1, -60, 0, 20)
+    D.Text = description
+    D.TextColor3 = GREY
+    D.TextSize = 9
+    D.Font = Enum.Font.Gotham
+    D.TextXAlignment = Enum.TextXAlignment.Left
+    D.Parent = Card
+
+    Card.MouseEnter:Connect(function()
+        tween(Card, 0.15, {BackgroundColor3 = Color3.fromRGB(25, 25, 25)})
+    end)
+
+    Card.MouseLeave:Connect(function()
+        tween(Card, 0.15, {BackgroundColor3 = PANEL})
+    end)
+
+    Card.MouseButton1Click:Connect(function()
+        callback()
+    end)
+
+    return Card
+end
+
 --// CREATE PAGES
 local Home = CreatePage("Home")
 local AimbotPage = CreatePage("Aimbot")
 local CombatPage = CreatePage("Combat")
 local MovementPage = CreatePage("Movement")
 local VisualPage = CreatePage("Visuals")
+local MacrosPage = CreatePage("Macros")
 local CreditsPage = CreatePage("Credits")
 local SettingsPage = CreatePage("Settings")
 
 --// HOME CONTENT
 AddCard(Home, "Welcome to Ivory PVP", "Premium Blox Fruits combat interface", "◆")
 AddCard(Home, "Current Status", "All systems operational and ready", "●")
-AddCard(Home, "Script Version", "v3.0 - Silent Aim Edition", "◈")
-AddCard(Home, "Quick Stats", "180° FOV | Silent Aim | Speed Hack", "▣")
+AddCard(Home, "Script Version", "v4.0 - Flashstep Edition", "◈")
+AddCard(Home, "Quick Stats", "180° FOV | Silent Aim | Flashstep", "▣")
 AddCard(Home, "Performance", "Optimized for low-end devices", "◉")
 AddCard(Home, "Mobile Support", "Touch controls fully supported", "◎")
 AddCard(Home, "Anti-Detection", "Silent aim leaves no visual trace", "◇")
@@ -531,6 +606,17 @@ AddToggle(AimbotPage, "Silent Aim", "180° silent aim - camera stays still", fun
     end
 end, "◎")
 
+AddToggle(AimbotPage, "Flashstep Aimbot", "Flashstep to target automatically", function(enabled)
+    Combat.FlashstepAimbot = enabled
+    if enabled then
+        Status.Text = "●  FLASHSTEP"
+        Status.TextColor3 = GOLD
+    else
+        Status.Text = "●  ONLINE"
+        Status.TextColor3 = GREEN
+    end
+end, "⚡")
+
 AddSlider(AimbotPage, "Hit Chance", 0, 100, 100, function(val)
     Combat.SilentAimHitChance = val
 end, "◉")
@@ -538,6 +624,10 @@ end, "◉")
 AddSlider(AimbotPage, "Prediction", 0, 1, 0.15, function(val)
     Combat.SilentAimPrediction = val
 end, "▣")
+
+AddSlider(AimbotPage, "Flashstep Distance", 5, 50, 20, function(val)
+    Combat.FlashstepDistance = val
+end, "⚡")
 
 --// COMBAT PAGE
 AddToggle(CombatPage, "No Cooldown", "Removes attack cooldowns", function(enabled)
@@ -603,12 +693,56 @@ AddToggle(VisualPage, "ESP Distance", "Show distance to players", function(enabl
     Combat.ESPDistanceEnabled = enabled
 end, "◎")
 
+--// MACROS PAGE
+AddToggle(MacrosPage, "Macro Enabled", "Toggle macro system", function(enabled)
+    Combat.MacroEnabled = enabled
+end, "⌨")
+
+AddButton(MacrosPage, "Macro: Attack", "Press to perform attack macro", function()
+    if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, nil, 0)
+        task.wait(0.1)
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, nil, 0)
+    end
+end, "⚔")
+
+AddButton(MacrosPage, "Macro: Dash", "Press to perform dash macro", function()
+    if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+        local root = Player.Character.HumanoidRootPart
+        root.Velocity = root.CFrame.LookVector * 100
+    end
+end, "»")
+
+AddButton(MacrosPage, "Macro: Jump", "Press to perform jump macro", function()
+    if Player.Character and Player.Character:FindFirstChild("Humanoid") then
+        Player.Character.Humanoid.Jump = true
+    end
+end, "↑")
+
+AddButton(MacrosPage, "Macro: Ability 1", "Press to use ability 1", function()
+    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Z, false, nil)
+    task.wait(0.05)
+    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Z, false, nil)
+end, "①")
+
+AddButton(MacrosPage, "Macro: Ability 2", "Press to use ability 2", function()
+    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.X, false, nil)
+    task.wait(0.05)
+    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.X, false, nil)
+end, "②")
+
+AddButton(MacrosPage, "Macro: Ability 3", "Press to use ability 3", function()
+    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.C, false, nil)
+    task.wait(0.05)
+    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.C, false, nil)
+end, "③")
+
 --// CREDITS PAGE
 AddCard(CreditsPage, "Made By", "Ivory", "◆")
 AddCard(CreditsPage, "Discord", "Ivory999", "◈")
 AddCard(CreditsPage, "Ideas By", "Rayo", "✦")
 AddCard(CreditsPage, "Discord", "rayo06996", "◎")
-AddCard(CreditsPage, "Version", "v3.0 - Premium Edition", "▣")
+AddCard(CreditsPage, "Version", "v4.0 - Premium Edition", "▣")
 AddCard(CreditsPage, "Special Thanks", "All supporters and testers", "♡")
 AddCard(CreditsPage, "Updates", "Join Discord for latest updates", "↻")
 AddCard(CreditsPage, "Copyright", "© Ivory Hub 2024", "©")
@@ -637,7 +771,7 @@ local Tabs = {}
 local function CreateTab(name, order, icon)
     local Button = Instance.new("TextButton")
     Button.Name = name
-    Button.Size = UDim2.new(1, 0, 0, 30)
+    Button.Size = UDim2.new(1, 0, 0, 26)
     Button.BackgroundColor3 = DARK
     Button.Text = icon .. " " .. name:upper()
     Button.TextColor3 = GREY
@@ -716,8 +850,9 @@ CreateTab("Aimbot", 2, "◎")
 CreateTab("Combat", 3, "⚔")
 CreateTab("Movement", 4, "»")
 CreateTab("Visuals", 5, "▣")
-CreateTab("Credits", 6, "♛")
-CreateTab("Settings", 7, "⚙")
+CreateTab("Macros", 6, "⌨")
+CreateTab("Credits", 7, "♛")
+CreateTab("Settings", 8, "⚙")
 
 --// DEFAULT TAB
 Tabs.Home.Button.BackgroundColor3 = IVORY
@@ -883,6 +1018,44 @@ local function GetClosestPlayer()
     return closest
 end
 
+--// FLASHSTEP FUNCTION
+local function FlashstepToTarget(target)
+    if not target or not target.Character or not target.Character:FindFirstChild("HumanoidRootPart") then
+        return false
+    end
+    
+    local character = Player.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then
+        return false
+    end
+    
+    local root = character.HumanoidRootPart
+    local targetRoot = target.Character.HumanoidRootPart
+    
+    -- Calculate flashstep position (behind target)
+    local direction = (root.Position - targetRoot.Position).Unit
+    local flashstepPos = targetRoot.Position + direction * Combat.FlashstepDistance
+    
+    -- Store original position
+    local originalCFrame = root.CFrame
+    
+    -- Play flashstep animation (teleport)
+    root.CFrame = CFrame.new(flashstepPos) * CFrame.Angles(0, math.rad(180), 0)
+    
+    -- Visual effect (optional)
+    local flashEffect = Instance.new("Part")
+    flashEffect.Size = Vector3.new(1, 1, 1)
+    flashEffect.Position = flashstepPos
+    flashEffect.Anchored = true
+    flashEffect.CanCollide = false
+    flashEffect.Transparency = 0.5
+    flashEffect.Color = IVORY
+    flashEffect.Parent = workspace
+    game:GetService("Debris"):AddItem(flashEffect, 0.3)
+    
+    return true
+end
+
 --// SILENT AIM - Redirects attacks without moving camera
 local OldNamecall
 OldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
@@ -945,6 +1118,26 @@ RunService.RenderStepped:Connect(function()
         for _, part in pairs(Player.Character:GetDescendants()) do
             if part:IsA("BasePart") then
                 part.CanCollide = false
+            end
+        end
+    end
+    
+    -- Flashstep Aimbot
+    if Combat.FlashstepAimbot and tick() - Combat.LastFlashstep > Combat.FlashstepCooldown then
+        local target = GetClosestPlayer()
+        
+        if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+            local character = Player.Character
+            if character and character:FindFirstChild("HumanoidRootPart") then
+                local root = character.HumanoidRootPart
+                local targetRoot = target.Character.HumanoidRootPart
+                local distance = (root.Position - targetRoot.Position).Magnitude
+                
+                -- Only flashstep if target is within range
+                if distance > 10 and distance < 100 then
+                    Combat.LastFlashstep = tick()
+                    FlashstepToTarget(target)
+                end
             end
         end
     end
