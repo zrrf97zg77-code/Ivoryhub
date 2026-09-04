@@ -1,11 +1,9 @@
---// IVORY HUB (Blacklist + Macro - Final Stable)
+--// IVORY HUB ULTRA STABLE
 --// Credits: lvory999, rayo06996
-print("Ivory Hub starting...")
+print("Ivory Hub loading...")
 
--- Wrap everything in pcall to catch errors and print them
+-- Setup with pcall to catch errors
 local success, err = pcall(function()
-    print("Creating GUI...")
-
     local Players = game:GetService("Players")
     local UIS = game:GetService("UserInputService")
     local RunService = game:GetService("RunService")
@@ -15,8 +13,6 @@ local success, err = pcall(function()
     local PlayerGui = player:WaitForChild("PlayerGui")
     local VirtualInputManager
     pcall(function() VirtualInputManager = game:GetService("VirtualInputManager") end)
-
-    print("Services loaded")
 
     -- Delete old GUI
     local Old = PlayerGui:FindFirstChild("IvoryHub")
@@ -28,7 +24,6 @@ local success, err = pcall(function()
     local LIGHT = Color3.fromRGB(30,30,30)
     local WHITE = Color3.fromRGB(245,245,245)
     local GRAY = Color3.fromRGB(145,145,145)
-    local DARKER = Color3.fromRGB(22,22,28)
 
     --// GUI
     local Gui = Instance.new("ScreenGui")
@@ -36,7 +31,7 @@ local success, err = pcall(function()
     Gui.ResetOnSpawn = false
     Gui.IgnoreGuiInset = true
     Gui.Parent = PlayerGui
-    print("ScreenGui created")
+    print("GUI parented to PlayerGui")
 
     --// MAIN
     local Main = Instance.new("Frame")
@@ -48,7 +43,7 @@ local success, err = pcall(function()
     Main.Visible = true
     Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 14)
     local MainStroke = Instance.new("UIStroke", Main)
-    MainStroke.Color = Color3.fromRGB(55, 55, 55)
+    MainStroke.Color = Color3.fromRGB(55,55,55)
     MainStroke.Thickness = 1
     print("Main frame created")
 
@@ -158,7 +153,7 @@ local success, err = pcall(function()
         return Page
     end
 
-    --// CREATE BUTTON
+    --// BUTTON
     local function CreateButton(Parent, Text)
         local Button = Instance.new("TextButton")
         Button.Size = UDim2.new(1, 0, 0, 32)
@@ -182,38 +177,16 @@ local success, err = pcall(function()
         return Button
     end
 
-    --// TOGGLE FOR BLACKLIST (with checkmark)
-    local function CreateBlacklistToggle(Parent, Text, Default, OnClick)
+    --// TOGGLE BUTTON (for blacklist)
+    local function CreateToggle(Parent, Text, Default, OnChange)
         local state = Default or false
-        local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(1, 0, 0, 28)
-        btn.BackgroundColor3 = state and Color3.fromRGB(0, 180, 0) or DARKER
-        btn.BorderSizePixel = 0
-        btn.Text = Text .. (state and " ✅" or " ❌")
-        btn.TextColor3 = state and WHITE or GRAY
-        btn.TextSize = 10
-        btn.Font = Enum.Font.GothamMedium
-        btn.AutoButtonColor = false
-        btn.Parent = Parent
-        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-        local stroke = Instance.new("UIStroke", btn)
-        stroke.Color = state and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(55, 55, 55)
-        stroke.Thickness = 1.2
-
-        btn.MouseEnter:Connect(function()
-            btn.BackgroundColor3 = state and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(45, 45, 45)
-        end)
-        btn.MouseLeave:Connect(function()
-            btn.BackgroundColor3 = state and Color3.fromRGB(0, 180, 0) or DARKER
-        end)
-
+        local btn = CreateButton(Parent, Text .. (state and " ON" or " OFF"))
+        if state then btn.BackgroundColor3 = Color3.fromRGB(0, 180, 0) end
         btn.MouseButton1Click:Connect(function()
             state = not state
-            btn.Text = Text .. (state and " ✅" or " ❌")
-            btn.BackgroundColor3 = state and Color3.fromRGB(0, 180, 0) or DARKER
-            btn.TextColor3 = state and WHITE or GRAY
-            stroke.Color = state and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(55, 55, 55)
-            if OnClick then OnClick(state) end
+            btn.Text = Text .. (state and " ON" or " OFF")
+            btn.BackgroundColor3 = state and Color3.fromRGB(0, 180, 0) or LIGHT
+            if OnChange then OnChange(state) end
         end)
         return btn
     end
@@ -457,7 +430,7 @@ local success, err = pcall(function()
         end
     end)
 
-    --// NOCLIP
+    -- NOCLIP
     local noclipEnabled = false
     local function toggleNoclip()
         noclipEnabled = not noclipEnabled
@@ -491,7 +464,7 @@ local success, err = pcall(function()
     local noclipBtn = CreateButton(MainPage, "NOCLIP: OFF")
     noclipBtn.MouseButton1Click:Connect(toggleNoclip)
 
-    --// ANTI-STUN
+    -- ANTI-STUN
     local antiStun = false
     local function toggleAntiStun()
         antiStun = not antiStun
@@ -527,7 +500,7 @@ local success, err = pcall(function()
     antiStunBtn.MouseButton1Click:Connect(toggleAntiStun)
 
     -- ==================================================================
-    --                   BLACKLIST PAGE (Improved UI)
+    --                   BLACKLIST PAGE
     -- ==================================================================
     local blacklist = {
         Fruit = { Z = false, X = false, C = false, V = false, F = false },
@@ -536,11 +509,9 @@ local success, err = pcall(function()
         Melee = { Z = false, X = false, C = false, V = false, F = false },
     }
 
-    local function rebuildBlacklistUI()
+    local function buildBlacklistUI()
         for _, child in ipairs(BlacklistPage:GetChildren()) do
-            if child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("Frame") then
-                child:Destroy()
-            end
+            if child:IsA("TextButton") or child:IsA("TextLabel") then child:Destroy() end
         end
 
         local categories = { "Fruit", "Sword", "Gun", "Melee" }
@@ -551,27 +522,25 @@ local success, err = pcall(function()
             header.Size = UDim2.new(1, 0, 0, 24)
             header.Position = UDim2.new(0, 0, 0, y)
             header.BackgroundTransparency = 1
-            header.Text = "⚔️ " .. cat:upper() .. " BLACKLIST"
+            header.Text = cat:upper() .. " BLACKLIST"
             header.TextColor3 = WHITE
             header.TextSize = 12
             header.Font = Enum.Font.GothamBold
             header.TextXAlignment = Enum.TextXAlignment.Left
             header.Parent = BlacklistPage
             y = y + 28
-
             for _, key in ipairs(keys) do
-                local btn = CreateBlacklistToggle(BlacklistPage, cat .. " " .. key, false, function(state)
+                local btn = CreateToggle(BlacklistPage, cat .. " " .. key, false, function(state)
                     blacklist[cat][key] = state
                 end)
                 btn.Position = UDim2.new(0.03, 0, 0, y)
                 btn.Size = UDim2.new(0.94, 0, 0, 26)
                 y = y + 30
             end
-            y = y + 8
+            y = y + 10
         end
     end
-
-    rebuildBlacklistUI()
+    buildBlacklistUI()
 
     -- ==================================================================
     --                   COMBO MACRO PAGE
@@ -622,7 +591,6 @@ local success, err = pcall(function()
         end)
     end
 
-    -- Combo toggle
     local function toggleCombo()
         comboEnabled = not comboEnabled
         for _, child in ipairs(ComboPage:GetChildren()) do
@@ -637,12 +605,10 @@ local success, err = pcall(function()
     local comboBtn = CreateButton(ComboPage, "COMBO MACRO: OFF")
     comboBtn.MouseButton1Click:Connect(toggleCombo)
 
-    -- Macro button action
     MacroButton.MouseButton1Click:Connect(function()
         if comboEnabled then executeComboSteps() end
     end)
 
-    -- Step count label
     local stepCountLabel = Instance.new("TextLabel")
     stepCountLabel.Size = UDim2.new(1, 0, 0, 20)
     stepCountLabel.Position = UDim2.new(0, 0, 0, 0)
@@ -654,7 +620,6 @@ local success, err = pcall(function()
     stepCountLabel.TextXAlignment = Enum.TextXAlignment.Left
     stepCountLabel.Parent = ComboPage
 
-    -- Step editor
     local function rebuildStepUI()
         for _, child in ipairs(ComboPage:GetChildren()) do
             if child:IsA("Frame") and child.Name == "StepContainer" then
@@ -814,7 +779,6 @@ local success, err = pcall(function()
         container.Size = UDim2.new(1, 0, 0, 28 * #comboSteps + 32)
         stepCountLabel.Text = "Steps: " .. #comboSteps
     end
-
     rebuildStepUI()
 
     -- ==================================================================
@@ -836,9 +800,7 @@ local success, err = pcall(function()
         end
         if not espEnabled then
             for _, v in pairs(workspace:GetDescendants()) do
-                if v:IsA("BillboardGui") and v.Name == "IvoryESP" then
-                    v:Destroy()
-                end
+                if v:IsA("BillboardGui") and v.Name == "IvoryESP" then v:Destroy() end
             end
         end
     end
@@ -954,7 +916,7 @@ local success, err = pcall(function()
             Sidebar.BackgroundColor3 = DARK
             Title.TextColor3 = WHITE
             Sub.TextColor3 = GRAY
-            MainStroke.Color = Color3.fromRGB(55, 55, 55)
+            MainStroke.Color = Color3.fromRGB(55,55,55)
             Toggle.BackgroundColor3 = BLACK
             Toggle.TextColor3 = WHITE
             ToggleStroke.Color = WHITE
@@ -1029,7 +991,7 @@ local success, err = pcall(function()
     themeBtn.MouseButton1Click:Connect(toggleTheme)
     applyTheme(true)
 
-    -- Info & Credits
+    -- Info
     local infoText = Instance.new("TextLabel")
     infoText.Size = UDim2.new(1, 0, 0, 140)
     infoText.Position = UDim2.new(0, 0, 0, 10)
@@ -1054,29 +1016,10 @@ local success, err = pcall(function()
     creditsText.TextYAlignment = Enum.TextYAlignment.Top
     creditsText.Parent = CreditsPage
 
-    print("Ivory Hub loaded successfully!")
+    print("Ivory Hub loaded successfully")
 end)
 
+-- If there was an error, print it
 if not success then
-    warn("❌ Ivory Hub failed to load: " .. tostring(err))
-    print("Error: " .. tostring(err))
-    -- Show a simple fallback GUI to indicate error
-    local PlayerGui = game:Players.LocalPlayer:WaitForChild("PlayerGui")
-    local fallback = Instance.new("ScreenGui")
-    fallback.Name = "IvoryHubFallback"
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.fromOffset(400, 100)
-    frame.Position = UDim2.new(0.5, -200, 0.5, -50)
-    frame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-    frame.Parent = fallback
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 12)
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, 0, 1, 0)
-    label.BackgroundTransparency = 1
-    label.Text = "Ivory Hub Error\nCheck console for details"
-    label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    label.TextSize = 16
-    label.Font = Enum.Font.GothamBold
-    label.Parent = frame
-    fallback.Parent = PlayerGui
+    warn("Ivory Hub load error: " .. tostring(err))
 end
