@@ -1,8 +1,8 @@
---// IVORY HUB
---// Black & White UI with Integrated Aimbot
+--// IVORY HUB (PVP EDITION)
+--// Black & White UI with Integrated Aimbot, Combo Macro & More
 --// Credits: lvory999 (Developer), rayo06996 (Ideas)
 
-print("Loading Ivory Hub...")
+print("Loading Ivory Hub PVP Edition...")
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -10,6 +10,7 @@ local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 local mouse = player:GetMouse()
@@ -71,7 +72,7 @@ local Sub = Instance.new("TextLabel")
 Sub.Size = UDim2.new(1,-100,0,18)
 Sub.Position = UDim2.fromOffset(19,32)
 Sub.BackgroundTransparency = 1
-Sub.Text = "clean • simple • ivory"
+Sub.Text = "pvp • clean • simple"
 Sub.TextColor3 = GRAY
 Sub.TextSize = 9
 Sub.Font = Enum.Font.Gotham
@@ -195,6 +196,7 @@ end
 local Home = CreatePage("Home")
 local MainPage = CreatePage("Main")
 local AimbotPage = CreatePage("Aimbot")
+local ComboPage = CreatePage("Combo")   -- new
 local VisualsPage = CreatePage("Visuals")
 local PlayersPage = CreatePage("Players")
 local SettingsPage = CreatePage("Settings")
@@ -235,6 +237,7 @@ end
 local HomeTab = CreateTab("Home",Home)
 CreateTab("Main",MainPage)
 CreateTab("Aimbot",AimbotPage)
+CreateTab("Combo",ComboPage)   -- new
 CreateTab("Visuals",VisualsPage)
 CreateTab("Players",PlayersPage)
 CreateTab("Settings",SettingsPage)
@@ -264,7 +267,7 @@ local ToggleStroke = Instance.new("UIStroke",Toggle)
 ToggleStroke.Color = WHITE
 ToggleStroke.Thickness = 1
 
---// DRAG FUNCTION (fixed)
+--// DRAG FUNCTION
 local function MakeDraggable(Object)
     local Dragging = false
     local DragStart
@@ -299,6 +302,55 @@ end
 
 MakeDraggable(Main)
 MakeDraggable(Toggle)
+
+--// SORU MANUAL BUTTON (appears when Soru Teleport is ON, bottom-right)
+local SoruButton = Instance.new("TextButton")
+SoruButton.Name = "SoruAimbotButton"
+SoruButton.Size = UDim2.fromOffset(80,32)
+SoruButton.Position = UDim2.new(0.85,-40,0.85,0)  -- bottom right
+SoruButton.BackgroundColor3 = BLACK
+SoruButton.BorderSizePixel = 0
+SoruButton.Text = "SORU"
+SoruButton.TextColor3 = WHITE
+SoruButton.TextSize = 12
+SoruButton.Font = Enum.Font.GothamBold
+SoruButton.AutoButtonColor = false
+SoruButton.Visible = false
+SoruButton.Parent = Gui
+SoruButton.ZIndex = 20
+
+Instance.new("UICorner",SoruButton).CornerRadius = UDim.new(0,8)
+local SoruStroke = Instance.new("UIStroke",SoruButton)
+SoruStroke.Color = WHITE
+SoruStroke.Thickness = 1
+
+MakeDraggable(SoruButton)
+
+-- Soru button action: teleport to target
+SoruButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if aimbotUI and aimbotUI.getEnabled() then
+            local target = aimbotUI.getTarget()
+            if target then
+                local targetPos = target.Position
+                local char = player.Character
+                if char then
+                    local hrp = char:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        hrp.CFrame = CFrame.new(targetPos)
+                        local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+                        if remotes then
+                            local commF = remotes:FindFirstChild("CommF_")
+                            if commF then
+                                pcall(function() commF:InvokeServer("Flashstep", targetPos) end)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
 
 --// OPEN/CLOSE
 local Open = true
@@ -345,13 +397,13 @@ local HomeSub = Instance.new("TextLabel")
 HomeSub.Size = UDim2.new(1,0,0,30)
 HomeSub.Position = UDim2.new(0,0,0,45)
 HomeSub.BackgroundTransparency = 1
-HomeSub.Text = "A clean, simple hub for Blox Fruits"
+HomeSub.Text = "PVP • Clean • Simple"
 HomeSub.TextColor3 = GRAY
 HomeSub.TextSize = 11
 HomeSub.Font = Enum.Font.Gotham
 HomeSub.Parent = Home
 
---// Main Page (features)
+--// Main Page
 local fastAttack = false
 local fastAttackLoop = nil
 local fastToggle = CreateToggle(MainPage, "FAST ATTACK", false, function(state)
@@ -545,7 +597,7 @@ local noclipToggle = CreateToggle(MainPage, "NOCLIP", false, function(state)
     end
 end)
 
---// Aimbot Page
+--// Aimbot Page (with extra toggles)
 local function createAimbotUI()
     local titleLabel = Instance.new("TextLabel")
     titleLabel.Size = UDim2.new(1,0,0,30)
@@ -565,12 +617,28 @@ local function createAimbotUI()
     local showLine = true
     local showFOV = false
     local maxDistance = 3000
+    local teamCheck = false   -- new
+    local aimPart = "HumanoidRootPart"  -- new
 
     local aimbotToggle = CreateToggle(AimbotPage, "AIMBOT", false, function(state)
         aimbotEnabled = state
         if FOVCircle then FOVCircle.Visible = (aimbotEnabled and showFOV) end
         if TargetLine then TargetLine.Visible = (aimbotEnabled and showLine) end
         updateTargetLabel()
+    end)
+
+    local teamCheckToggle = CreateToggle(AimbotPage, "TEAM CHECK", false, function(state)
+        teamCheck = state
+    end)
+
+    -- Aim Part selector (button to cycle)
+    local aimPartBtn = CreateButton(AimbotPage, "AIM PART: " .. aimPart)
+    aimPartBtn.MouseButton1Click:Connect(function()
+        local parts = {"HumanoidRootPart", "Head", "Torso", "UpperTorso"}
+        local idx = table.find(parts, aimPart) or 1
+        idx = idx % #parts + 1
+        aimPart = parts[idx]
+        aimPartBtn.Text = "AIM PART: " .. aimPart
     end)
 
     local targetPlayersToggle = CreateToggle(AimbotPage, "TARGET PLAYERS", true, function(state)
@@ -583,8 +651,7 @@ local function createAimbotUI()
 
     local soruToggle = CreateToggle(AimbotPage, "SORU TELEPORT", false, function(state)
         soruAimbot = state
-        -- Show/hide Soru button when toggled
-        if SoruButton then SoruButton.Visible = state end
+        SoruButton.Visible = state  -- show/hide manual Soru button
     end)
 
     local excludeFToggle = CreateToggle(AimbotPage, "F SKILL (EXCLUDED)", true, function(state)
@@ -699,6 +766,8 @@ local function createAimbotUI()
         getMaxDist = function() return maxDistance end,
         getShowLine = function() return showLine end,
         getShowFOV = function() return showFOV end,
+        getTeamCheck = function() return teamCheck end,
+        getAimPart = function() return aimPart end,
         updateStatus = function()
             if aimbotEnabled and currentTarget then
                 local name = "Unknown"
@@ -743,60 +812,11 @@ end
 
 local aimbotUI = createAimbotUI()
 
---// SORU MANUAL BUTTON (created after aimbotUI is defined)
-local SoruButton = Instance.new("TextButton")
-SoruButton.Name = "SoruAimbotButton"
-SoruButton.Size = UDim2.fromOffset(80,32)
-SoruButton.Position = UDim2.new(0.5,-40,0.7,0)
-SoruButton.BackgroundColor3 = BLACK
-SoruButton.BorderSizePixel = 0
-SoruButton.Text = "SORU"
-SoruButton.TextColor3 = WHITE
-SoruButton.TextSize = 12
-SoruButton.Font = Enum.Font.GothamBold
-SoruButton.AutoButtonColor = false
-SoruButton.Visible = false  -- hidden until Soru Teleport is ON
-SoruButton.Parent = Gui
-SoruButton.ZIndex = 20
-
-Instance.new("UICorner",SoruButton).CornerRadius = UDim.new(0,8)
-local SoruStroke = Instance.new("UIStroke",SoruButton)
-SoruStroke.Color = WHITE
-SoruStroke.Thickness = 1
-
-MakeDraggable(SoruButton)
-
--- Soru button action (manual teleport)
-SoruButton.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        if aimbotUI and aimbotUI.getEnabled() then
-            local target = aimbotUI.getTarget()
-            if target then
-                local targetPos = target.Position
-                local char = player.Character
-                if char then
-                    local hrp = char:FindFirstChild("HumanoidRootPart")
-                    if hrp then
-                        hrp.CFrame = CFrame.new(targetPos)
-                        local remotes = ReplicatedStorage:FindFirstChild("Remotes")
-                        if remotes then
-                            local commF = remotes:FindFirstChild("CommF_")
-                            if commF then
-                                pcall(function() commF:InvokeServer("Flashstep", targetPos) end)
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-end)
-
 function updateTargetLabel()
     aimbotUI.updateStatus()
 end
 
---// Aimbot core logic
+--// Aimbot core logic (updated with teamCheck and aimPart)
 local function isIn180FOV(pos)
     if not pos or not camera then return false end
     local look = camera.CFrame.LookVector
@@ -827,14 +847,18 @@ local function getClosestEnemy()
     local targetPlayers = aimbotUI.getTargetPlayers()
     local targetNPCs = aimbotUI.getTargetNPCs()
     local maxDist = aimbotUI.getMaxDist()
+    local teamCheck = aimbotUI.getTeamCheck()
+    local aimPartName = aimbotUI.getAimPart()
 
     if targetPlayers then
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= player and p.Character then
                 local hum = p.Character:FindFirstChildOfClass("Humanoid")
-                local part = p.Character:FindFirstChild("HumanoidRootPart")
+                local part = p.Character:FindFirstChild(aimPartName) or p.Character:FindFirstChild("HumanoidRootPart")
                 if hum and hum.Health > 0 and part then
-                    if player.Team and p.Team and player.Team == p.Team then continue end
+                    if teamCheck then
+                        if player.Team and p.Team and player.Team == p.Team then continue end
+                    end
                     local pos = part.Position
                     local dist = (pos - myPos).Magnitude
                     if dist <= maxDist and isIn180FOV(pos) then
@@ -854,7 +878,7 @@ local function getClosestEnemy()
             for _, npc in pairs(enemies:GetChildren()) do
                 if npc:IsA("Model") then
                     local hum = npc:FindFirstChildOfClass("Humanoid")
-                    local part = npc:FindFirstChild("HumanoidRootPart")
+                    local part = npc:FindFirstChild(aimPartName) or npc:FindFirstChild("HumanoidRootPart")
                     if hum and hum.Health > 0 and part then
                         local pos = part.Position
                         local dist = (pos - myPos).Magnitude
@@ -958,7 +982,7 @@ if mouse then
     end
 end
 
--- Override remotes
+-- Override remotes (same as before)
 local function overrideRemote(remote)
     if remote:IsA("RemoteEvent") then
         local oldFire = remote.FireServer
@@ -1093,7 +1117,7 @@ if mt2 then
     setreadonly(mt2, true)
 end
 
--- Automatic Soru Teleport (only when toggled ON)
+-- Automatic Soru Teleport
 function doSoruTeleportAuto()
     if not aimbotUI.getEnabled() or not aimbotUI.getSoru() then return end
     local target = aimbotUI.getTarget()
@@ -1137,6 +1161,147 @@ UserInputService.InputBegan:Connect(function(input, gp)
         if FOVCircle then FOVCircle.Visible = (newState and aimbotUI.getShowFOV()) end
         if TargetLine then TargetLine.Visible = (newState and aimbotUI.getShowLine()) end
     end
+end)
+
+--// Combo Page (new)
+local comboEnabled = false
+local comboLoop = nil
+local comboDelay = 0.3
+local comboKeys = {"Z","X","C","V"}  -- default combo
+
+-- Combo toggle
+local comboToggle = CreateToggle(ComboPage, "COMBO MACRO", false, function(state)
+    comboEnabled = state
+    if state then
+        comboLoop = RunService.Heartbeat:Connect(function()
+            if not comboEnabled then
+                if comboLoop then comboLoop:Disconnect(); comboLoop = nil end
+                return
+            end
+            -- Execute combo
+            pcall(function()
+                local char = player.Character
+                if not char then return end
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if not hum then return end
+                for _, key in ipairs(comboKeys) do
+                    if key == "M1" then
+                        -- Simulate M1 click? Not easily, we can fire RegisterAttack
+                        local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+                        if remotes then
+                            local regAttack = remotes:FindFirstChild("RE/RegisterAttack")
+                            if regAttack then regAttack:FireServer(0) end
+                        end
+                    else
+                        local keyCode = Enum.KeyCode[key]
+                        if keyCode then
+                            -- Simulate key press (VirtualInputManager might not be available on mobile)
+                            local vim = game:GetService("VirtualInputManager")
+                            if vim then
+                                vim:SendKeyEvent(true, keyCode, false, game)
+                                task.wait(0.05)
+                                vim:SendKeyEvent(false, keyCode, false, game)
+                            end
+                        end
+                    end
+                    task.wait(comboDelay)
+                end
+            end)
+        end)
+    else
+        if comboLoop then comboLoop:Disconnect(); comboLoop = nil end
+    end
+end)
+
+-- Combo keys selector (cycle)
+local comboKeysBtn = CreateButton(ComboPage, "COMBO: Z,X,C,V")
+comboKeysBtn.MouseButton1Click:Connect(function()
+    local presets = {
+        {"Z","X","C","V"},
+        {"Z","X","C","V","F"},
+        {"Z","X","C"},
+        {"X","C","V"},
+        {"Z","C","V"},
+        {"Z","X","M1"},
+        {"M1","Z","X","C"}
+    }
+    local current = comboKeys
+    local idx = 1
+    for i, preset in ipairs(presets) do
+        if #preset == #current then
+            local match = true
+            for j, v in ipairs(preset) do
+                if v ~= current[j] then match = false; break end
+            end
+            if match then idx = i; break end
+        end
+    end
+    idx = idx % #presets + 1
+    comboKeys = presets[idx]
+    comboKeysBtn.Text = "COMBO: " .. table.concat(comboKeys, ",")
+end)
+
+-- Combo delay slider
+local delayFrame = Instance.new("Frame")
+delayFrame.Size = UDim2.new(1,0,0,30)
+delayFrame.BackgroundTransparency = 1
+delayFrame.Parent = ComboPage
+
+local delayLabel = Instance.new("TextLabel")
+delayLabel.Size = UDim2.new(0.5,0,1,0)
+delayLabel.BackgroundTransparency = 1
+delayLabel.Text = "Delay: " .. string.format("%.2f", comboDelay)
+delayLabel.TextColor3 = WHITE
+delayLabel.TextSize = 10
+delayLabel.Font = Enum.Font.Gotham
+delayLabel.TextXAlignment = Enum.TextXAlignment.Left
+delayLabel.Parent = delayFrame
+
+local delayMinus = Instance.new("TextButton")
+delayMinus.Size = UDim2.new(0,25,0,25)
+delayMinus.Position = UDim2.new(0.7,0,0.5,-12.5)
+delayMinus.BackgroundColor3 = LIGHT
+delayMinus.Text = "-"
+delayMinus.TextColor3 = WHITE
+delayMinus.TextSize = 12
+delayMinus.Font = Enum.Font.GothamBold
+delayMinus.AutoButtonColor = false
+delayMinus.Parent = delayFrame
+Instance.new("UICorner",delayMinus).CornerRadius = UDim.new(0,6)
+
+local delayVal = Instance.new("TextLabel")
+delayVal.Size = UDim2.new(0,30,0,25)
+delayVal.Position = UDim2.new(0.8,0,0.5,-12.5)
+delayVal.BackgroundTransparency = 1
+delayVal.Text = string.format("%.2f", comboDelay)
+delayVal.TextColor3 = WHITE
+delayVal.TextSize = 11
+delayVal.Font = Enum.Font.GothamBold
+delayVal.TextXAlignment = Enum.TextXAlignment.Center
+delayVal.Parent = delayFrame
+
+local delayPlus = Instance.new("TextButton")
+delayPlus.Size = UDim2.new(0,25,0,25)
+delayPlus.Position = UDim2.new(0.9,0,0.5,-12.5)
+delayPlus.BackgroundColor3 = LIGHT
+delayPlus.Text = "+"
+delayPlus.TextColor3 = WHITE
+delayPlus.TextSize = 12
+delayPlus.Font = Enum.Font.GothamBold
+delayPlus.AutoButtonColor = false
+delayPlus.Parent = delayFrame
+Instance.new("UICorner",delayPlus).CornerRadius = UDim.new(0,6)
+
+delayMinus.MouseButton1Click:Connect(function()
+    comboDelay = math.max(0.05, math.floor((comboDelay - 0.05) * 100) / 100)
+    delayVal.Text = string.format("%.2f", comboDelay)
+    delayLabel.Text = "Delay: " .. string.format("%.2f", comboDelay)
+end)
+
+delayPlus.MouseButton1Click:Connect(function()
+    comboDelay = math.min(1.5, math.floor((comboDelay + 0.05) * 100) / 100)
+    delayVal.Text = string.format("%.2f", comboDelay)
+    delayLabel.Text = "Delay: " .. string.format("%.2f", comboDelay)
 end)
 
 --// Visuals Page (ESP)
@@ -1298,7 +1463,7 @@ infoText = Instance.new("TextLabel")
 infoText.Size = UDim2.new(1,0,0,140)
 infoText.Position = UDim2.new(0,0,0,10)
 infoText.BackgroundTransparency = 1
-infoText.Text = "Ivory Hub v1.0\n\nCreated by: lvory999\n\nIdeas: rayo06996\n\nA clean, simple hub for Blox Fruits.\n\nFeatures: Aimbot, ESP, Walk Speed, Noclip, Fast Attack."
+infoText.Text = "Ivory Hub PVP Edition v1.0\n\nCreated by: lvory999\n\nIdeas: rayo06996\n\nA clean, simple hub for Blox Fruits PVP.\n\nFeatures: Aimbot, Combo Macro, ESP, Soru Teleport, Fast Attack, Walk Speed, Noclip."
 infoText.TextColor3 = WHITE
 infoText.TextSize = 11
 infoText.Font = Enum.Font.Gotham
@@ -1311,7 +1476,7 @@ creditsText = Instance.new("TextLabel")
 creditsText.Size = UDim2.new(1,0,0,120)
 creditsText.Position = UDim2.new(0,0,0,10)
 creditsText.BackgroundTransparency = 1
-creditsText.Text = "Ivory Hub\n\nDesign & Development: lvory999\n\nIdeas: rayo06996\n\nSpecial thanks to the community."
+creditsText.Text = "Ivory Hub PVP Edition\n\nDesign & Development: lvory999\n\nIdeas: rayo06996\n\nSpecial thanks to the community."
 creditsText.TextColor3 = WHITE
 creditsText.TextSize = 11
 creditsText.Font = Enum.Font.Gotham
@@ -1319,6 +1484,7 @@ creditsText.TextXAlignment = Enum.TextXAlignment.Left
 creditsText.TextYAlignment = Enum.TextYAlignment.Top
 creditsText.Parent = CreditsPage
 
-print("✅ Ivory Hub loaded successfully!")
+print("✅ Ivory Hub PVP Edition loaded successfully!")
 print("📌 Click the 'I' button on the left to toggle the GUI.")
-print("📌 All features are ready to use.")
+print("📌 Soru button appears when Soru Teleport is ON (bottom-right).")
+print("📌 New Combo tab for PVP combos.")
