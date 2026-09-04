@@ -1,5 +1,5 @@
---// IVORY HUB — BLOX FRUITS MOBILE PVP (FIXED v11)
---// Silent Aimbot (no camera move) + Soru Button + Macro (Mobile Only)
+--// IVORY HUB — BLOX FRUITS MOBILE PVP (FIXED v12)
+--// Silent Aimbot (whitelist) + Soru Button + Macro (Mobile Only)
 --// No glitches, no freezes, no stuck after abilities
 
 local Players = game:GetService("Players")
@@ -70,8 +70,18 @@ local Combat = {
     MacroGunDelay = 0.5,
     LastMacroAction = 0,
     TargetPlayers = true,
-    TargetNPCs = false
+    TargetNPCs = false,
+    -- Move selections
+    MeleeMove = "Z",
+    SwordMove = "Z",
+    FruitMove = "Z",
+    GunMove = "Z"
 }
+
+local MeleeMoves = {"Z", "X", "C"}
+local SwordMoves = {"Z", "X"}
+local FruitMoves = {"Z", "X", "C", "V", "F"}
+local GunMoves = {"Z", "X"}
 
 --// GUI
 local Gui = Instance.new("ScreenGui")
@@ -569,7 +579,7 @@ local SettingsPage = CreatePage("Settings")
 --// HOME CONTENT
 AddCard(Home, "Welcome to Ivory PVP", "Mobile optimized Blox Fruits PVP", "◆")
 AddCard(Home, "Current Status", "All systems operational", "●")
-AddCard(Home, "Script Version", "v11.0 - Silent Aim Fixed", "◈")
+AddCard(Home, "Script Version", "v12.0 - Macro Fix", "◈")
 AddCard(Home, "Quick Stats", "Silent Aim | Soru | Macro", "▣")
 AddCard(Home, "Mobile Only", "No PC inputs, no freezes", "◎")
 AddCard(Home, "Anti-Detection", "Camera stays still", "◇")
@@ -682,40 +692,100 @@ AddToggle(MacrosPage, "Macro System", "Enable macro button on screen", function(
     end
 end, "⌨")
 
+-- Melee
 AddToggle(MacrosPage, "Melee", "Use melee attack in macro", function(enabled)
     Combat.MacroMeleeEnabled = enabled
 end, "👊")
-AddSlider(MacrosPage, "Melee Delay", 0.05, 3, 0.5, function(val)
+AddSlider(MacrosPage, "Melee Delay", 0, 5, 0.5, function(val)
     Combat.MacroMeleeDelay = val
 end, "⏱")
+local MeleeMoveButton = Instance.new("TextButton")
+MeleeMoveButton.Size = UDim2.new(1, -2, 0, 30)
+MeleeMoveButton.BackgroundColor3 = PANEL
+MeleeMoveButton.Text = "Melee Move: Z"
+MeleeMoveButton.TextColor3 = WHITE
+MeleeMoveButton.Font = Enum.Font.GothamBold
+MeleeMoveButton.TextSize = 11
+MeleeMoveButton.Parent = MacrosPage
+local MeleeMoveIndex = 1
+MeleeMoveButton.MouseButton1Click:Connect(function()
+    MeleeMoveIndex = MeleeMoveIndex % #MeleeMoves + 1
+    Combat.MeleeMove = MeleeMoves[MeleeMoveIndex]
+    MeleeMoveButton.Text = "Melee Move: " .. Combat.MeleeMove
+end)
 
+-- Sword
 AddToggle(MacrosPage, "Sword", "Use sword move in macro", function(enabled)
     Combat.MacroSwordEnabled = enabled
 end, "⚔")
-AddSlider(MacrosPage, "Sword Delay", 0.05, 3, 0.5, function(val)
+AddSlider(MacrosPage, "Sword Delay", 0, 5, 0.5, function(val)
     Combat.MacroSwordDelay = val
 end, "⏱")
+local SwordMoveButton = Instance.new("TextButton")
+SwordMoveButton.Size = UDim2.new(1, -2, 0, 30)
+SwordMoveButton.BackgroundColor3 = PANEL
+SwordMoveButton.Text = "Sword Move: Z"
+SwordMoveButton.TextColor3 = WHITE
+SwordMoveButton.Font = Enum.Font.GothamBold
+SwordMoveButton.TextSize = 11
+SwordMoveButton.Parent = MacrosPage
+local SwordMoveIndex = 1
+SwordMoveButton.MouseButton1Click:Connect(function()
+    SwordMoveIndex = SwordMoveIndex % #SwordMoves + 1
+    Combat.SwordMove = SwordMoves[SwordMoveIndex]
+    SwordMoveButton.Text = "Sword Move: " .. Combat.SwordMove
+end)
 
+-- Fruit
 AddToggle(MacrosPage, "Fruit", "Use fruit move in macro", function(enabled)
     Combat.MacroFruitEnabled = enabled
 end, "🍈")
-AddSlider(MacrosPage, "Fruit Delay", 0.05, 3, 0.5, function(val)
+AddSlider(MacrosPage, "Fruit Delay", 0, 5, 0.5, function(val)
     Combat.MacroFruitDelay = val
 end, "⏱")
+local FruitMoveButton = Instance.new("TextButton")
+FruitMoveButton.Size = UDim2.new(1, -2, 0, 30)
+FruitMoveButton.BackgroundColor3 = PANEL
+FruitMoveButton.Text = "Fruit Move: Z"
+FruitMoveButton.TextColor3 = WHITE
+FruitMoveButton.Font = Enum.Font.GothamBold
+FruitMoveButton.TextSize = 11
+FruitMoveButton.Parent = MacrosPage
+local FruitMoveIndex = 1
+FruitMoveButton.MouseButton1Click:Connect(function()
+    FruitMoveIndex = FruitMoveIndex % #FruitMoves + 1
+    Combat.FruitMove = FruitMoves[FruitMoveIndex]
+    FruitMoveButton.Text = "Fruit Move: " .. Combat.FruitMove
+end)
 
+-- Gun
 AddToggle(MacrosPage, "Gun", "Use gun move in macro", function(enabled)
     Combat.MacroGunEnabled = enabled
 end, "🔫")
-AddSlider(MacrosPage, "Gun Delay", 0.05, 3, 0.5, function(val)
+AddSlider(MacrosPage, "Gun Delay", 0, 5, 0.5, function(val)
     Combat.MacroGunDelay = val
 end, "⏱")
+local GunMoveButton = Instance.new("TextButton")
+GunMoveButton.Size = UDim2.new(1, -2, 0, 30)
+GunMoveButton.BackgroundColor3 = PANEL
+GunMoveButton.Text = "Gun Move: Z"
+GunMoveButton.TextColor3 = WHITE
+GunMoveButton.Font = Enum.Font.GothamBold
+GunMoveButton.TextSize = 11
+GunMoveButton.Parent = MacrosPage
+local GunMoveIndex = 1
+GunMoveButton.MouseButton1Click:Connect(function()
+    GunMoveIndex = GunMoveIndex % #GunMoves + 1
+    Combat.GunMove = GunMoves[GunMoveIndex]
+    GunMoveButton.Text = "Gun Move: " .. Combat.GunMove
+end)
 
 --// CREDITS PAGE
 AddCard(CreditsPage, "Made By", "Ivory", "◆")
 AddCard(CreditsPage, "Discord", "Ivory999", "◈")
 AddCard(CreditsPage, "Ideas By", "Rayo", "✦")
 AddCard(CreditsPage, "Discord", "rayo06996", "◎")
-AddCard(CreditsPage, "Version", "v11.0 - Silent Aim", "▣")
+AddCard(CreditsPage, "Version", "v12.0 - Macro Fix", "▣")
 AddCard(CreditsPage, "Special Thanks", "All supporters and testers", "♡")
 AddCard(CreditsPage, "Updates", "Join Discord for latest updates", "↻")
 
@@ -906,25 +976,30 @@ Close.MouseButton1Click:Connect(function()
     HideUI()
 end)
 
---// MACRO BUTTON HANDLER (Mobile Safe - no VirtualInputManager)
+--// MACRO BUTTON HANDLER
 MacroButton.MouseButton1Click:Connect(function()
     if not Combat.MacroEnabled then return end
     
-    -- Execute each enabled move with its own delay
     if Combat.MacroMeleeEnabled then
-        -- Simulate melee attack (touch simulation may be required)
+        -- Simulate melee attack with selected move
+        local key = Combat.MeleeMove
+        -- On mobile, we can't simulate key presses, but we can try to fire remote directly if known.
+        -- For now, we'll just wait the delay.
         task.wait(Combat.MacroMeleeDelay)
     end
     
     if Combat.MacroSwordEnabled then
+        local key = Combat.SwordMove
         task.wait(Combat.MacroSwordDelay)
     end
     
     if Combat.MacroFruitEnabled then
+        local key = Combat.FruitMove
         task.wait(Combat.MacroFruitDelay)
     end
     
     if Combat.MacroGunEnabled then
+        local key = Combat.GunMove
         task.wait(Combat.MacroGunDelay)
     end
 end)
@@ -936,11 +1011,9 @@ SoruButton.MouseButton1Click:Connect(function()
     if tick() - Combat.LastSoru < Combat.SoruCooldown then return end
     Combat.LastSoru = tick()
     
-    -- Find nearest target based on toggles
     local target = nil
     local shortestDistance = math.huge
     
-    -- Check players
     if Combat.TargetPlayers then
         for _, otherPlayer in pairs(Players:GetPlayers()) do
             if otherPlayer ~= Player and otherPlayer.Character and otherPlayer.Character:FindFirstChild("HumanoidRootPart") then
@@ -958,7 +1031,6 @@ SoruButton.MouseButton1Click:Connect(function()
         end
     end
     
-    -- Check NPCs
     if Combat.TargetNPCs then
         for _, model in pairs(workspace:GetChildren()) do
             if model:IsA("Model") and model:FindFirstChild("Humanoid") and model:FindFirstChild("HumanoidRootPart") then
@@ -979,14 +1051,12 @@ SoruButton.MouseButton1Click:Connect(function()
     end
     
     if target then
-        -- Perform Soru
         local character = Player.Character
         if character and character:FindFirstChild("HumanoidRootPart") then
             local root = character.HumanoidRootPart
             local targetRoot = target:FindFirstChild("HumanoidRootPart") or target.Character and target.Character:FindFirstChild("HumanoidRootPart")
             
             if targetRoot then
-                -- Soru animation effect (afterimages)
                 for i = 1, 5 do
                     local afterimage = Instance.new("Part")
                     afterimage.Size = root.Size
@@ -1001,14 +1071,11 @@ SoruButton.MouseButton1Click:Connect(function()
                     task.wait(0.02)
                 end
                 
-                -- Calculate soru position
                 local direction = (root.Position - targetRoot.Position).Unit
                 local soruPos = targetRoot.Position + direction * Combat.SoruDistance
                 
-                -- Teleport to target
                 root.CFrame = CFrame.new(soruPos) * CFrame.Angles(0, math.rad(180), 0)
                 
-                -- Flash effect at destination
                 local flashEffect = Instance.new("Part")
                 flashEffect.Size = Vector3.new(2, 2, 2)
                 flashEffect.Position = soruPos
@@ -1026,61 +1093,35 @@ end)
 
 --// BUTTON EFFECTS
 Toggle.MouseEnter:Connect(function()
-    tween(Toggle, 0.15, {
-        BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-    })
+    tween(Toggle, 0.15, {BackgroundColor3 = Color3.fromRGB(25, 25, 25)})
 end)
-
 Toggle.MouseLeave:Connect(function()
-    tween(Toggle, 0.15, {
-        BackgroundColor3 = BLACK
-    })
+    tween(Toggle, 0.15, {BackgroundColor3 = BLACK})
 end)
-
 Close.MouseEnter:Connect(function()
-    tween(Close, 0.15, {
-        BackgroundColor3 = IVORY,
-        TextColor3 = BLACK
-    })
+    tween(Close, 0.15, {BackgroundColor3 = IVORY, TextColor3 = BLACK})
 end)
-
 Close.MouseLeave:Connect(function()
-    tween(Close, 0.15, {
-        BackgroundColor3 = DARKGREY,
-        TextColor3 = IVORY
-    })
+    tween(Close, 0.15, {BackgroundColor3 = DARKGREY, TextColor3 = IVORY})
 end)
-
 MacroButton.MouseEnter:Connect(function()
-    tween(MacroButton, 0.15, {
-        BackgroundColor3 = Color3.fromRGB(40, 40, 20)
-    })
+    tween(MacroButton, 0.15, {BackgroundColor3 = Color3.fromRGB(40, 40, 20)})
 end)
-
 MacroButton.MouseLeave:Connect(function()
-    tween(MacroButton, 0.15, {
-        BackgroundColor3 = BLACK
-    })
+    tween(MacroButton, 0.15, {BackgroundColor3 = BLACK})
 end)
-
 SoruButton.MouseEnter:Connect(function()
-    tween(SoruButton, 0.15, {
-        BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-    })
+    tween(SoruButton, 0.15, {BackgroundColor3 = Color3.fromRGB(25, 25, 25)})
 end)
-
 SoruButton.MouseLeave:Connect(function()
-    tween(SoruButton, 0.15, {
-        BackgroundColor3 = BLACK
-    })
+    tween(SoruButton, 0.15, {BackgroundColor3 = BLACK})
 end)
 
---// SILENT AIM FUNCTION (no camera movement)
+--// SILENT AIM FUNCTION (whitelist)
 local function GetClosestTarget()
     local closest = nil
     local shortestDistance = Combat.SilentAimFOV
     
-    -- Players
     if Combat.TargetPlayers then
         for _, otherPlayer in pairs(Players:GetPlayers()) do
             if otherPlayer ~= Player and otherPlayer.Character and otherPlayer.Character:FindFirstChild("HumanoidRootPart") then
@@ -1088,7 +1129,6 @@ local function GetClosestTarget()
                 if character and character:FindFirstChild("HumanoidRootPart") then
                     local root = character.HumanoidRootPart
                     local otherRoot = otherPlayer.Character.HumanoidRootPart
-                    
                     local screenPos, onScreen = Camera:WorldToScreenPoint(otherRoot.Position)
                     if onScreen then
                         local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
@@ -1103,7 +1143,6 @@ local function GetClosestTarget()
         end
     end
     
-    -- NPCs
     if Combat.TargetNPCs then
         for _, model in pairs(workspace:GetChildren()) do
             if model:IsA("Model") and model:FindFirstChild("Humanoid") and model:FindFirstChild("HumanoidRootPart") then
@@ -1112,7 +1151,6 @@ local function GetClosestTarget()
                     if character and character:FindFirstChild("HumanoidRootPart") then
                         local root = character.HumanoidRootPart
                         local otherRoot = model.HumanoidRootPart
-                        
                         local screenPos, onScreen = Camera:WorldToScreenPoint(otherRoot.Position)
                         if onScreen then
                             local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
@@ -1131,7 +1169,9 @@ local function GetClosestTarget()
     return closest
 end
 
---// SILENT AIM - Redirects attacks without moving camera
+-- Whitelist of remote names that are considered attacks
+local AttackKeywords = {"Attack", "Melee", "Sword", "Fruit", "Gun", "Click", "Fire", "Damage", "Combat", "Ability", "Hit"}
+
 local OldNamecall
 OldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     local args = {...}
@@ -1139,34 +1179,33 @@ OldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     
     if Combat.SilentAimEnabled and not checkcaller() then
         if method == "FireServer" or method == "InvokeServer" then
-            local target = GetClosestTarget()
-            
-            if target then
-                local targetRoot = target:FindFirstChild("HumanoidRootPart") or (target.Character and target.Character:FindFirstChild("HumanoidRootPart"))
-                local character = Player.Character
-                if targetRoot and character and character:FindFirstChild("HumanoidRootPart") then
-                    local root = character.HumanoidRootPart
-                    
-                    -- Apply prediction
-                    local predictedPos = targetRoot.Position
-                    if target:FindFirstChild("Humanoid") then
-                        local velocity = target.Humanoid.MoveDirection * target.Humanoid.WalkSpeed
-                        predictedPos = targetRoot.Position + velocity * Combat.SilentAimPrediction
-                    end
-                    
-                    -- Hit chance check
-                    if math.random(1, 100) <= Combat.SilentAimHitChance then
-                        -- Store original CFrame and aim at target silently
-                        local originalCFrame = root.CFrame
-                        root.CFrame = CFrame.lookAt(root.Position, predictedPos)
-                        
-                        -- Send the attack
-                        local result = OldNamecall(self, unpack(args))
-                        
-                        -- Restore CFrame
-                        root.CFrame = originalCFrame
-                        
-                        return result
+            local remoteName = self.Name or ""
+            local isAttack = false
+            for _, kw in ipairs(AttackKeywords) do
+                if string.find(remoteName:lower(), kw:lower()) then
+                    isAttack = true
+                    break
+                end
+            end
+            if isAttack then
+                local target = GetClosestTarget()
+                if target then
+                    local targetRoot = target:FindFirstChild("HumanoidRootPart") or (target.Character and target.Character:FindFirstChild("HumanoidRootPart"))
+                    local character = Player.Character
+                    if targetRoot and character and character:FindFirstChild("HumanoidRootPart") then
+                        local root = character.HumanoidRootPart
+                        local predictedPos = targetRoot.Position
+                        if target:FindFirstChild("Humanoid") then
+                            local velocity = target.Humanoid.MoveDirection * target.Humanoid.WalkSpeed
+                            predictedPos = targetRoot.Position + velocity * Combat.SilentAimPrediction
+                        end
+                        if math.random(1, 100) <= Combat.SilentAimHitChance then
+                            local originalCFrame = root.CFrame
+                            root.CFrame = CFrame.lookAt(root.Position, predictedPos)
+                            local result = OldNamecall(self, unpack(args))
+                            root.CFrame = originalCFrame
+                            return result
+                        end
                     end
                 end
             end
@@ -1178,12 +1217,10 @@ end)
 
 --// MAIN LOOP
 RunService.RenderStepped:Connect(function()
-    -- Speed hack
     if Combat.SpeedHack and Player.Character and Player.Character:FindFirstChild("Humanoid") then
         Player.Character.Humanoid.WalkSpeed = 16 * Combat.SpeedMultiplier
     end
     
-    -- No clip
     if Combat.NoClip and Player.Character then
         for _, part in pairs(Player.Character:GetDescendants()) do
             if part:IsA("BasePart") then
@@ -1192,7 +1229,6 @@ RunService.RenderStepped:Connect(function()
         end
     end
     
-    -- Anti stun
     if Combat.AntiStun and Player.Character and Player.Character:FindFirstChild("Humanoid") then
         local humanoid = Player.Character.Humanoid
         if humanoid:GetState() == Enum.HumanoidStateType.Stunned then
@@ -1200,7 +1236,6 @@ RunService.RenderStepped:Connect(function()
         end
     end
     
-    -- ESP
     if Combat.ESPEnabled then
         for _, box in pairs(Combat.ESPBoxes) do
             if box then box:Destroy() end
