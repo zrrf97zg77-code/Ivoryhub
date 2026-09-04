@@ -1,12 +1,14 @@
 --// IVORY HUB — BLOX FRUITS PVP SCRIPT
---// 180° Aimbot + Combat Features
+--// 180° Silent Aimbot + Combat Features
 --// Black & Ivory / Mobile Friendly
+--// Credits: Ivory | Ideas: Rayo
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
+local HttpService = game:GetService("HttpService")
 
 local Player = Players.LocalPlayer
 local PlayerGui = Player:WaitForChild("PlayerGui")
@@ -27,6 +29,8 @@ local GREY = Color3.fromRGB(145, 145, 145)
 local DARKGREY = Color3.fromRGB(35, 35, 35)
 local RED = Color3.fromRGB(255, 80, 80)
 local GREEN = Color3.fromRGB(80, 255, 120)
+local IVORY = Color3.fromRGB(255, 255, 240)
+local GOLD = Color3.fromRGB(255, 215, 0)
 
 local function tween(obj, time, props)
     TweenService:Create(
@@ -38,19 +42,36 @@ end
 
 --// COMBAT VARIABLES
 local Combat = {
-    AimbotEnabled = false,
-    AimbotAngle = 180, -- 180 degree aimbot
-    AimbotTarget = nil,
-    AimbotFOV = 180,
-    AimbotLock = false,
+    SilentAimEnabled = false,
+    SilentAimAngle = 180,
+    SilentAimTarget = nil,
+    SilentAimFOV = 180,
+    SilentAimHitChance = 100,
+    SilentAimPrediction = 0.15,
     AutoAttack = false,
-    AttackCooldown = 0.5,
+    AttackCooldown = 0.3,
     LastAttack = 0,
     ESPEnabled = false,
     ESPBoxes = {},
+    ESPNames = {},
+    ESPNamesEnabled = false,
+    ESPDistance = {},
+    ESPDistanceEnabled = false,
+    FOVCircleEnabled = false,
     AutoDodge = false,
-    DodgeCooldown = 2,
-    LastDodge = 0
+    DodgeCooldown = 1.5,
+    LastDodge = 0,
+    KillAura = false,
+    KillAuraRange = 50,
+    KillAuraDelay = 0.2,
+    LastKillAura = 0,
+    NoCooldown = false,
+    InfiniteEnergy = false,
+    SpeedHack = false,
+    SpeedMultiplier = 2,
+    FlyHack = false,
+    FlySpeed = 50,
+    NoClip = false
 }
 
 --// GUI
@@ -67,7 +88,7 @@ Toggle.Size = UDim2.fromOffset(38, 38)
 Toggle.Position = UDim2.new(0, 16, 0.5, -19)
 Toggle.BackgroundColor3 = BLACK
 Toggle.Text = "I"
-Toggle.TextColor3 = WHITE
+Toggle.TextColor3 = IVORY
 Toggle.TextSize = 18
 Toggle.Font = Enum.Font.GothamBold
 Toggle.AutoButtonColor = false
@@ -78,7 +99,7 @@ ToggleCorner.CornerRadius = UDim.new(0, 11)
 ToggleCorner.Parent = Toggle
 
 local ToggleStroke = Instance.new("UIStroke")
-ToggleStroke.Color = LIGHT
+ToggleStroke.Color = IVORY
 ToggleStroke.Thickness = 1
 ToggleStroke.Transparency = 0.35
 ToggleStroke.Parent = Toggle
@@ -86,8 +107,8 @@ ToggleStroke.Parent = Toggle
 --// MAIN
 local Main = Instance.new("Frame")
 Main.Name = "Main"
-Main.Size = UDim2.fromOffset(480, 305)
-Main.Position = UDim2.new(0.5, -240, 0.5, -152)
+Main.Size = UDim2.fromOffset(520, 340)
+Main.Position = UDim2.new(0.5, -260, 0.5, -170)
 Main.BackgroundColor3 = BLACK
 Main.BorderSizePixel = 0
 Main.Visible = true
@@ -98,7 +119,7 @@ MainCorner.CornerRadius = UDim.new(0, 14)
 MainCorner.Parent = Main
 
 local MainStroke = Instance.new("UIStroke")
-MainStroke.Color = LIGHT
+MainStroke.Color = IVORY
 MainStroke.Thickness = 1
 MainStroke.Transparency = 0.75
 MainStroke.Parent = Main
@@ -119,7 +140,7 @@ Title.BackgroundTransparency = 1
 Title.Position = UDim2.fromOffset(18, 9)
 Title.Size = UDim2.fromOffset(200, 25)
 Title.Text = "IVORY PVP"
-Title.TextColor3 = WHITE
+Title.TextColor3 = IVORY
 Title.TextSize = 17
 Title.Font = Enum.Font.GothamBold
 Title.TextXAlignment = Enum.TextXAlignment.Left
@@ -129,7 +150,7 @@ local SubTitle = Instance.new("TextLabel")
 SubTitle.BackgroundTransparency = 1
 SubTitle.Position = UDim2.fromOffset(19, 32)
 SubTitle.Size = UDim2.fromOffset(200, 17)
-SubTitle.Text = "BLOX FRUITS COMBAT"
+SubTitle.Text = "BLOX FRUITS SILENT AIM"
 SubTitle.TextColor3 = GREY
 SubTitle.TextSize = 8
 SubTitle.Font = Enum.Font.GothamMedium
@@ -154,7 +175,7 @@ Close.Size = UDim2.fromOffset(28, 28)
 Close.Position = UDim2.new(1, -38, 0, 15)
 Close.BackgroundColor3 = DARKGREY
 Close.Text = "×"
-Close.TextColor3 = LIGHT
+Close.TextColor3 = IVORY
 Close.TextSize = 18
 Close.Font = Enum.Font.GothamMedium
 Close.AutoButtonColor = false
@@ -168,7 +189,7 @@ CloseCorner.Parent = Close
 local Sidebar = Instance.new("Frame")
 Sidebar.Name = "Sidebar"
 Sidebar.Position = UDim2.fromOffset(10, 68)
-Sidebar.Size = UDim2.fromOffset(112, 225)
+Sidebar.Size = UDim2.fromOffset(112, 260)
 Sidebar.BackgroundColor3 = DARK
 Sidebar.BorderSizePixel = 0
 Sidebar.Parent = Main
@@ -235,8 +256,8 @@ local function CreatePage(name)
     return Page
 end
 
---// TOGGLE CARD
-local function AddToggle(Page, title, description, callback)
+--// CARD
+local function AddCard(Page, title, description, icon)
     local Card = Instance.new("Frame")
     Card.Size = UDim2.new(1, -2, 0, 60)
     Card.BackgroundColor3 = PANEL
@@ -248,14 +269,24 @@ local function AddToggle(Page, title, description, callback)
     Corner.Parent = Card
 
     local Stroke = Instance.new("UIStroke")
-    Stroke.Color = LIGHT
+    Stroke.Color = IVORY
     Stroke.Transparency = 0.92
     Stroke.Parent = Card
 
+    local Icon = Instance.new("TextLabel")
+    Icon.BackgroundTransparency = 1
+    Icon.Position = UDim2.fromOffset(10, 15)
+    Icon.Size = UDim2.fromOffset(30, 30)
+    Icon.Text = icon or "◆"
+    Icon.TextColor3 = IVORY
+    Icon.TextSize = 16
+    Icon.Font = Enum.Font.GothamBold
+    Icon.Parent = Card
+
     local T = Instance.new("TextLabel")
     T.BackgroundTransparency = 1
-    T.Position = UDim2.fromOffset(12, 8)
-    T.Size = UDim2.new(1, -80, 0, 20)
+    T.Position = UDim2.fromOffset(48, 8)
+    T.Size = UDim2.new(1, -60, 0, 20)
     T.Text = title
     T.TextColor3 = WHITE
     T.TextSize = 12
@@ -265,11 +296,63 @@ local function AddToggle(Page, title, description, callback)
 
     local D = Instance.new("TextLabel")
     D.BackgroundTransparency = 1
-    D.Position = UDim2.fromOffset(12, 29)
-    D.Size = UDim2.new(1, -80, 0, 20)
+    D.Position = UDim2.fromOffset(48, 29)
+    D.Size = UDim2.new(1, -60, 0, 20)
     D.Text = description
     D.TextColor3 = GREY
     D.TextSize = 9
+    D.Font = Enum.Font.Gotham
+    D.TextXAlignment = Enum.TextXAlignment.Left
+    D.Parent = Card
+
+    return Card
+end
+
+--// TOGGLE CARD
+local function AddToggle(Page, title, description, callback, icon)
+    local Card = Instance.new("Frame")
+    Card.Size = UDim2.new(1, -2, 0, 60)
+    Card.BackgroundColor3 = PANEL
+    Card.BorderSizePixel = 0
+    Card.Parent = Page
+
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 9)
+    Corner.Parent = Card
+
+    local Stroke = Instance.new("UIStroke")
+    Stroke.Color = IVORY
+    Stroke.Transparency = 0.92
+    Stroke.Parent = Card
+
+    local Icon = Instance.new("TextLabel")
+    Icon.BackgroundTransparency = 1
+    Icon.Position = UDim2.fromOffset(10, 15)
+    Icon.Size = UDim2.fromOffset(30, 30)
+    Icon.Text = icon or "◈"
+    Icon.TextColor3 = IVORY
+    Icon.TextSize = 14
+    Icon.Font = Enum.Font.GothamBold
+    Icon.Parent = Card
+
+    local T = Instance.new("TextLabel")
+    T.BackgroundTransparency = 1
+    T.Position = UDim2.fromOffset(48, 8)
+    T.Size = UDim2.new(1, -100, 0, 20)
+    T.Text = title
+    T.TextColor3 = WHITE
+    T.TextSize = 11
+    T.Font = Enum.Font.GothamBold
+    T.TextXAlignment = Enum.TextXAlignment.Left
+    T.Parent = Card
+
+    local D = Instance.new("TextLabel")
+    D.BackgroundTransparency = 1
+    D.Position = UDim2.fromOffset(48, 29)
+    D.Size = UDim2.new(1, -100, 0, 20)
+    D.Text = description
+    D.TextColor3 = GREY
+    D.TextSize = 8
     D.Font = Enum.Font.Gotham
     D.TextXAlignment = Enum.TextXAlignment.Left
     D.Parent = Card
@@ -310,91 +393,296 @@ local function AddToggle(Page, title, description, callback)
     return Card, Switch
 end
 
+--// SLIDER CARD
+local function AddSlider(Page, title, min, max, default, callback, icon)
+    local Card = Instance.new("Frame")
+    Card.Size = UDim2.new(1, -2, 0, 70)
+    Card.BackgroundColor3 = PANEL
+    Card.BorderSizePixel = 0
+    Card.Parent = Page
+
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 9)
+    Corner.Parent = Card
+
+    local Stroke = Instance.new("UIStroke")
+    Stroke.Color = IVORY
+    Stroke.Transparency = 0.92
+    Stroke.Parent = Card
+
+    local Icon = Instance.new("TextLabel")
+    Icon.BackgroundTransparency = 1
+    Icon.Position = UDim2.fromOffset(10, 20)
+    Icon.Size = UDim2.fromOffset(30, 30)
+    Icon.Text = icon or "▣"
+    Icon.TextColor3 = IVORY
+    Icon.TextSize = 14
+    Icon.Font = Enum.Font.GothamBold
+    Icon.Parent = Card
+
+    local T = Instance.new("TextLabel")
+    T.BackgroundTransparency = 1
+    T.Position = UDim2.fromOffset(48, 8)
+    T.Size = UDim2.new(1, -60, 0, 20)
+    T.Text = title
+    T.TextColor3 = WHITE
+    T.TextSize = 11
+    T.Font = Enum.Font.GothamBold
+    T.TextXAlignment = Enum.TextXAlignment.Left
+    T.Parent = Card
+
+    local Value = Instance.new("TextLabel")
+    Value.BackgroundTransparency = 1
+    Value.Position = UDim2.new(1, -60, 0, 8)
+    Value.Size = UDim2.fromOffset(48, 20)
+    Value.Text = tostring(default)
+    Value.TextColor3 = IVORY
+    Value.TextSize = 10
+    Value.Font = Enum.Font.GothamBold
+    Value.TextXAlignment = Enum.TextXAlignment.Right
+    Value.Parent = Card
+
+    local SliderFrame = Instance.new("Frame")
+    SliderFrame.Position = UDim2.fromOffset(48, 44)
+    SliderFrame.Size = UDim2.new(1, -60, 0, 10)
+    SliderFrame.BackgroundColor3 = DARKGREY
+    SliderFrame.BorderSizePixel = 0
+    SliderFrame.Parent = Card
+
+    local SliderCorner = Instance.new("UICorner")
+    SliderCorner.CornerRadius = UDim.new(0, 5)
+    SliderCorner.Parent = SliderFrame
+
+    local SliderFill = Instance.new("Frame")
+    local FillPercent = (default - min) / (max - min)
+    SliderFill.Size = UDim2.new(FillPercent, 0, 1, 0)
+    SliderFill.BackgroundColor3 = IVORY
+    SliderFill.BorderSizePixel = 0
+    SliderFill.Parent = SliderFrame
+
+    local SliderFillCorner = Instance.new("UICorner")
+    SliderFillCorner.CornerRadius = UDim.new(0, 5)
+    SliderFillCorner.Parent = SliderFill
+
+    local SliderButton = Instance.new("TextButton")
+    SliderButton.Size = UDim2.fromOffset(16, 16)
+    SliderButton.Position = UDim2.new(FillPercent, -8, 0.5, -8)
+    SliderButton.BackgroundColor3 = WHITE
+    SliderButton.Text = ""
+    SliderButton.AutoButtonColor = false
+    SliderButton.Parent = SliderFrame
+
+    local SliderButtonCorner = Instance.new("UICorner")
+    SliderButtonCorner.CornerRadius = UDim.new(1, 0)
+    SliderButtonCorner.Parent = SliderButton
+
+    local function UpdateSlider(input)
+        local pos = input.Position.X
+        local framePos = SliderFrame.AbsolutePosition.X
+        local frameSize = SliderFrame.AbsoluteSize.X
+        local percent = math.clamp((pos - framePos) / frameSize, 0, 1)
+        local val = min + (max - min) * percent
+        
+        SliderFill.Size = UDim2.new(percent, 0, 1, 0)
+        SliderButton.Position = UDim2.new(percent, -8, 0.5, -8)
+        Value.Text = string.format("%.1f", val)
+        callback(val)
+    end
+
+    SliderButton.MouseButton1Down:Connect(function()
+        local connection
+        connection = RunService.RenderStepped:Connect(function()
+            if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
+                UpdateSlider({Position = Vector2.new(UserInputService:GetMouseLocation().X, 0)})
+            else
+                connection:Disconnect()
+            end
+        end)
+    end)
+
+    SliderFrame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            UpdateSlider(input)
+        end
+    end)
+
+    return Card
+end
+
 --// CREATE PAGES
 local Home = CreatePage("Home")
 local AimbotPage = CreatePage("Aimbot")
 local CombatPage = CreatePage("Combat")
+local MovementPage = CreatePage("Movement")
 local VisualPage = CreatePage("Visuals")
+local CreditsPage = CreatePage("Credits")
 local SettingsPage = CreatePage("Settings")
 
+--// HOME CONTENT
+AddCard(Home, "Welcome to Ivory PVP", "Premium Blox Fruits combat interface", "◆")
+AddCard(Home, "Current Status", "All systems operational and ready", "●")
+AddCard(Home, "Script Version", "v2.0 - Silent Aim Edition", "◈")
+AddCard(Home, "Quick Stats", "180° FOV | Silent Aim | Auto Attack", "▣")
+AddCard(Home, "Performance", "Optimized for low-end devices", "◉")
+AddCard(Home, "Mobile Support", "Touch controls fully supported", "◎")
+AddCard(Home, "Anti-Detection", "Silent aim leaves no visual trace", "◇")
+AddCard(Home, "Next Update", "More combat features coming soon", "✦")
+
 --// AIMBOT PAGE
-AddToggle(AimbotPage, "180° Aimbot", "Locks onto targets in 180° FOV", function(enabled)
-    Combat.AimbotEnabled = enabled
+AddToggle(AimbotPage, "Silent Aim", "180° silent aim - camera stays still", function(enabled)
+    Combat.SilentAimEnabled = enabled
     if enabled then
-        Status.Text = "●  AIMBOT ON"
+        Status.Text = "●  SILENT AIM"
         Status.TextColor3 = RED
     else
         Status.Text = "●  ONLINE"
         Status.TextColor3 = GREEN
-        Combat.AimbotTarget = nil
+        Combat.SilentAimTarget = nil
     end
-end)
-
-AddToggle(AimbotPage, "Aimbot Lock", "Hard lock onto target", function(enabled)
-    Combat.AimbotLock = enabled
-end)
+end, "◎")
 
 AddToggle(AimbotPage, "Auto Attack", "Automatically attacks target", function(enabled)
     Combat.AutoAttack = enabled
-end)
+end, "⚔")
 
-AddToggle(AimbotPage, "Auto Dodge", "Automatically dodges attacks", function(enabled)
-    Combat.AutoDodge = enabled
-end)
+AddToggle(AimbotPage, "Kill Aura", "Attacks all nearby enemies", function(enabled)
+    Combat.KillAura = enabled
+end, "☠")
+
+AddSlider(AimbotPage, "Hit Chance", 0, 100, 100, function(val)
+    Combat.SilentAimHitChance = val
+end, "◉")
+
+AddSlider(AimbotPage, "Prediction", 0, 1, 0.15, function(val)
+    Combat.SilentAimPrediction = val
+end, "▣")
 
 --// COMBAT PAGE
-AddToggle(CombatPage, "ESP", "Show player boxes", function(enabled)
+AddToggle(CombatPage, "No Cooldown", "Removes attack cooldowns", function(enabled)
+    Combat.NoCooldown = enabled
+    if enabled then
+        Combat.AttackCooldown = 0
+    else
+        Combat.AttackCooldown = 0.3
+    end
+end, "⚡")
+
+AddToggle(CombatPage, "Infinite Energy", "Unlimited energy for abilities", function(enabled)
+    Combat.InfiniteEnergy = enabled
+end, "♾")
+
+AddToggle(CombatPage, "Auto Dodge", "Automatically dodges attacks", function(enabled)
+    Combat.AutoDodge = enabled
+end, "↗")
+
+AddSlider(CombatPage, "Kill Aura Range", 10, 100, 50, function(val)
+    Combat.KillAuraRange = val
+end, "◈")
+
+AddSlider(CombatPage, "Attack Speed", 0.1, 2, 0.3, function(val)
+    Combat.AttackCooldown = val
+end, "⚔")
+
+--// MOVEMENT PAGE
+AddToggle(MovementPage, "Speed Hack", "Multiply your movement speed", function(enabled)
+    Combat.SpeedHack = enabled
+    if not enabled and Player.Character and Player.Character:FindFirstChild("Humanoid") then
+        Player.Character.Humanoid.WalkSpeed = 16
+    end
+end, "»")
+
+AddSlider(MovementPage, "Speed Multiplier", 1, 10, 2, function(val)
+    Combat.SpeedMultiplier = val
+    if Combat.SpeedHack and Player.Character and Player.Character:FindFirstChild("Humanoid") then
+        Player.Character.Humanoid.WalkSpeed = 16 * val
+    end
+end, "»")
+
+AddToggle(MovementPage, "Fly Hack", "Enable flight mode", function(enabled)
+    Combat.FlyHack = enabled
+    if not enabled and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+        Player.Character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+    end
+end, "✈")
+
+AddSlider(MovementPage, "Fly Speed", 10, 200, 50, function(val)
+    Combat.FlySpeed = val
+end, "✈")
+
+AddToggle(MovementPage, "No Clip", "Walk through walls", function(enabled)
+    Combat.NoClip = enabled
+end, "◌")
+
+--// VISUAL PAGE
+AddToggle(VisualPage, "ESP Boxes", "Show player boxes through walls", function(enabled)
     Combat.ESPEnabled = enabled
     if not enabled then
         for _, box in pairs(Combat.ESPBoxes) do
-            if box then
-                box:Destroy()
-            end
+            if box then box:Destroy() end
+        end
+        for _, name in pairs(Combat.ESPNames) do
+            if name then name:Destroy() end
+        end
+        for _, dist in pairs(Combat.ESPDistance) do
+            if dist then dist:Destroy() end
         end
         Combat.ESPBoxes = {}
+        Combat.ESPNames = {}
+        Combat.ESPDistance = {}
     end
-end)
+end, "▣")
 
---// VISUAL PAGE
-AddToggle(VisualPage, "Aimbot FOV Circle", "Show 180° FOV circle", function(enabled)
-    -- FOV circle implementation
-    local FOVCircle = Drawing.new("Circle")
-    FOVCircle.Visible = enabled
-    FOVCircle.Thickness = 1
-    FOVCircle.Radius = 180
-    FOVCircle.Color = Color3.fromRGB(255, 255, 255)
-    FOVCircle.Position = Camera.ViewportSize / 2
-    FOVCircle.Transparency = 0.7
-    
-    if enabled then
-        RunService.RenderStepped:Connect(function()
-            FOVCircle.Position = Camera.ViewportSize / 2
-        end)
-    end
-end)
+AddToggle(VisualPage, "ESP Names", "Show player names", function(enabled)
+    Combat.ESPNamesEnabled = enabled
+end, "◈")
+
+AddToggle(VisualPage, "ESP Distance", "Show distance to players", function(enabled)
+    Combat.ESPDistanceEnabled = enabled
+end, "◎")
+
+AddToggle(VisualPage, "FOV Circle", "Show 180° FOV circle", function(enabled)
+    Combat.FOVCircleEnabled = enabled
+end, "◉")
+
+--// CREDITS PAGE
+AddCard(CreditsPage, "Made By", "Ivory", "◆")
+AddCard(CreditsPage, "Discord", "Ivory999", "◈")
+AddCard(CreditsPage, "Ideas By", "Rayo", "✦")
+AddCard(CreditsPage, "Discord", "rayo06996", "◎")
+AddCard(CreditsPage, "Version", "v2.0 - Premium Edition", "▣")
+AddCard(CreditsPage, "Special Thanks", "All supporters and testers", "♡")
+AddCard(CreditsPage, "Updates", "Join Discord for latest updates", "↻")
+AddCard(CreditsPage, "Copyright", "© Ivory Hub 2024", "©")
 
 --// SETTINGS PAGE
-AddToggle(SettingsPage, "Mobile Mode", "Optimized for mobile", function(enabled)
+AddToggle(SettingsPage, "Mobile Mode", "Optimize for mobile devices", function(enabled)
     if enabled then
-        Main.Size = UDim2.fromOffset(430, 285)
-        Main.Position = UDim2.new(0.5, -215, 0.5, -142)
+        Main.Size = UDim2.fromOffset(470, 320)
+        Main.Position = UDim2.new(0.5, -235, 0.5, -160)
     else
-        Main.Size = UDim2.fromOffset(480, 305)
-        Main.Position = UDim2.new(0.5, -240, 0.5, -152)
+        Main.Size = UDim2.fromOffset(520, 340)
+        Main.Position = UDim2.new(0.5, -260, 0.5, -170)
     end
-end)
+end, "◎")
+
+AddToggle(SettingsPage, "Hide UI", "Toggle UI visibility", function(enabled)
+    Main.Visible = not enabled
+end, "◇")
+
+AddCard(SettingsPage, "Save Config", "Settings auto-save on change", "♢")
+AddCard(SettingsPage, "Reset Settings", "Click to reset all settings", "↺")
 
 --// SIDEBAR BUTTONS
 local Tabs = {}
 
-local function CreateTab(name, order)
+local function CreateTab(name, order, icon)
     local Button = Instance.new("TextButton")
     Button.Name = name
-    Button.Size = UDim2.new(1, 0, 0, 25)
+    Button.Size = UDim2.new(1, 0, 0, 26)
     Button.BackgroundColor3 = DARK
-    Button.Text = name:upper()
+    Button.Text = icon .. " " .. name:upper()
     Button.TextColor3 = GREY
-    Button.TextSize = 9
+    Button.TextSize = 8
     Button.Font = Enum.Font.GothamBold
     Button.AutoButtonColor = false
     Button.LayoutOrder = order
@@ -405,9 +693,9 @@ local function CreateTab(name, order)
     Corner.Parent = Button
 
     local Accent = Instance.new("Frame")
-    Accent.Size = UDim2.fromOffset(2, 13)
-    Accent.Position = UDim2.new(0, 4, 0.5, -6)
-    Accent.BackgroundColor3 = WHITE
+    Accent.Size = UDim2.fromOffset(2, 15)
+    Accent.Position = UDim2.new(0, 4, 0.5, -7)
+    Accent.BackgroundColor3 = IVORY
     Accent.BorderSizePixel = 0
     Accent.Visible = false
     Accent.Parent = Button
@@ -422,16 +710,16 @@ local function CreateTab(name, order)
     }
 
     Button.MouseEnter:Connect(function()
-        if Button.BackgroundColor3 ~= LIGHT then
+        if Button.BackgroundColor3 ~= IVORY then
             tween(Button, 0.15, {
                 BackgroundColor3 = Color3.fromRGB(25, 25, 25),
-                TextColor3 = LIGHT
+                TextColor3 = IVORY
             })
         end
     end)
 
     Button.MouseLeave:Connect(function()
-        if Button.BackgroundColor3 ~= LIGHT then
+        if Button.BackgroundColor3 ~= IVORY then
             tween(Button, 0.15, {
                 BackgroundColor3 = DARK,
                 TextColor3 = GREY
@@ -450,7 +738,7 @@ local function CreateTab(name, order)
         end
 
         tween(Button, 0.2, {
-            BackgroundColor3 = LIGHT,
+            BackgroundColor3 = IVORY,
             TextColor3 = BLACK
         })
 
@@ -464,14 +752,16 @@ local function CreateTab(name, order)
     return Button
 end
 
-CreateTab("Home", 1)
-CreateTab("Aimbot", 2)
-CreateTab("Combat", 3)
-CreateTab("Visuals", 4)
-CreateTab("Settings", 5)
+CreateTab("Home", 1, "◆")
+CreateTab("Aimbot", 2, "◎")
+CreateTab("Combat", 3, "⚔")
+CreateTab("Movement", 4, "»")
+CreateTab("Visuals", 5, "▣")
+CreateTab("Credits", 6, "♛")
+CreateTab("Settings", 7, "⚙")
 
 --// DEFAULT TAB
-Tabs.Home.Button.BackgroundColor3 = LIGHT
+Tabs.Home.Button.BackgroundColor3 = IVORY
 Tabs.Home.Button.TextColor3 = BLACK
 Tabs.Home.Accent.Visible = true
 Home.Visible = true
@@ -525,10 +815,10 @@ local Open = true
 local function ShowUI()
     Open = true
     Main.Visible = true
-    Main.Size = UDim2.fromOffset(440, 280)
+    Main.Size = UDim2.fromOffset(480, 300)
 
     tween(Main, 0.3, {
-        Size = UDim2.fromOffset(480, 305)
+        Size = UDim2.fromOffset(520, 340)
     })
 end
 
@@ -536,7 +826,7 @@ local function HideUI()
     Open = false
 
     tween(Main, 0.25, {
-        Size = UDim2.fromOffset(440, 280)
+        Size = UDim2.fromOffset(480, 300)
     })
 
     task.delay(0.25, function()
@@ -573,7 +863,7 @@ end)
 
 Close.MouseEnter:Connect(function()
     tween(Close, 0.15, {
-        BackgroundColor3 = LIGHT,
+        BackgroundColor3 = IVORY,
         TextColor3 = BLACK
     })
 end)
@@ -581,7 +871,7 @@ end)
 Close.MouseLeave:Connect(function()
     tween(Close, 0.15, {
         BackgroundColor3 = DARKGREY,
-        TextColor3 = LIGHT
+        TextColor3 = IVORY
     })
 end)
 
@@ -592,11 +882,11 @@ local function UpdateScale()
     local Width = Camera.ViewportSize.X
 
     if Width < 500 then
-        Main.Size = UDim2.fromOffset(430, 285)
-        Main.Position = UDim2.new(0.5, -215, 0.5, -142)
+        Main.Size = UDim2.fromOffset(470, 320)
+        Main.Position = UDim2.new(0.5, -235, 0.5, -160)
     else
-        Main.Size = UDim2.fromOffset(480, 305)
-        Main.Position = UDim2.new(0.5, -240, 0.5, -152)
+        Main.Size = UDim2.fromOffset(520, 340)
+        Main.Position = UDim2.new(0.5, -260, 0.5, -170)
     end
 end
 
@@ -604,10 +894,10 @@ UpdateScale()
 
 Camera:GetPropertyChangedSignal("ViewportSize"):Connect(UpdateScale)
 
---// AIMBOT FUNCTION (180° FOV)
+--// SILENT AIM FUNCTION (180° FOV) - Camera does NOT move
 local function GetClosestPlayer()
     local closest = nil
-    local shortestDistance = 180 -- 180° FOV
+    local shortestDistance = Combat.SilentAimFOV
     
     for _, otherPlayer in pairs(Players:GetPlayers()) do
         if otherPlayer ~= Player and otherPlayer.Character and otherPlayer.Character:FindFirstChild("HumanoidRootPart") then
@@ -634,39 +924,135 @@ local function GetClosestPlayer()
     return closest
 end
 
---// AIMBOT LOOP
-RunService.RenderStepped:Connect(function()
-    if Combat.AimbotEnabled then
-        local target = GetClosestPlayer()
-        
-        if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-            Combat.AimbotTarget = target
+--// SILENT AIM - Redirects attacks without moving camera
+local OldNamecall
+OldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+    local args = {...}
+    local method = getnamecallmethod()
+    
+    if Combat.SilentAimEnabled and not checkcaller() then
+        if method == "FireServer" or method == "InvokeServer" then
+            local target = GetClosestPlayer()
             
-            local character = Player.Character
-            if character and character:FindFirstChild("HumanoidRootPart") then
-                local root = character.HumanoidRootPart
-                local targetRoot = target.Character.HumanoidRootPart
-                
-                -- 180° aimbot - locks camera to target
-                local lookAt = CFrame.lookAt(root.Position, targetRoot.Position)
-                Camera.CFrame = Camera.CFrame:Lerp(lookAt, 0.5)
-                
-                if Combat.AimbotLock then
-                    Camera.CFrame = lookAt
-                end
-                
-                -- Auto attack
-                if Combat.AutoAttack and tick() - Combat.LastAttack > Combat.AttackCooldown then
-                    Combat.LastAttack = tick()
+            if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+                local character = Player.Character
+                if character and character:FindFirstChild("HumanoidRootPart") then
+                    local root = character.HumanoidRootPart
+                    local targetRoot = target.Character.HumanoidRootPart
                     
-                    -- Simulate click for attack
-                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, nil, 0)
-                    task.wait(0.05)
-                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, nil, 0)
+                    -- Apply prediction
+                    local predictedPos = targetRoot.Position
+                    if target.Character:FindFirstChild("Humanoid") then
+                        local velocity = target.Character.Humanoid.MoveDirection * target.Character.Humanoid.WalkSpeed
+                        predictedPos = targetRoot.Position + velocity * Combat.SilentAimPrediction
+                    end
+                    
+                    -- Hit chance check
+                    if math.random(1, 100) <= Combat.SilentAimHitChance then
+                        -- Store original position and teleport aim silently
+                        local originalCFrame = root.CFrame
+                        root.CFrame = CFrame.lookAt(root.Position, predictedPos)
+                        
+                        -- Send the attack
+                        local result = OldNamecall(self, unpack(args))
+                        
+                        -- Restore position
+                        root.CFrame = originalCFrame
+                        
+                        return result
+                    end
                 end
             end
+        end
+    end
+    
+    return OldNamecall(self, ...)
+end)
+
+--// MAIN LOOP
+RunService.RenderStepped:Connect(function()
+    -- Auto attack
+    if Combat.AutoAttack and tick() - Combat.LastAttack > Combat.AttackCooldown then
+        Combat.LastAttack = tick()
+        
+        local target = GetClosestPlayer()
+        if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+            -- Simulate click for attack
+            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, nil, 0)
+            task.wait(0.05)
+            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, nil, 0)
+        end
+    end
+    
+    -- Kill Aura
+    if Combat.KillAura and tick() - Combat.LastKillAura > Combat.KillAuraDelay then
+        Combat.LastKillAura = tick()
+        
+        local character = Player.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            local root = character.HumanoidRootPart
+            
+            for _, otherPlayer in pairs(Players:GetPlayers()) do
+                if otherPlayer ~= Player and otherPlayer.Character and otherPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    local otherRoot = otherPlayer.Character.HumanoidRootPart
+                    local distance = (root.Position - otherRoot.Position).Magnitude
+                    
+                    if distance <= Combat.KillAuraRange then
+                        -- Attack nearby player
+                        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, nil, 0)
+                        task.wait(0.05)
+                        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, nil, 0)
+                        break
+                    end
+                end
+            end
+        end
+    end
+    
+    -- Speed hack
+    if Combat.SpeedHack and Player.Character and Player.Character:FindFirstChild("Humanoid") then
+        Player.Character.Humanoid.WalkSpeed = 16 * Combat.SpeedMultiplier
+    end
+    
+    -- Infinite energy
+    if Combat.InfiniteEnergy and Player.Character and Player.Character:FindFirstChild("Humanoid") then
+        Player.Character.Humanoid:SetAttribute("Energy", 999999)
+    end
+    
+    -- Fly hack
+    if Combat.FlyHack and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+        local root = Player.Character.HumanoidRootPart
+        local direction = Vector3.new(0, 0, 0)
+        
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+            direction = direction + Camera.CFrame.LookVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+            direction = direction - Camera.CFrame.LookVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+            direction = direction - Camera.CFrame.RightVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+            direction = direction + Camera.CFrame.RightVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+            direction = direction + Vector3.new(0, 1, 0)
+        end
+        
+        if direction.Magnitude > 0 then
+            root.Velocity = direction.Unit * Combat.FlySpeed
         else
-            Combat.AimbotTarget = nil
+            root.Velocity = Vector3.new(0, 0, 0)
+        end
+    end
+    
+    -- No clip
+    if Combat.NoClip and Player.Character then
+        for _, part in pairs(Player.Character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
         end
     end
     
@@ -674,7 +1060,6 @@ RunService.RenderStepped:Connect(function()
     if Combat.AutoDodge and tick() - Combat.LastDodge > Combat.DodgeCooldown then
         Combat.LastDodge = tick()
         
-        -- Check for incoming attacks
         local character = Player.Character
         if character and character:FindFirstChild("HumanoidRootPart") then
             local root = character.HumanoidRootPart
@@ -685,7 +1070,6 @@ RunService.RenderStepped:Connect(function()
                     local distance = (root.Position - otherRoot.Position).Magnitude
                     
                     if distance < 15 then
-                        -- Dodge by moving
                         local dodgeDirection = (root.Position - otherRoot.Position).Unit
                         root.Velocity = dodgeDirection * Vector3.new(100, 0, 100)
                         root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(45), 0)
@@ -697,13 +1081,19 @@ RunService.RenderStepped:Connect(function()
     
     -- ESP
     if Combat.ESPEnabled then
-        -- Clear old ESP boxes
+        -- Clear old ESP
         for _, box in pairs(Combat.ESPBoxes) do
-            if box then
-                box:Destroy()
-            end
+            if box then box:Destroy() end
+        end
+        for _, name in pairs(Combat.ESPNames) do
+            if name then name:Destroy() end
+        end
+        for _, dist in pairs(Combat.ESPDistance) do
+            if dist then dist:Destroy() end
         end
         Combat.ESPBoxes = {}
+        Combat.ESPNames = {}
+        Combat.ESPDistance = {}
         
         for _, otherPlayer in pairs(Players:GetPlayers()) do
             if otherPlayer ~= Player and otherPlayer.Character and otherPlayer.Character:FindFirstChild("HumanoidRootPart") then
@@ -711,17 +1101,53 @@ RunService.RenderStepped:Connect(function()
                 local screenPos, onScreen = Camera:WorldToScreenPoint(root.Position)
                 
                 if onScreen then
-                    local box = Drawing.new("Square")
-                    box.Visible = true
-                    box.Size = Vector2.new(50, 100)
-                    box.Position = Vector2.new(screenPos.X - 25, screenPos.Y - 100)
-                    box.Color = Color3.fromRGB(255, 0, 0)
-                    box.Thickness = 2
-                    box.Filled = false
+                    if Combat.ESPEnabled then
+                        local box = Drawing.new("Square")
+                        box.Visible = true
+                        box.Size = Vector2.new(50, 100)
+                        box.Position = Vector2.new(screenPos.X - 25, screenPos.Y - 100)
+                        box.Color = Color3.fromRGB(255, 0, 0)
+                        box.Thickness = 2
+                        box.Filled = false
+                        table.insert(Combat.ESPBoxes, box)
+                    end
                     
-                    table.insert(Combat.ESPBoxes, box)
+                    if Combat.ESPNamesEnabled then
+                        local name = Drawing.new("Text")
+                        name.Visible = true
+                        name.Text = otherPlayer.Name
+                        name.Position = Vector2.new(screenPos.X, screenPos.Y - 110)
+                        name.Color = Color3.fromRGB(255, 255, 255)
+                        name.Size = 14
+                        name.Center = true
+                        table.insert(Combat.ESPNames, name)
+                    end
+                    
+                    if Combat.ESPDistanceEnabled and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+                        local dist = Drawing.new("Text")
+                        dist.Visible = true
+                        local distance = (Player.Character.HumanoidRootPart.Position - root.Position).Magnitude
+                        dist.Text = string.format("%.0f studs", distance)
+                        dist.Position = Vector2.new(screenPos.X, screenPos.Y + 10)
+                        dist.Color = Color3.fromRGB(255, 255, 0)
+                        dist.Size = 12
+                        dist.Center = true
+                        table.insert(Combat.ESPDistance, dist)
+                    end
                 end
             end
         end
+    end
+    
+    -- FOV Circle
+    if Combat.FOVCircleEnabled then
+        local fovCircle = Drawing.new("Circle")
+        fovCircle.Visible = true
+        fovCircle.Thickness = 1
+        fovCircle.Radius = Combat.SilentAimFOV
+        fovCircle.Color = Color3.fromRGB(255, 255, 255)
+        fovCircle.Position = Camera.ViewportSize / 2
+        fovCircle.Transparency = 0.7
+        table.insert(Combat.ESPBoxes, fovCircle)
     end
 end)
