@@ -1,6 +1,6 @@
 --// IVORY HUB — BLOX FRUITS PVP SCRIPT
 --// 180° Silent Aimbot + Combat Features
---// Black & Ivory / Mobile Friendly
+--// Black & Ivory / MOBILE ONLY
 --// Credits: Ivory | Ideas: Rayo
 
 local Players = game:GetService("Players")
@@ -54,22 +54,26 @@ local Combat = {
     ESPNamesEnabled = false,
     ESPDistance = {},
     ESPDistanceEnabled = false,
-    AutoDodge = false,
-    DodgeCooldown = 1.5,
-    LastDodge = 0,
-    NoCooldown = false,
-    InfiniteEnergy = false,
     SpeedHack = false,
-    SpeedMultiplier = 5,
+    SpeedMultiplier = 15,
     NoClip = false,
     FlashstepAimbot = false,
     FlashstepCooldown = 1,
     LastFlashstep = 0,
     FlashstepDistance = 20,
-    MacroEnabled = false,
-    MacroKey = Enum.KeyCode.R,
-    MacroAction = "Attack",
-    MacroDelay = 0.5
+    AutoBuso = false,
+    AutoBusoCooldown = 5,
+    LastBuso = 0,
+    AutoKen = false,
+    AutoKenCooldown = 3,
+    LastKen = 0,
+    AntiStun = false,
+    MacroAttack = false,
+    MacroDash = false,
+    MacroJump = false,
+    MacroAbility1 = false,
+    MacroAbility2 = false,
+    MacroAbility3 = false
 }
 
 --// GUI
@@ -105,8 +109,8 @@ ToggleStroke.Parent = Toggle
 --// MAIN
 local Main = Instance.new("Frame")
 Main.Name = "Main"
-Main.Size = UDim2.fromOffset(520, 340)
-Main.Position = UDim2.new(0.5, -260, 0.5, -170)
+Main.Size = UDim2.fromOffset(470, 320)
+Main.Position = UDim2.new(0.5, -235, 0.5, -160)
 Main.BackgroundColor3 = BLACK
 Main.BorderSizePixel = 0
 Main.Visible = true
@@ -148,7 +152,7 @@ local SubTitle = Instance.new("TextLabel")
 SubTitle.BackgroundTransparency = 1
 SubTitle.Position = UDim2.fromOffset(19, 32)
 SubTitle.Size = UDim2.fromOffset(200, 17)
-SubTitle.Text = "BLOX FRUITS SILENT AIM"
+SubTitle.Text = "BLOX FRUITS MOBILE PVP"
 SubTitle.TextColor3 = GREY
 SubTitle.TextSize = 8
 SubTitle.Font = Enum.Font.GothamMedium
@@ -187,7 +191,7 @@ CloseCorner.Parent = Close
 local Sidebar = Instance.new("Frame")
 Sidebar.Name = "Sidebar"
 Sidebar.Position = UDim2.fromOffset(10, 68)
-Sidebar.Size = UDim2.fromOffset(112, 260)
+Sidebar.Size = UDim2.fromOffset(112, 240)
 Sidebar.BackgroundColor3 = DARK
 Sidebar.BorderSizePixel = 0
 Sidebar.Parent = Main
@@ -584,14 +588,14 @@ local CreditsPage = CreatePage("Credits")
 local SettingsPage = CreatePage("Settings")
 
 --// HOME CONTENT
-AddCard(Home, "Welcome to Ivory PVP", "Premium Blox Fruits combat interface", "◆")
+AddCard(Home, "Welcome to Ivory PVP", "Premium Blox Fruits mobile combat", "◆")
 AddCard(Home, "Current Status", "All systems operational and ready", "●")
-AddCard(Home, "Script Version", "v4.0 - Flashstep Edition", "◈")
+AddCard(Home, "Script Version", "v5.0 - Mobile Edition", "◈")
 AddCard(Home, "Quick Stats", "180° FOV | Silent Aim | Flashstep", "▣")
-AddCard(Home, "Performance", "Optimized for low-end devices", "◉")
-AddCard(Home, "Mobile Support", "Touch controls fully supported", "◎")
+AddCard(Home, "Mobile Optimized", "Touch controls fully supported", "◎")
 AddCard(Home, "Anti-Detection", "Silent aim leaves no visual trace", "◇")
-AddCard(Home, "Next Update", "More combat features coming soon", "✦")
+AddCard(Home, "Performance", "Optimized for low-end devices", "◉")
+AddCard(Home, "Updates", "Join Discord for latest updates", "✦")
 
 --// AIMBOT PAGE
 AddToggle(AimbotPage, "Silent Aim", "180° silent aim - camera stays still", function(enabled)
@@ -630,22 +634,21 @@ AddSlider(AimbotPage, "Flashstep Distance", 5, 50, 20, function(val)
 end, "⚡")
 
 --// COMBAT PAGE
-AddToggle(CombatPage, "No Cooldown", "Removes attack cooldowns", function(enabled)
-    Combat.NoCooldown = enabled
-    if enabled then
-        Combat.AttackCooldown = 0
-    else
-        Combat.AttackCooldown = 0.3
-    end
-end, "⚡")
+AddToggle(CombatPage, "Auto Buso Haki", "Automatically activates Buso Haki", function(enabled)
+    Combat.AutoBuso = enabled
+end, "⚫")
 
-AddToggle(CombatPage, "Infinite Energy", "Unlimited energy for abilities", function(enabled)
-    Combat.InfiniteEnergy = enabled
-end, "♾")
+AddToggle(CombatPage, "Auto Ken Haki", "Automatically activates Ken Haki", function(enabled)
+    Combat.AutoKen = enabled
+end, "👁")
 
-AddToggle(CombatPage, "Auto Dodge", "Automatically dodges attacks", function(enabled)
-    Combat.AutoDodge = enabled
-end, "↗")
+AddToggle(CombatPage, "Anti Stun", "Prevents stun effects", function(enabled)
+    Combat.AntiStun = enabled
+end, "🛡")
+
+AddToggle(CombatPage, "No Clip", "Walk through walls", function(enabled)
+    Combat.NoClip = enabled
+end, "◌")
 
 --// MOVEMENT PAGE
 AddToggle(MovementPage, "Speed Hack", "Multiply your movement speed", function(enabled)
@@ -655,16 +658,12 @@ AddToggle(MovementPage, "Speed Hack", "Multiply your movement speed", function(e
     end
 end, "»")
 
-AddSlider(MovementPage, "Speed Multiplier", 1, 50, 5, function(val)
+AddSlider(MovementPage, "Speed Multiplier", 1, 50, 15, function(val)
     Combat.SpeedMultiplier = val
     if Combat.SpeedHack and Player.Character and Player.Character:FindFirstChild("Humanoid") then
         Player.Character.Humanoid.WalkSpeed = 16 * val
     end
 end, "»")
-
-AddToggle(MovementPage, "No Clip", "Walk through walls", function(enabled)
-    Combat.NoClip = enabled
-end, "◌")
 
 --// VISUAL PAGE
 AddToggle(VisualPage, "ESP Boxes", "Show player boxes through walls", function(enabled)
@@ -693,48 +692,29 @@ AddToggle(VisualPage, "ESP Distance", "Show distance to players", function(enabl
     Combat.ESPDistanceEnabled = enabled
 end, "◎")
 
---// MACROS PAGE
-AddToggle(MacrosPage, "Macro Enabled", "Toggle macro system", function(enabled)
-    Combat.MacroEnabled = enabled
-end, "⌨")
-
-AddButton(MacrosPage, "Macro: Attack", "Press to perform attack macro", function()
-    if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
-        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, nil, 0)
-        task.wait(0.1)
-        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, nil, 0)
-    end
+--// MACROS PAGE (Mobile Touch)
+AddToggle(MacrosPage, "Auto Attack", "Automatically attack nearest target", function(enabled)
+    Combat.MacroAttack = enabled
 end, "⚔")
 
-AddButton(MacrosPage, "Macro: Dash", "Press to perform dash macro", function()
-    if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
-        local root = Player.Character.HumanoidRootPart
-        root.Velocity = root.CFrame.LookVector * 100
-    end
+AddToggle(MacrosPage, "Auto Dash", "Automatically dash when moving", function(enabled)
+    Combat.MacroDash = enabled
 end, "»")
 
-AddButton(MacrosPage, "Macro: Jump", "Press to perform jump macro", function()
-    if Player.Character and Player.Character:FindFirstChild("Humanoid") then
-        Player.Character.Humanoid.Jump = true
-    end
+AddToggle(MacrosPage, "Auto Jump", "Automatically jump repeatedly", function(enabled)
+    Combat.MacroJump = enabled
 end, "↑")
 
-AddButton(MacrosPage, "Macro: Ability 1", "Press to use ability 1", function()
-    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Z, false, nil)
-    task.wait(0.05)
-    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Z, false, nil)
+AddToggle(MacrosPage, "Auto Ability 1", "Automatically use ability 1", function(enabled)
+    Combat.MacroAbility1 = enabled
 end, "①")
 
-AddButton(MacrosPage, "Macro: Ability 2", "Press to use ability 2", function()
-    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.X, false, nil)
-    task.wait(0.05)
-    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.X, false, nil)
+AddToggle(MacrosPage, "Auto Ability 2", "Automatically use ability 2", function(enabled)
+    Combat.MacroAbility2 = enabled
 end, "②")
 
-AddButton(MacrosPage, "Macro: Ability 3", "Press to use ability 3", function()
-    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.C, false, nil)
-    task.wait(0.05)
-    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.C, false, nil)
+AddToggle(MacrosPage, "Auto Ability 3", "Automatically use ability 3", function(enabled)
+    Combat.MacroAbility3 = enabled
 end, "③")
 
 --// CREDITS PAGE
@@ -742,22 +722,11 @@ AddCard(CreditsPage, "Made By", "Ivory", "◆")
 AddCard(CreditsPage, "Discord", "Ivory999", "◈")
 AddCard(CreditsPage, "Ideas By", "Rayo", "✦")
 AddCard(CreditsPage, "Discord", "rayo06996", "◎")
-AddCard(CreditsPage, "Version", "v4.0 - Premium Edition", "▣")
+AddCard(CreditsPage, "Version", "v5.0 - Mobile Edition", "▣")
 AddCard(CreditsPage, "Special Thanks", "All supporters and testers", "♡")
 AddCard(CreditsPage, "Updates", "Join Discord for latest updates", "↻")
-AddCard(CreditsPage, "Copyright", "© Ivory Hub 2024", "©")
 
 --// SETTINGS PAGE
-AddToggle(SettingsPage, "Mobile Mode", "Optimize for mobile devices", function(enabled)
-    if enabled then
-        Main.Size = UDim2.fromOffset(470, 320)
-        Main.Position = UDim2.new(0.5, -235, 0.5, -160)
-    else
-        Main.Size = UDim2.fromOffset(520, 340)
-        Main.Position = UDim2.new(0.5, -260, 0.5, -170)
-    end
-end, "◎")
-
 AddToggle(SettingsPage, "Hide UI", "Toggle UI visibility", function(enabled)
     Main.Visible = not enabled
 end, "◇")
@@ -771,7 +740,7 @@ local Tabs = {}
 local function CreateTab(name, order, icon)
     local Button = Instance.new("TextButton")
     Button.Name = name
-    Button.Size = UDim2.new(1, 0, 0, 26)
+    Button.Size = UDim2.new(1, 0, 0, 24)
     Button.BackgroundColor3 = DARK
     Button.Text = icon .. " " .. name:upper()
     Button.TextColor3 = GREY
@@ -909,10 +878,10 @@ local Open = true
 local function ShowUI()
     Open = true
     Main.Visible = true
-    Main.Size = UDim2.fromOffset(480, 300)
+    Main.Size = UDim2.fromOffset(440, 290)
 
     tween(Main, 0.3, {
-        Size = UDim2.fromOffset(520, 340)
+        Size = UDim2.fromOffset(470, 320)
     })
 end
 
@@ -920,7 +889,7 @@ local function HideUI()
     Open = false
 
     tween(Main, 0.25, {
-        Size = UDim2.fromOffset(480, 300)
+        Size = UDim2.fromOffset(440, 290)
     })
 
     task.delay(0.25, function()
@@ -969,25 +938,6 @@ Close.MouseLeave:Connect(function()
     })
 end)
 
---// MOBILE SCALE
-local function UpdateScale()
-    if not Camera then return end
-
-    local Width = Camera.ViewportSize.X
-
-    if Width < 500 then
-        Main.Size = UDim2.fromOffset(470, 320)
-        Main.Position = UDim2.new(0.5, -235, 0.5, -160)
-    else
-        Main.Size = UDim2.fromOffset(520, 340)
-        Main.Position = UDim2.new(0.5, -260, 0.5, -170)
-    end
-end
-
-UpdateScale()
-
-Camera:GetPropertyChangedSignal("ViewportSize"):Connect(UpdateScale)
-
 --// SILENT AIM FUNCTION (180° FOV) - Camera does NOT move
 local function GetClosestPlayer()
     local closest = nil
@@ -1032,17 +982,11 @@ local function FlashstepToTarget(target)
     local root = character.HumanoidRootPart
     local targetRoot = target.Character.HumanoidRootPart
     
-    -- Calculate flashstep position (behind target)
     local direction = (root.Position - targetRoot.Position).Unit
     local flashstepPos = targetRoot.Position + direction * Combat.FlashstepDistance
     
-    -- Store original position
-    local originalCFrame = root.CFrame
-    
-    -- Play flashstep animation (teleport)
     root.CFrame = CFrame.new(flashstepPos) * CFrame.Angles(0, math.rad(180), 0)
     
-    -- Visual effect (optional)
     local flashEffect = Instance.new("Part")
     flashEffect.Size = Vector3.new(1, 1, 1)
     flashEffect.Position = flashstepPos
@@ -1072,23 +1016,18 @@ OldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
                     local root = character.HumanoidRootPart
                     local targetRoot = target.Character.HumanoidRootPart
                     
-                    -- Apply prediction
                     local predictedPos = targetRoot.Position
                     if target.Character:FindFirstChild("Humanoid") then
                         local velocity = target.Character.Humanoid.MoveDirection * target.Character.Humanoid.WalkSpeed
                         predictedPos = targetRoot.Position + velocity * Combat.SilentAimPrediction
                     end
                     
-                    -- Hit chance check
                     if math.random(1, 100) <= Combat.SilentAimHitChance then
-                        -- Store original position and teleport aim silently
                         local originalCFrame = root.CFrame
                         root.CFrame = CFrame.lookAt(root.Position, predictedPos)
                         
-                        -- Send the attack
                         local result = OldNamecall(self, unpack(args))
                         
-                        -- Restore position
                         root.CFrame = originalCFrame
                         
                         return result
@@ -1108,17 +1047,20 @@ RunService.RenderStepped:Connect(function()
         Player.Character.Humanoid.WalkSpeed = 16 * Combat.SpeedMultiplier
     end
     
-    -- Infinite energy
-    if Combat.InfiniteEnergy and Player.Character and Player.Character:FindFirstChild("Humanoid") then
-        Player.Character.Humanoid:SetAttribute("Energy", 999999)
-    end
-    
     -- No clip
     if Combat.NoClip and Player.Character then
         for _, part in pairs(Player.Character:GetDescendants()) do
             if part:IsA("BasePart") then
                 part.CanCollide = false
             end
+        end
+    end
+    
+    -- Anti stun
+    if Combat.AntiStun and Player.Character and Player.Character:FindFirstChild("Humanoid") then
+        local humanoid = Player.Character.Humanoid
+        if humanoid:GetState() == Enum.HumanoidStateType.Stunned then
+            humanoid:ChangeState(Enum.HumanoidStateType.Running)
         end
     end
     
@@ -1133,7 +1075,6 @@ RunService.RenderStepped:Connect(function()
                 local targetRoot = target.Character.HumanoidRootPart
                 local distance = (root.Position - targetRoot.Position).Magnitude
                 
-                -- Only flashstep if target is within range
                 if distance > 10 and distance < 100 then
                     Combat.LastFlashstep = tick()
                     FlashstepToTarget(target)
@@ -1142,32 +1083,74 @@ RunService.RenderStepped:Connect(function()
         end
     end
     
-    -- Auto dodge
-    if Combat.AutoDodge and tick() - Combat.LastDodge > Combat.DodgeCooldown then
-        Combat.LastDodge = tick()
+    -- Auto Buso Haki
+    if Combat.AutoBuso and tick() - Combat.LastBuso > Combat.AutoBusoCooldown then
+        Combat.LastBuso = tick()
         
-        local character = Player.Character
-        if character and character:FindFirstChild("HumanoidRootPart") then
-            local root = character.HumanoidRootPart
-            
-            for _, otherPlayer in pairs(Players:GetPlayers()) do
-                if otherPlayer ~= Player and otherPlayer.Character and otherPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    local otherRoot = otherPlayer.Character.HumanoidRootPart
-                    local distance = (root.Position - otherRoot.Position).Magnitude
-                    
-                    if distance < 15 then
-                        local dodgeDirection = (root.Position - otherRoot.Position).Unit
-                        root.Velocity = dodgeDirection * Vector3.new(100, 0, 100)
-                        root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(45), 0)
-                    end
-                end
-            end
+        if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+            -- Activate Buso Haki (press J key)
+            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.J, false, nil)
+            task.wait(0.1)
+            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.J, false, nil)
         end
+    end
+    
+    -- Auto Ken Haki
+    if Combat.AutoKen and tick() - Combat.LastKen > Combat.AutoKenCooldown then
+        Combat.LastKen = tick()
+        
+        if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+            -- Activate Ken Haki (press K key)
+            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.K, false, nil)
+            task.wait(0.1)
+            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.K, false, nil)
+        end
+    end
+    
+    -- Auto Attack Macro
+    if Combat.MacroAttack then
+        local target = GetClosestPlayer()
+        if target then
+            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, nil, 0)
+            task.wait(0.1)
+            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, nil, 0)
+        end
+    end
+    
+    -- Auto Dash Macro
+    if Combat.MacroDash and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+        local root = Player.Character.HumanoidRootPart
+        if root.Velocity.Magnitude > 1 then
+            root.Velocity = root.CFrame.LookVector * 100
+        end
+    end
+    
+    -- Auto Jump Macro
+    if Combat.MacroJump and Player.Character and Player.Character:FindFirstChild("Humanoid") then
+        Player.Character.Humanoid.Jump = true
+    end
+    
+    -- Auto Ability Macros
+    if Combat.MacroAbility1 then
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Z, false, nil)
+        task.wait(0.1)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Z, false, nil)
+    end
+    
+    if Combat.MacroAbility2 then
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.X, false, nil)
+        task.wait(0.1)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.X, false, nil)
+    end
+    
+    if Combat.MacroAbility3 then
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.C, false, nil)
+        task.wait(0.1)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.C, false, nil)
     end
     
     -- ESP
     if Combat.ESPEnabled then
-        -- Clear old ESP
         for _, box in pairs(Combat.ESPBoxes) do
             if box then box:Destroy() end
         end
