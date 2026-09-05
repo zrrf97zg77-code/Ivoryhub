@@ -1,9 +1,7 @@
 --// ============================================================
---//                    IVORY HUB (FOV EDITION)
+--// IVORY HUB – FULL FEATURES (with robust GUI)
 --// ============================================================
---// Original: Ivory & Rayo
---// Enhanced with FOV circle + slider + floating toggle
---// ============================================================
+print("Ivory Hub: starting...")
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -13,14 +11,33 @@ local Camera = workspace.CurrentCamera
 local VirtualInputManager = pcall(function() return game:GetService("VirtualInputManager") end) and game:GetService("VirtualInputManager") or nil
 
 local Player = Players.LocalPlayer
-local PlayerGui = Player:WaitForChild("PlayerGui")
+
+--// Find a parent that works (Delta, CoreGui, PlayerGui)
+local function getSafeParent()
+    local ok, gui = pcall(gethui)
+    if ok and gui and gui.Parent then return gui end
+    local core = game:GetService("CoreGui")
+    if core then return core end
+    return Player:WaitForChild("PlayerGui")
+end
+
+local parentGui = getSafeParent()
+print("Ivory Hub: parent =", parentGui.Name)
 
 --// Remove previous version
-local Old = PlayerGui:FindFirstChild("IvoryHub")
+local Old = parentGui:FindFirstChild("IvoryHub")
 if Old then Old:Destroy() end
 
+--// Create ScreenGui
+local Gui = Instance.new("ScreenGui")
+Gui.Name = "IvoryHub"
+Gui.ResetOnSpawn = false
+Gui.IgnoreGuiInset = true
+Gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+Gui.Parent = parentGui
+
 --//===========================================================
---// COLORS
+--// COLORS & HELPERS
 --//===========================================================
 local BLACK = Color3.fromRGB(7,7,7)
 local DARK = Color3.fromRGB(13,13,13)
@@ -31,9 +48,6 @@ local BORDER = Color3.fromRGB(40,40,40)
 local RED = Color3.fromRGB(255,50,50)
 local GREEN = Color3.fromRGB(50,255,50)
 
---//===========================================================
---// HELPERS
---//===========================================================
 local function Corner(obj, radius)
     local c = Instance.new("UICorner")
     c.CornerRadius = UDim.new(0, radius)
@@ -64,17 +78,35 @@ local function Text(parent, text, size, bold)
 end
 
 --//===========================================================
---// SCREEN GUI
+--// FLOATING TOGGLE BUTTON
 --//===========================================================
-local Gui = Instance.new("ScreenGui")
-Gui.Name = "IvoryHub"
-Gui.ResetOnSpawn = false
-Gui.IgnoreGuiInset = true
-Gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-Gui.Parent = PlayerGui
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Name = "IvoryToggle"
+ToggleBtn.Size = UDim2.fromOffset(48,48)
+ToggleBtn.Position = UDim2.new(0, 30, 0.5, -24)
+ToggleBtn.BackgroundColor3 = BLACK
+ToggleBtn.BorderColor3 = WHITE
+ToggleBtn.BorderSizePixel = 2
+ToggleBtn.Text = "I"
+ToggleBtn.TextColor3 = WHITE
+ToggleBtn.TextSize = 22
+ToggleBtn.Font = Enum.Font.GothamBold
+ToggleBtn.AutoButtonColor = false
+ToggleBtn.Parent = Gui
+
+local ToggleCorner = Instance.new("UICorner")
+ToggleCorner.CornerRadius = UDim.new(0,10)
+ToggleCorner.Parent = ToggleBtn
+
+ToggleBtn.MouseEnter:Connect(function()
+    TweenService:Create(ToggleBtn, TweenInfo.new(0.15), { BackgroundColor3 = WHITE, TextColor3 = BLACK }):Play()
+end)
+ToggleBtn.MouseLeave:Connect(function()
+    TweenService:Create(ToggleBtn, TweenInfo.new(0.15), { BackgroundColor3 = BLACK, TextColor3 = WHITE }):Play()
+end)
 
 --//===========================================================
---// MAIN
+--// MAIN WINDOW
 --//===========================================================
 local Main = Instance.new("Frame")
 Main.Name = "MainWindow"
@@ -82,14 +114,12 @@ Main.Size = UDim2.new(0,520,0,500)
 Main.Position = UDim2.new(0.5,-260,0.5,-250)
 Main.BackgroundColor3 = BLACK
 Main.BorderSizePixel = 0
-Main.Visible = true  -- visible by default
+Main.Visible = true
 Main.Parent = Gui
 Corner(Main,12)
 AddStroke(Main)
 
---//===========================================================
---// TOP BAR
---//===========================================================
+--// Top bar
 local Top = Instance.new("Frame")
 Top.Size = UDim2.new(1,0,0,58)
 Top.BackgroundColor3 = DARK
@@ -130,43 +160,15 @@ Minimize.BorderSizePixel = 0
 Minimize.Parent = Top
 Corner(Minimize,8)
 
---//===========================================================
---// FLOATING TOGGLE BUTTON (opens/closes main window)
---//===========================================================
-local ToggleBtn = Instance.new("TextButton")
-ToggleBtn.Name = "IvoryToggle"
-ToggleBtn.Size = UDim2.fromOffset(48,48)
-ToggleBtn.Position = UDim2.new(0,30,0.5,-24)
-ToggleBtn.BackgroundColor3 = BLACK
-ToggleBtn.BorderColor3 = WHITE
-ToggleBtn.BorderSizePixel = 2
-ToggleBtn.Text = "I"
-ToggleBtn.TextColor3 = WHITE
-ToggleBtn.TextSize = 22
-ToggleBtn.Font = Enum.Font.GothamBold
-ToggleBtn.AutoButtonColor = false
-ToggleBtn.Parent = Gui
-
-local ToggleCorner = Instance.new("UICorner")
-ToggleCorner.CornerRadius = UDim.new(0,10)
-ToggleCorner.Parent = ToggleBtn
-
+--// Toggle main window on/off via floating button
 local Open = true
 ToggleBtn.MouseButton1Click:Connect(function()
     Open = not Open
     Main.Visible = Open
 end)
 
--- Hover effects
-ToggleBtn.MouseEnter:Connect(function()
-    TweenService:Create(ToggleBtn, TweenInfo.new(0.15), { BackgroundColor3 = WHITE, TextColor3 = BLACK }):Play()
-end)
-ToggleBtn.MouseLeave:Connect(function()
-    TweenService:Create(ToggleBtn, TweenInfo.new(0.15), { BackgroundColor3 = BLACK, TextColor3 = WHITE }):Play()
-end)
-
 --//===========================================================
---// SIDEBAR
+--// SIDEBAR & CONTENT
 --//===========================================================
 local Sidebar = Instance.new("Frame")
 Sidebar.Size = UDim2.new(0,135,1,-70)
@@ -188,9 +190,6 @@ Padding.PaddingLeft = UDim.new(0,8)
 Padding.PaddingRight = UDim.new(0,8)
 Padding.Parent = Sidebar
 
---//===========================================================
---// CONTENT
---//===========================================================
 local Content = Instance.new("Frame")
 Content.Size = UDim2.new(1,-155,1,-70)
 Content.Position = UDim2.new(0,145,0,65)
@@ -214,23 +213,17 @@ local function CreatePage(name)
     Page.Visible = false
     Page.CanvasSize = UDim2.new(0,0,0,0)
     Page.Parent = Content
-
     local Layout = Instance.new("UIListLayout")
     Layout.Padding = UDim.new(0,8)
     Layout.SortOrder = Enum.SortOrder.LayoutOrder
     Layout.Parent = Page
-
     Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         Page.CanvasSize = UDim2.new(0,0,0,Layout.AbsoluteContentSize.Y + 15)
     end)
-
     Pages[name] = Page
     return Page
 end
 
---//===========================================================
---// SECTION TITLE
---//===========================================================
 local function Section(parent,text)
     local Label = Text(parent,text,10,true)
     Label.TextColor3 = GRAY
@@ -238,9 +231,6 @@ local function Section(parent,text)
     return Label
 end
 
---//===========================================================
---// BUTTON
---//===========================================================
 local function Button(parent,text,callback)
     local Btn = Instance.new("TextButton")
     Btn.Size = UDim2.new(1,0,0,40)
@@ -254,20 +244,12 @@ local function Button(parent,text,callback)
     Btn.Parent = parent
     Corner(Btn,8)
     AddStroke(Btn)
-
-    Btn.MouseEnter:Connect(function()
-        Tween(Btn,.15,{BackgroundColor3 = Color3.fromRGB(28,28,28)})
-    end)
-    Btn.MouseLeave:Connect(function()
-        Tween(Btn,.15,{BackgroundColor3 = DARKER})
-    end)
+    Btn.MouseEnter:Connect(function() Tween(Btn,.15,{BackgroundColor3 = Color3.fromRGB(28,28,28)}) end)
+    Btn.MouseLeave:Connect(function() Tween(Btn,.15,{BackgroundColor3 = DARKER}) end)
     Btn.MouseButton1Click:Connect(callback)
     return Btn
 end
 
---//===========================================================
---// TOGGLE – shows ON/OFF
---//===========================================================
 local function Toggle(parent, text, default, callback)
     local State = default or false
     local Holder = Instance.new("Frame")
@@ -316,14 +298,10 @@ local function Toggle(parent, text, default, callback)
         State = not State
         Update()
     end)
-
     Update()
     return Holder
 end
 
---//===========================================================
---// SLIDER TOGGLE (for walkspeed)
---//===========================================================
 local function SliderToggle(parent, text, default, minVal, maxVal, defaultSpeed, callback)
     local State = default or false
     local Speed = defaultSpeed or 50
@@ -414,14 +392,8 @@ local function SliderToggle(parent, text, default, minVal, maxVal, defaultSpeed,
     end
 
     local DraggingKnob = false
-    local function StartDrag(input)
-        DraggingKnob = true
-    end
-
-    local function EndDrag()
-        DraggingKnob = false
-    end
-
+    local function StartDrag(input) DraggingKnob = true end
+    local function EndDrag() DraggingKnob = false end
     local function UpdateDrag(input)
         if not DraggingKnob then return end
         local pos = input.Position
@@ -434,23 +406,14 @@ local function SliderToggle(parent, text, default, minVal, maxVal, defaultSpeed,
     end
 
     Knob.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            StartDrag(input)
-        end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then StartDrag(input) end
     end)
-
     Knob.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            EndDrag()
-        end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then EndDrag() end
     end)
-
     UIS.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-            UpdateDrag(input)
-        end
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then UpdateDrag(input) end
     end)
-
     SliderBg.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             local pos = input.Position
@@ -470,7 +433,6 @@ local function SliderToggle(parent, text, default, minVal, maxVal, defaultSpeed,
 
     UpdateSlider(Speed)
     UpdateToggle()
-
     return {
         Holder = Holder,
         GetState = function() return State end,
@@ -480,9 +442,6 @@ local function SliderToggle(parent, text, default, minVal, maxVal, defaultSpeed,
     }
 end
 
---//===========================================================
---// SLIDER (plain)
---//===========================================================
 local function Slider(parent, text, default, minVal, maxVal, callback, suffix)
     local Value = default or 50
     local Holder = Instance.new("Frame")
@@ -532,14 +491,8 @@ local function Slider(parent, text, default, minVal, maxVal, callback, suffix)
     end
 
     local DraggingKnob = false
-    local function StartDrag(input)
-        DraggingKnob = true
-    end
-
-    local function EndDrag()
-        DraggingKnob = false
-    end
-
+    local function StartDrag(input) DraggingKnob = true end
+    local function EndDrag() DraggingKnob = false end
     local function UpdateDrag(input)
         if not DraggingKnob then return end
         local pos = input.Position
@@ -552,23 +505,14 @@ local function Slider(parent, text, default, minVal, maxVal, callback, suffix)
     end
 
     Knob.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            StartDrag(input)
-        end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then StartDrag(input) end
     end)
-
     Knob.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            EndDrag()
-        end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then EndDrag() end
     end)
-
     UIS.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-            UpdateDrag(input)
-        end
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then UpdateDrag(input) end
     end)
-
     SliderBg.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             local pos = input.Position
@@ -589,9 +533,6 @@ local function Slider(parent, text, default, minVal, maxVal, callback, suffix)
     }
 end
 
---//===========================================================
---// DROPDOWN
---//===========================================================
 local function Dropdown(parent, text, options, default, callback)
     local State = default or options[1]
     local Holder = Instance.new("Frame")
@@ -659,7 +600,6 @@ local SoruAimbot         = false
 local WalkspeedState     = false
 local WalkspeedValue     = 50
 
--- FOV settings
 local ShowFOVCircle      = false
 local FOVRadius          = 150
 local FOVMode            = "Screen Center"
@@ -675,11 +615,11 @@ local ESPHealth      = false
 local ESPDistance    = false
 
 local RunningLoop = nil
-local FOVCircle = nil
+local FOVCircleObj = nil
 local FOVCircleFrame = nil
 
 --//===========================================================
---// TARGET FINDER with FOV
+--// TARGET FINDER (with FOV)
 --//===========================================================
 local function GetNearestTarget(useFOV)
     local myChar = Player.Character
@@ -755,7 +695,7 @@ local function SilentAimUpdate()
 end
 
 --//===========================================================
---// SKILL AIMBOT (FOV)
+--// SKILL AIMBOT (with FOV)
 --//===========================================================
 local function GetCurrentTargetForAimbot()
     local targetRoot, dist = GetNearestTarget(true)
@@ -763,7 +703,7 @@ local function GetCurrentTargetForAimbot()
     return targetRoot
 end
 
--- Hook
+-- Hook metatable
 local oldIndex, oldNamecall = nil, nil
 if hookmetamethod then
     pcall(function()
@@ -888,9 +828,9 @@ end
 --// FOV CIRCLE
 --//===========================================================
 local function CreateFOVCircle()
-    if FOVCircle then
-        if FOVCircle:IsA("Drawing") then FOVCircle:Remove() else FOVCircle:Destroy() end
-        FOVCircle = nil; FOVCircleFrame = nil
+    if FOVCircleObj then
+        if FOVCircleObj:IsA("Drawing") then FOVCircleObj:Remove() else FOVCircleObj:Destroy() end
+        FOVCircleObj = nil; FOVCircleFrame = nil
     end
     if not ShowFOVCircle then return end
     local success, drawing = pcall(function()
@@ -908,8 +848,7 @@ local function CreateFOVCircle()
         end
         return nil
     end)
-    if success and drawing then FOVCircle = drawing; return end
-    -- fallback Frame
+    if success and drawing then FOVCircleObj = drawing; return end
     local frame = Instance.new("Frame")
     frame.Name = "FOVCircleFrame"
     frame.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -927,23 +866,23 @@ local function CreateFOVCircle()
     local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(1,0)
     corner.Parent = frame
-    FOVCircle = frame
+    FOVCircleObj = frame
     FOVCircleFrame = frame
 end
 
 local function UpdateFOVCircle()
     if not ShowFOVCircle then
-        if FOVCircle then
-            if FOVCircle:IsA("Drawing") then FOVCircle:Remove() else FOVCircle:Destroy() end
-            FOVCircle = nil; FOVCircleFrame = nil
+        if FOVCircleObj then
+            if FOVCircleObj:IsA("Drawing") then FOVCircleObj:Remove() else FOVCircleObj:Destroy() end
+            FOVCircleObj = nil; FOVCircleFrame = nil
         end
         return
     end
-    if not FOVCircle then CreateFOVCircle(); return end
+    if not FOVCircleObj then CreateFOVCircle(); return end
     local center = (FOVMode == "Screen Center") and Camera.ViewportSize / 2 or UIS:GetMouseLocation()
-    if FOVCircle:IsA("Drawing") then
-        FOVCircle.Position = center
-        FOVCircle.Radius = FOVRadius
+    if FOVCircleObj:IsA("Drawing") then
+        FOVCircleObj.Position = center
+        FOVCircleObj.Radius = FOVRadius
     elseif FOVCircleFrame then
         FOVCircleFrame.Position = UDim2.new(0, center.X, 0, center.Y)
         FOVCircleFrame.Size = UDim2.new(0, FOVRadius*2, 0, FOVRadius*2)
@@ -955,7 +894,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 --//===========================================================
---// WALKSPEED
+--// WALKSPEED, PLAYER EXTRAS, ESP
 --//===========================================================
 local function WalkspeedUpdate()
     local char = Player.Character
@@ -965,9 +904,6 @@ local function WalkspeedUpdate()
     if WalkspeedState then hum.WalkSpeed = WalkspeedValue else if hum.WalkSpeed ~= 16 then hum.WalkSpeed = 16 end end
 end
 
---//===========================================================
---// PLAYER EXTRAS
---//===========================================================
 local function InfiniteJumpUpdate()
     local char = Player.Character
     if char and char:FindFirstChild("Humanoid") then char.Humanoid.JumpPower = InfiniteJump and 50 or 50 end
@@ -1007,9 +943,7 @@ local function AntiAFKUpdate()
     end
 end
 
---//===========================================================
 --// ESP
---//===========================================================
 local ESPObjects = {}
 local function CreateESP()
     local ESPGui = Instance.new("ScreenGui")
@@ -1189,7 +1123,7 @@ local function CheckLoopState()
 end
 
 --//===========================================================
---// BUILD PAGES
+--// BUILD UI PAGES
 --//===========================================================
 Section(MainPage, "MAIN")
 Toggle(MainPage, "Welcome Feature", false, function(s) print("[IVORY] Welcome:", s) end)
@@ -1200,7 +1134,6 @@ Toggle(CombatPage, "Target Players", true, function(s) TargetPlayers = s end)
 Toggle(CombatPage, "Target NPCs", true, function(s) TargetNPCs = s end)
 Toggle(CombatPage, "Aimbot Skills", false, function(s) AimbotSkills = s; CheckLoopState() end)
 
--- FOV group
 local fovGroup = Instance.new("Frame")
 fovGroup.Size = UDim2.new(1, -20, 0, 130)
 fovGroup.BackgroundTransparency = 1
@@ -1209,17 +1142,17 @@ fovGroup.Parent = CombatPage
 Toggle(fovGroup, "Show FOV Circle", false, function(s)
     ShowFOVCircle = s
     if s then CreateFOVCircle() else
-        if FOVCircle then
-            if FOVCircle:IsA("Drawing") then FOVCircle:Remove() else FOVCircle:Destroy() end
-            FOVCircle = nil; FOVCircleFrame = nil
+        if FOVCircleObj then
+            if FOVCircleObj:IsA("Drawing") then FOVCircleObj:Remove() else FOVCircleObj:Destroy() end
+            FOVCircleObj = nil; FOVCircleFrame = nil
         end
     end
 end)
 Slider(fovGroup, "FOV Radius", 150, 10, 500, function(v)
     FOVRadius = v
     if ShowFOVCircle then
-        if FOVCircle and FOVCircle:IsA("Drawing") then FOVCircle.Radius = v
-        elseif FOVCircle and FOVCircle:IsA("Frame") then FOVCircle.Size = UDim2.new(0, v*2, 0, v*2) end
+        if FOVCircleObj and FOVCircleObj:IsA("Drawing") then FOVCircleObj.Radius = v
+        elseif FOVCircleObj and FOVCircleObj:IsA("Frame") then FOVCircleObj.Size = UDim2.new(0, v*2, 0, v*2) end
     end
 end)
 Dropdown(fovGroup, "FOV Mode", {"Screen Center", "Mouse Position"}, "Screen Center", function(v) FOVMode = v end)
@@ -1346,10 +1279,10 @@ for _,data in ipairs(Tabs) do
     Tab.MouseLeave:Connect(function() if CurrentTab ~= Page then Tween(Tab,.15,{BackgroundColor3 = DARKER}) end end)
     Tab.MouseButton1Click:Connect(function() SelectTab(Tab,Page) end)
 end
-SelectTab(Tabs[2][3], Tabs[2][2])  -- Combat
+SelectTab(Tabs[2][3], Tabs[2][2])
 
 --//===========================================================
---// DRAGGING
+--// DRAGGING, MINIMIZE, CLOSE
 --//===========================================================
 local Dragging = false; local DragStart, StartPosition
 local function UpdateDrag(input)
@@ -1366,9 +1299,6 @@ UIS.InputChanged:Connect(function(input)
     if Dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then UpdateDrag(input) end
 end)
 
---//===========================================================
---// MINIMIZE / CLOSE
---//===========================================================
 local Minimized = false
 Minimize.MouseButton1Click:Connect(function()
     Minimized = not Minimized
@@ -1407,21 +1337,3 @@ print("================================")
 print("Features: 180 Silent Aim, Skill Aimbot (FOV), Soru, Walkspeed, ESP")
 print("Creators: Ivory & Rayo")
 print("================================")
-
--- Show a quick notification
-task.spawn(function()
-    task.wait(0.5)
-    local notif = Instance.new("Frame")
-    notif.Size = UDim2.new(0, 260, 0, 50)
-    notif.Position = UDim2.new(0.5, -130, 0.4, 0)
-    notif.BackgroundColor3 = BLACK
-    notif.BorderColor3 = WHITE
-    notif.BorderSizePixel = 1
-    notif.Parent = Gui
-    Corner(notif, 10)
-    local lbl = Text(notif, "Ivory Hub Loaded! Tap 'I' to toggle.", 13, true)
-    lbl.Size = UDim2.new(1, -20, 1, 0)
-    lbl.Position = UDim2.new(0, 10, 0, 0)
-    lbl.TextXAlignment = Enum.TextXAlignment.Center
-    task.delay(3, function() notif:Destroy() end)
-end)
