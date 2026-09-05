@@ -1,5 +1,5 @@
---// ============================================================
---// IVORY HUB – FULL FEATURES (with robust GUI)
+  --// ============================================================
+--// IVORY HUB – OBSIDIAN SILENT AIM + FOV
 --// ============================================================
 print("Ivory Hub: starting...")
 
@@ -12,7 +12,7 @@ local VirtualInputManager = pcall(function() return game:GetService("VirtualInpu
 
 local Player = Players.LocalPlayer
 
---// Find a parent that works (Delta, CoreGui, PlayerGui)
+--// Find a parent that works
 local function getSafeParent()
     local ok, gui = pcall(gethui)
     if ok and gui and gui.Parent then return gui end
@@ -20,7 +20,6 @@ local function getSafeParent()
     if core then return core end
     return Player:WaitForChild("PlayerGui")
 end
-
 local parentGui = getSafeParent()
 print("Ivory Hub: parent =", parentGui.Name)
 
@@ -110,8 +109,8 @@ end)
 --//===========================================================
 local Main = Instance.new("Frame")
 Main.Name = "MainWindow"
-Main.Size = UDim2.new(0,520,0,500)
-Main.Position = UDim2.new(0.5,-260,0.5,-250)
+Main.Size = UDim2.new(0,560,0,550) -- wider for more settings
+Main.Position = UDim2.new(0.5,-280,0.5,-275)
 Main.BackgroundColor3 = BLACK
 Main.BorderSizePixel = 0
 Main.Visible = true
@@ -119,7 +118,7 @@ Main.Parent = Gui
 Corner(Main,12)
 AddStroke(Main)
 
---// Top bar
+-- Top bar
 local Top = Instance.new("Frame")
 Top.Size = UDim2.new(1,0,0,58)
 Top.BackgroundColor3 = DARK
@@ -160,7 +159,6 @@ Minimize.BorderSizePixel = 0
 Minimize.Parent = Top
 Corner(Minimize,8)
 
---// Toggle main window on/off via floating button
 local Open = true
 ToggleBtn.MouseButton1Click:Connect(function()
     Open = not Open
@@ -590,203 +588,345 @@ local SettingsPage = CreatePage("Settings")
 local CreditsPage = CreatePage("Credits")
 
 --//===========================================================
---// FEATURE STATES
+--// OBSIDIAN SILENT AIM MODULE (copied & adapted)
 --//===========================================================
-local SilentAimEnabled   = false
-local AimbotSkills       = false
-local TargetPlayers      = true
-local TargetNPCs         = true
-local SoruAimbot         = false
-local WalkspeedState     = false
-local WalkspeedValue     = 50
+local SilentAimModule = (function()
+    local module = {}
+    local player = Player
+    local camera = Camera
+    local UIS = UIS
+    local RS = game:GetService("ReplicatedStorage")
 
-local ShowFOVCircle      = false
-local FOVRadius          = 150
-local FOVMode            = "Screen Center"
+    -- State
+    local SilentAimPlayersEnabled = false
+    local SilentAimNPCsEnabled = false
+    local PredictionEnabled = true
+    local PredictionAmount = 0.12
+    local ZSkillorM1 = true
+    local ShowFOVCircle = false
+    local FOVRadius = 150
+    local FOVMode = "V1"  -- V1 = screen center, V2 = mouse
+    local AimMode = "360"
+    local TargetPriority = "Nearest"
+    local maxRange = 1000
+    local Selectedplayer = nil
+    local PlayersPosition = nil
+    local NPCPosition = nil
+    local currentTool = nil
+    local currentToolCategory = "Melee"
+    local currentSkillKey = nil
+    local lastSkillTime = 0
+    local SKILL_KEYS = {"Z","X","C","V","F","TAP"}
+    local BlacklistedKeys = {
+        Melee = { Z=false, X=false, C=false },
+        Sword = { Z=false, X=false },
+        Fruit = { Z=false, X=false, C=false, V=false, F=false, TAP=false },
+        Gun   = { Z=false, X=false }
+    }
 
-local InfiniteJump   = false
-local NoClip         = false
-local AntiAFK        = false
+    -- FOV circle UI
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "FOV_System_Ivory"
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.IgnoreGuiInset = true
+    ScreenGui.Parent = Gui  -- Use our main GUI
+    local FOVFrame = Instance.new("Frame")
+    FOVFrame.Name = "FOVCircle"
+    FOVFrame.AnchorPoint = Vector2.new(0.5,0.5)
+    FOVFrame.BackgroundTransparency = 1
+    FOVFrame.Visible = false
+    FOVFrame.Parent = ScreenGui
+    local UIStroke = Instance.new("UIStroke")
+    UIStroke.Color = Color3.fromRGB(255,0,0)
+    UIStroke.Thickness = 2
+    UIStroke.Parent = FOVFrame
+    local FOVCorner = Instance.new("UICorner")
+    FOVCorner.CornerRadius = UDim.new(1,0)
+    FOVCorner.Parent = FOVFrame
 
-local ESPEnabled     = false
-local ESPBox         = false
-local ESPName        = false
-local ESPHealth      = false
-local ESPDistance    = false
-
-local RunningLoop = nil
-local FOVCircleObj = nil
-local FOVCircleFrame = nil
-
---//===========================================================
---// TARGET FINDER (with FOV)
---//===========================================================
-local function GetNearestTarget(useFOV)
-    local myChar = Player.Character
-    if not myChar then return nil, math.huge end
-    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-    if not myRoot then return nil, math.huge end
-    local myPos = myRoot.Position
-    local center = nil
-    if useFOV and ShowFOVCircle then
-        if FOVMode == "Screen Center" then
-            center = Camera.ViewportSize / 2
-        else
-            center = UIS:GetMouseLocation()
-        end
+    -- Helper: get FOV center
+    local function getFOVCenter(mode)
+        if mode == "V2" then return UIS:GetMouseLocation() end
+        return camera.ViewportSize / 2
     end
 
-    local nearest, dist = nil, math.huge
-    local function checkTarget(part)
-        if not part then return end
-        local d = (part.Position - myPos).Magnitude
-        if d >= dist then return end
-        if useFOV and ShowFOVCircle then
-            local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
-            if not onScreen then return end
-            local screenVec = Vector2.new(screenPos.X, screenPos.Y)
-            if (screenVec - center).Magnitude > FOVRadius then return end
+    -- Helper: check if target is in FOV
+    local function isTargetValid(hrp, lpHRP, aimMode, fovRadius, fovType)
+        if not hrp or not lpHRP then return false end
+        if aimMode == "180" then
+            local dir = (hrp.Position - lpHRP.Position).Unit
+            if lpHRP.CFrame.LookVector:Dot(dir) < 0 then return false end
+        elseif aimMode == "FOV" then
+            local screenPos, onScreen = camera:WorldToViewportPoint(hrp.Position)
+            if not onScreen then return false end
+            local center = getFOVCenter(fovType)
+            if (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude > fovRadius then return false end
         end
-        dist = d
-        nearest = part
+        return true
     end
 
-    if TargetPlayers then
-        for _, plr in pairs(Players:GetPlayers()) do
-            if plr ~= Player then
-                local c = plr.Character
-                if c and c:FindFirstChild("HumanoidRootPart") and c:FindFirstChild("Humanoid") and c.Humanoid.Health > 0 then
-                    checkTarget(c.HumanoidRootPart)
+    -- Target acquisition
+    local function getClosestplayer(lpHRP)
+        if not lpHRP then return nil end
+        if TargetPriority == "Lock Player" and Selectedplayer then
+            local char = Selectedplayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                local hrp = char.HumanoidRootPart
+                if hum and hum.Health > 0 and hrp and isTargetValid(hrp, lpHRP, AimMode, FOVRadius, FOVMode) then
+                    return Selectedplayer
                 end
             end
+            return nil
         end
-    end
-
-    if TargetNPCs then
-        for _, obj in pairs(workspace:GetChildren()) do
-            if obj:IsA("Model") and obj ~= myChar then
-                local hum = obj:FindFirstChild("Humanoid")
-                local root = obj:FindFirstChild("HumanoidRootPart")
-                if hum and root and hum.Health > 0 then
-                    checkTarget(root)
-                end
-            end
-        end
-    end
-
-    return nearest, dist
-end
-
---//===========================================================
---// 180° SILENT AIM
---//===========================================================
-local function SilentAimUpdate()
-    if not SilentAimEnabled then return end
-    local targetRoot, dist = GetNearestTarget(false)
-    if not targetRoot or dist > 50 then return end
-    local myChar = Player.Character
-    if not myChar then return end
-    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-    if not myRoot then return end
-    local look = Vector3.new(targetRoot.Position.X - myRoot.Position.X, 0, targetRoot.Position.Z - myRoot.Position.Z)
-    if look.Magnitude > 0.5 then
-        myRoot.CFrame = CFrame.lookAt(myRoot.Position, myRoot.Position + look.Unit)
-    end
-end
-
---//===========================================================
---// SKILL AIMBOT (with FOV)
---//===========================================================
-local function GetCurrentTargetForAimbot()
-    local targetRoot, dist = GetNearestTarget(true)
-    if not targetRoot or dist > 50 then return nil
-    return targetRoot
-end
-
--- Hook metatable
-local oldIndex, oldNamecall = nil, nil
-if hookmetamethod then
-    pcall(function()
-        oldIndex = hookmetamethod(game, "__index", function(self, key)
-            if not checkcaller() and self == Camera and (key == "Hit" or key == "Target") then
-                if AimbotSkills then
-                    local target = GetCurrentTargetForAimbot()
-                    if target then
-                        if key == "Hit" then return CFrame.new(target.Position) end
-                        if key == "Target" then return target end
+        local valid = {}
+        for _, pl in ipairs(Players:GetPlayers()) do
+            if pl ~= player and pl.Character and pl.Character.Parent then
+                local hum = pl.Character:FindFirstChildOfClass("Humanoid")
+                local hrp = pl.Character:FindFirstChild("HumanoidRootPart")
+                if hum and hum.Health > 0 and hrp and isTargetValid(hrp, lpHRP, AimMode, FOVRadius, FOVMode) then
+                    local dist = (hrp.Position - lpHRP.Position).Magnitude
+                    if dist <= maxRange then
+                        table.insert(valid, {Player=pl, Humanoid=hum, HRP=hrp, Distance=dist})
                     end
                 end
             end
-            return oldIndex(self, key)
-        end)
-    end)
-    pcall(function()
-        oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
-            local args = {...}
-            local method = getnamecallmethod()
-            local methodStr = method and tostring(method):lower() or ""
-            if not checkcaller() and (methodStr == "fireserver" or methodStr == "invokeserver") then
-                if AimbotSkills then
-                    local target = GetCurrentTargetForAimbot()
-                    if target then
-                        local targetPos = target.Position
-                        for i, arg in ipairs(args) do
-                            if typeof(arg) == "Vector3" then args[i] = targetPos
-                            elseif typeof(arg) == "CFrame" then args[i] = CFrame.new(targetPos) end
-                        end
-                        if self.Name == "RE/RegisterHit" or self.Name == "RegisterHit" then
-                            local targetChar = target.Parent
-                            if targetChar then
-                                local head = targetChar:FindFirstChild("Head") or target
-                                args[1] = head
-                                args[2] = { { targetChar, head } }
-                            end
-                        end
-                        return oldNamecall(self, unpack(args))
+        end
+        if #valid == 0 then return nil end
+        if AimMode == "360" or AimMode == "180" then
+            if TargetPriority == "Nearest" then table.sort(valid, function(a,b) return a.Distance < b.Distance end)
+            elseif TargetPriority == "Low HP" then table.sort(valid, function(a,b) return a.Humanoid.Health < b.Humanoid.Health end)
+            elseif TargetPriority == "Looking At Me" then
+                table.sort(valid, function(a,b)
+                    local dirA = (lpHRP.Position - a.HRP.Position).Unit
+                    local lookA = a.HRP.CFrame.LookVector
+                    local dirB = (lpHRP.Position - b.HRP.Position).Unit
+                    local lookB = b.HRP.CFrame.LookVector
+                    return lookA:Dot(dirA) > lookB:Dot(dirB)
+                end)
+            end
+        else -- FOV
+            local center = getFOVCenter(FOVMode)
+            table.sort(valid, function(a,b)
+                local pA = camera:WorldToViewportPoint(a.HRP.Position)
+                local pB = camera:WorldToViewportPoint(b.HRP.Position)
+                return (Vector2.new(pA.X, pA.Y) - center).Magnitude < (Vector2.new(pB.X, pB.Y) - center).Magnitude
+            end)
+        end
+        return valid[1].Player
+    end
+
+    local function getClosestNPC(lpHRP)
+        if not lpHRP then return nil end
+        local enemiesFolder = workspace:FindFirstChild("Enemies")
+        if not enemiesFolder then return nil end
+        local closest, closestDist = nil, math.huge
+        for _, npc in ipairs(enemiesFolder:GetChildren()) do
+            if npc:IsA("Model") then
+                local hum = npc:FindFirstChildOfClass("Humanoid")
+                local hrp = npc:FindFirstChild("HumanoidRootPart")
+                if hum and hum.Health > 0 and hrp and isTargetValid(hrp, lpHRP, AimMode, FOVRadius, FOVMode) then
+                    local dist = (hrp.Position - lpHRP.Position).Magnitude
+                    if dist <= maxRange and dist < closestDist then
+                        closestDist = dist
+                        closest = npc
                     end
                 end
             end
-            return oldNamecall(self, ...)
+        end
+        return closest
+    end
+
+    -- Prediction
+    local lastVelocity = nil
+    local lastDirection = nil
+    local function predicted(hrp)
+        if not hrp then return nil end
+        local hum = hrp.Parent:FindFirstChildOfClass("Humanoid")
+        if not hum or hum.Health <= 0 then return hrp.Position end
+        if not PredictionEnabled then return hrp.Position end
+        local vel = hrp.Velocity
+        local speed = vel.Magnitude
+        if speed < 5 then
+            lastVelocity = nil; lastDirection = nil
+            return hrp.Position
+        end
+        local currentDirection = vel.Unit
+        if lastDirection then
+            local dot = lastDirection:Dot(currentDirection)
+            if dot < 0.7 then
+                lastVelocity = nil; lastDirection = nil
+                return hrp.Position
+            end
+        end
+        lastDirection = currentDirection
+        lastVelocity = vel
+        local ping = 0
+        pcall(function()
+            local PingService = game:GetService("Stats").Network.ServerStatsItem
+            ping = PingService:GetValue() / 1000
         end)
-    end)
-else
-    pcall(function()
-        local mt = getrawmetatable(game)
-        if mt then
-            oldIndex = mt.__index
-            oldNamecall = mt.__namecall
-            if setreadonly then pcall(setreadonly, mt, false) end
-            mt.__index = function(self, key)
-                if not checkcaller() and self == Camera and (key == "Hit" or key == "Target") then
-                    if AimbotSkills then
-                        local target = GetCurrentTargetForAimbot()
-                        if target then
-                            if key == "Hit" then return CFrame.new(target.Position) end
-                            if key == "Target" then return target end
+        ping = math.clamp(ping, 0, 0.35)
+        local predictionFactor = PredictionAmount + ping
+        if speed > 100 then predictionFactor = math.min(predictionFactor, 0.15) end
+        return hrp.Position + (vel * predictionFactor)
+    end
+
+    -- Tool category
+    local function getToolCategory(tool)
+        if not tool then return "Melee" end
+        local name = string.lower(tool.Name)
+        local gunNames = {"guitar","rifle","cannon","gun","slingshot","kabucha","serpent bow","bow"}
+        for _,g in ipairs(gunNames) do if string.find(name,g) then return "Gun" end end
+        local meleeNames = {"claw","godhuman","superhuman","talon","step","karate","breath","kung fu","combat","fist","sanguine"}
+        for _,m in ipairs(meleeNames) do if string.find(name,m) then return "Melee" end end
+        if string.find(name,"fruit") or string.find(name,"-") then return "Fruit" end
+        return "Sword"
+    end
+
+    local function isKeyCurrentlyBlacklisted(key)
+        if not key then return false end
+        local cat = currentToolCategory
+        if BlacklistedKeys[cat] and BlacklistedKeys[cat][key] ~= nil then return BlacklistedKeys[cat][key] end
+        return false
+    end
+
+    -- Set current skill key
+    local function setCurrentSkillKey(key)
+        currentSkillKey = key
+        lastSkillTime = os.clock()
+        -- face target if possible
+        if SilentAimPlayersEnabled or SilentAimNPCsEnabled then
+            local targetPos = PlayersPosition or NPCPosition
+            if targetPos then
+                local char = player.Character
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local look = (Vector3.new(targetPos.X, hrp.Position.Y, targetPos.Z) - hrp.Position).Unit
+                    if look.Magnitude > 0.001 then
+                        hrp.CFrame = CFrame.lookAt(hrp.Position, hrp.Position + look)
+                    end
+                end
+            end
+        end
+        task.spawn(function()
+            local myTime = lastSkillTime
+            task.wait(1.5)
+            if lastSkillTime == myTime and currentSkillKey == key then
+                currentSkillKey = nil
+            end
+        end)
+    end
+
+    -- Hook input for skill keys
+    local function hookMobileButton(btn)
+        if btn:GetAttribute("Hooked") then return end
+        btn:SetAttribute("Hooked", true)
+        local key = btn.Name
+        if table.find(SKILL_KEYS, key) then
+            btn.Activated:Connect(function() setCurrentSkillKey(key) end)
+        end
+    end
+
+    -- Main render loop for acquiring targets
+    local renderConnection, heartbeatConnection = nil, nil
+    local function startRenderLoop()
+        if renderConnection then return end
+        renderConnection = RunService.RenderStepped:Connect(function()
+            -- Update FOV circle visibility
+            if ShowFOVCircle then
+                local center = getFOVCenter(FOVMode)
+                FOVFrame.Position = UDim2.new(0, center.X, 0, center.Y)
+                FOVFrame.Size = UDim2.new(0, FOVRadius*2, 0, FOVRadius*2)
+                FOVFrame.Visible = true
+            else
+                FOVFrame.Visible = false
+            end
+            -- Get targets
+            local lpChar = player.Character
+            if not lpChar then return end
+            local lpHRP = lpChar:FindFirstChild("HumanoidRootPart")
+            if not lpHRP then return end
+            if not SilentAimPlayersEnabled and not SilentAimNPCsEnabled then
+                PlayersPosition = nil; NPCPosition = nil
+                return
+            end
+            if SilentAimPlayersEnabled then
+                local targetPlayer = getClosestplayer(lpHRP)
+                if targetPlayer and targetPlayer.Character then
+                    local hrp = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+                    if hrp then PlayersPosition = predicted(hrp) else PlayersPosition = nil end
+                else PlayersPosition = nil end
+            end
+            if SilentAimNPCsEnabled then
+                local npc = getClosestNPC(lpHRP)
+                if npc then
+                    local hrp = npc:FindFirstChild("HumanoidRootPart")
+                    if hrp then NPCPosition = predicted(hrp) else NPCPosition = nil end
+                else NPCPosition = nil end
+            end
+        end)
+        if not heartbeatConnection then
+            heartbeatConnection = RunService.Heartbeat:Connect(function()
+                if not ZSkillorM1 or (not SilentAimPlayersEnabled and not SilentAimNPCsEnabled) then return end
+                if currentSkillKey and isKeyCurrentlyBlacklisted(currentSkillKey) then return end
+                if currentTool and (string.find(string.lower(currentTool.Name),"portal") or string.find(string.lower(currentTool.Name),"lightning")) then return end
+                local targetPos = PlayersPosition or NPCPosition
+                if targetPos then
+                    -- Redirect mouse Hit/Target for skills (this is done by metatable hooks)
+                end
+            end)
+        end
+    end
+
+    local function stopRenderLoop()
+        if renderConnection then renderConnection:Disconnect(); renderConnection = nil end
+        if heartbeatConnection then heartbeatConnection:Disconnect(); heartbeatConnection = nil end
+        FOVFrame.Visible = false
+        PlayersPosition = nil; NPCPosition = nil
+    end
+
+    -- Metatable hooks for silent aim
+    local function installHooks()
+        -- Hook __index for mouse.Hit and mouse.Target
+        local oldIndex, oldNamecall = nil, nil
+        if hookmetamethod then
+            oldIndex = hookmetamethod(game, "__index", function(self, key)
+                if not checkcaller() and self == camera and (key == "Hit" or key == "Target") then
+                    if SilentAimPlayersEnabled or SilentAimNPCsEnabled then
+                        local targetPos = PlayersPosition or NPCPosition
+                        if targetPos then
+                            if key == "Hit" then return CFrame.new(targetPos) end
+                            if key == "Target" then return nil end
                         end
                     end
                 end
                 return oldIndex(self, key)
-            end
-            mt.__namecall = function(self, ...)
+            end)
+
+            oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
                 local args = {...}
                 local method = getnamecallmethod()
                 local methodStr = method and tostring(method):lower() or ""
                 if not checkcaller() and (methodStr == "fireserver" or methodStr == "invokeserver") then
-                    if AimbotSkills then
-                        local target = GetCurrentTargetForAimbot()
-                        if target then
-                            local targetPos = target.Position
+                    if SilentAimPlayersEnabled or SilentAimNPCsEnabled then
+                        local targetPos = PlayersPosition or NPCPosition
+                        if targetPos then
+                            -- Replace Vector3/CFrame arguments
                             for i, arg in ipairs(args) do
                                 if typeof(arg) == "Vector3" then args[i] = targetPos
                                 elseif typeof(arg) == "CFrame" then args[i] = CFrame.new(targetPos) end
                             end
+                            -- Handle RegisterHit
                             if self.Name == "RE/RegisterHit" or self.Name == "RegisterHit" then
-                                local targetChar = target.Parent
-                                if targetChar then
-                                    local head = targetChar:FindFirstChild("Head") or target
-                                    args[1] = head
-                                    args[2] = { { targetChar, head } }
+                                local targetPart = (PlayersPosition and PlayersPosition ~= NPCPosition) and targetPos or nil
+                                if targetPart then
+                                    local targetChar = targetPart.Parent
+                                    if targetChar then
+                                        local head = targetChar:FindFirstChild("Head") or targetPart
+                                        args[1] = head
+                                        args[2] = { { targetChar, head } }
+                                    end
                                 end
                             end
                             return oldNamecall(self, unpack(args))
@@ -794,108 +934,195 @@ else
                     end
                 end
                 return oldNamecall(self, ...)
+            end)
+        else
+            local mt = getrawmetatable(game)
+            if mt then
+                oldIndex = mt.__index
+                oldNamecall = mt.__namecall
+                if setreadonly then pcall(setreadonly, mt, false) end
+                mt.__index = function(self, key)
+                    if not checkcaller() and self == camera and (key == "Hit" or key == "Target") then
+                        if SilentAimPlayersEnabled or SilentAimNPCsEnabled then
+                            local targetPos = PlayersPosition or NPCPosition
+                            if targetPos then
+                                if key == "Hit" then return CFrame.new(targetPos) end
+                                if key == "Target" then return nil end
+                            end
+                        end
+                    end
+                    return oldIndex(self, key)
+                end
+                mt.__namecall = function(self, ...)
+                    local args = {...}
+                    local method = getnamecallmethod()
+                    local methodStr = method and tostring(method):lower() or ""
+                    if not checkcaller() and (methodStr == "fireserver" or methodStr == "invokeserver") then
+                        if SilentAimPlayersEnabled or SilentAimNPCsEnabled then
+                            local targetPos = PlayersPosition or NPCPosition
+                            if targetPos then
+                                for i, arg in ipairs(args) do
+                                    if typeof(arg) == "Vector3" then args[i] = targetPos
+                                    elseif typeof(arg) == "CFrame" then args[i] = CFrame.new(targetPos) end
+                                end
+                                if self.Name == "RE/RegisterHit" or self.Name == "RegisterHit" then
+                                    local targetPart = targetPos
+                                    if targetPart then
+                                        local targetChar = targetPart.Parent
+                                        if targetChar then
+                                            local head = targetChar:FindFirstChild("Head") or targetPart
+                                            args[1] = head
+                                            args[2] = { { targetChar, head } }
+                                        end
+                                    end
+                                end
+                                return oldNamecall(self, unpack(args))
+                            end
+                        end
+                    end
+                    return oldNamecall(self, ...)
+                end
+                if setreadonly then pcall(setreadonly, mt, true) end
             end
-            if setreadonly then pcall(setreadonly, mt, true) end
+        end
+    end
+    installHooks()
+
+    -- Track tool changes
+    local function onCharacterAdded(char)
+        local hum = char:WaitForChild("Humanoid", 5)
+        if hum then
+            hum.AnimationPlayed:Connect(function(track)
+                -- could detect skill usage if needed
+            end)
+        end
+        for _, child in ipairs(char:GetChildren()) do
+            if child:IsA("Tool") then
+                currentTool = child
+                currentToolCategory = getToolCategory(child)
+                currentSkillKey = nil
+                child.AncestryChanged:Connect(function(_, parent)
+                    if not parent then currentTool = nil end
+                end)
+            end
+        end
+        char.ChildAdded:Connect(function(child)
+            if child:IsA("Tool") then
+                currentTool = child
+                currentToolCategory = getToolCategory(child)
+                currentSkillKey = nil
+                child.AncestryChanged:Connect(function(_, parent)
+                    if not parent then currentTool = nil end
+                end)
+            end
+        end)
+        char.ChildRemoved:Connect(function(child)
+            if child == currentTool then currentTool = nil end
+        end)
+    end
+    player.CharacterAdded:Connect(onCharacterAdded)
+    if player.Character then onCharacterAdded(player.Character) end
+
+    -- Hook mobile skill buttons
+    spawn(function()
+        local pg = player:FindFirstChild("PlayerGui")
+        if pg then
+            local main = pg:FindFirstChild("Main")
+            if main then
+                local skills = main:FindFirstChild("Skills")
+                if skills then
+                    for _, wf in ipairs(skills:GetChildren()) do
+                        if wf:IsA("GuiObject") then
+                            for _, b in ipairs(wf:GetChildren()) do
+                                if b:IsA("ImageButton") or b:IsA("TextButton") then
+                                    hookMobileButton(b)
+                                end
+                            end
+                        end
+                    end
+                    skills.ChildAdded:Connect(function(wf)
+                        if wf:IsA("GuiObject") then
+                            for _, b in ipairs(wf:GetChildren()) do
+                                if b:IsA("ImageButton") or b:IsA("TextButton") then
+                                    hookMobileButton(b)
+                                end
+                            end
+                        end
+                    end)
+                end
+            end
         end
     end)
-end
+
+    -- Keyboard input for skills
+    UIS.InputBegan:Connect(function(input, gp)
+        if gp then return end
+        local keyMap = { [Enum.KeyCode.Z]="Z", [Enum.KeyCode.X]="X", [Enum.KeyCode.C]="C", [Enum.KeyCode.V]="V", [Enum.KeyCode.F]="F" }
+        local key = keyMap[input.KeyCode]
+        if key then setCurrentSkillKey(key) end
+    end)
+
+    -- Public API
+    function module:SetPlayerSilentAim(state)
+        SilentAimPlayersEnabled = state
+        if state then startRenderLoop() else if not SilentAimNPCsEnabled then stopRenderLoop() end end
+    end
+    function module:SetNPCSilentAim(state)
+        SilentAimNPCsEnabled = state
+        if state then startRenderLoop() else if not SilentAimPlayersEnabled then stopRenderLoop() end end
+    end
+    function module:SetAimMode(mode) AimMode = mode end
+    function module:SetTargetPriority(prio) TargetPriority = prio end
+    function module:SetShowFOVCircle(state) ShowFOVCircle = state; if not state then FOVFrame.Visible = false end end
+    function module:SetFOVRadius(radius) FOVRadius = radius end
+    function module:SetFOVMode(mode) FOVMode = mode end  -- "V1" or "V2"
+    function module:SetDistanceLimit(dist) maxRange = dist end
+    function module:SetSelectedPlayer(name)
+        if name and name ~= "None" then
+            Selectedplayer = Players:FindFirstChild(name)
+        else Selectedplayer = nil end
+    end
+    function module:SetBlacklistKey(cat, key, state)
+        if BlacklistedKeys[cat] and BlacklistedKeys[cat][key] ~= nil then
+            BlacklistedKeys[cat][key] = state
+        end
+    end
+    function module:GetTargetPos() return PlayersPosition or NPCPosition end
+    return module
+end)()
 
 --//===========================================================
---// SORU AIMBOT
+--// EXTRA FEATURES (Soru, Walkspeed, Jump, Clip, AFK, ESP)
 --//===========================================================
+
+-- Soru Aimbot (auto-F)
+local SoruEnabled = false
 local SoruCooldown = 0
-local function SoruAimbotUpdate()
-    if not SoruAimbot or not VirtualInputManager then return end
+local function SoruUpdate()
+    if not SoruEnabled or not VirtualInputManager then return end
     if tick() < SoruCooldown then return end
-    local targetRoot, dist = GetNearestTarget(false)
-    if not targetRoot or dist > 25 then return end
+    local targetPos = SilentAimModule:GetTargetPos()
+    if not targetPos then return end
     local char = Player.Character
     if char and char:FindFirstChild("HumanoidRootPart") then
         local hrp = char.HumanoidRootPart
+        local dist = (targetPos - hrp.Position).Magnitude
+        if dist > 25 then return end
         pcall(function()
             local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
             if commF then
-                commF:InvokeServer("Flashstep", targetRoot.Position)
+                commF:InvokeServer("Flashstep", targetPos)
             else
-                hrp.CFrame = CFrame.new(targetRoot.Position + Vector3.new(0, 3, 0))
+                hrp.CFrame = CFrame.new(targetPos + Vector3.new(0,3,0))
             end
         end)
         SoruCooldown = tick() + 1.5
     end
 end
 
---//===========================================================
---// FOV CIRCLE
---//===========================================================
-local function CreateFOVCircle()
-    if FOVCircleObj then
-        if FOVCircleObj:IsA("Drawing") then FOVCircleObj:Remove() else FOVCircleObj:Destroy() end
-        FOVCircleObj = nil; FOVCircleFrame = nil
-    end
-    if not ShowFOVCircle then return end
-    local success, drawing = pcall(function()
-        if Drawing and Drawing.new then
-            local circle = Drawing.new("Circle")
-            circle.Visible = true
-            circle.Color = Color3.fromRGB(255,0,0)
-            circle.Radius = FOVRadius
-            circle.Thickness = 2
-            circle.Filled = false
-            circle.Transparency = 0.8
-            local center = (FOVMode == "Screen Center") and Camera.ViewportSize / 2 or UIS:GetMouseLocation()
-            circle.Position = center
-            return circle
-        end
-        return nil
-    end)
-    if success and drawing then FOVCircleObj = drawing; return end
-    local frame = Instance.new("Frame")
-    frame.Name = "FOVCircleFrame"
-    frame.AnchorPoint = Vector2.new(0.5, 0.5)
-    frame.BackgroundTransparency = 1
-    frame.Visible = true
-    frame.ZIndex = 999
-    frame.Size = UDim2.new(0, FOVRadius*2, 0, FOVRadius*2)
-    local center = (FOVMode == "Screen Center") and Camera.ViewportSize / 2 or UIS:GetMouseLocation()
-    frame.Position = UDim2.new(0, center.X, 0, center.Y)
-    frame.Parent = Gui
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(255,0,0)
-    stroke.Thickness = 2
-    stroke.Parent = frame
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(1,0)
-    corner.Parent = frame
-    FOVCircleObj = frame
-    FOVCircleFrame = frame
-end
-
-local function UpdateFOVCircle()
-    if not ShowFOVCircle then
-        if FOVCircleObj then
-            if FOVCircleObj:IsA("Drawing") then FOVCircleObj:Remove() else FOVCircleObj:Destroy() end
-            FOVCircleObj = nil; FOVCircleFrame = nil
-        end
-        return
-    end
-    if not FOVCircleObj then CreateFOVCircle(); return end
-    local center = (FOVMode == "Screen Center") and Camera.ViewportSize / 2 or UIS:GetMouseLocation()
-    if FOVCircleObj:IsA("Drawing") then
-        FOVCircleObj.Position = center
-        FOVCircleObj.Radius = FOVRadius
-    elseif FOVCircleFrame then
-        FOVCircleFrame.Position = UDim2.new(0, center.X, 0, center.Y)
-        FOVCircleFrame.Size = UDim2.new(0, FOVRadius*2, 0, FOVRadius*2)
-    end
-end
-
-RunService.RenderStepped:Connect(function()
-    if ShowFOVCircle then UpdateFOVCircle() end
-end)
-
---//===========================================================
---// WALKSPEED, PLAYER EXTRAS, ESP
---//===========================================================
+-- Walkspeed
+local WalkspeedState = false
+local WalkspeedValue = 50
 local function WalkspeedUpdate()
     local char = Player.Character
     if not char then return end
@@ -904,6 +1131,8 @@ local function WalkspeedUpdate()
     if WalkspeedState then hum.WalkSpeed = WalkspeedValue else if hum.WalkSpeed ~= 16 then hum.WalkSpeed = 16 end end
 end
 
+-- Infinite Jump
+local InfiniteJump = false
 local function InfiniteJumpUpdate()
     local char = Player.Character
     if char and char:FindFirstChild("Humanoid") then char.Humanoid.JumpPower = InfiniteJump and 50 or 50 end
@@ -912,7 +1141,8 @@ local function HandleJump()
     if InfiniteJump then
         local char = Player.Character
         if char and char:FindFirstChild("Humanoid") and char:FindFirstChild("HumanoidRootPart") then
-            local hum = char.Humanoid; local root = char.HumanoidRootPart
+            local hum = char.Humanoid
+            local root = char.HumanoidRootPart
             if hum:GetState() ~= Enum.HumanoidStateType.Jumping and hum:GetState() ~= Enum.HumanoidStateType.Freefall then
                 root.Velocity = Vector3.new(root.Velocity.X, 50, root.Velocity.Z)
             end
@@ -924,6 +1154,8 @@ UIS.InputBegan:Connect(function(input, gpe)
     if input.KeyCode == Enum.KeyCode.Space then HandleJump() end
 end)
 
+-- No Clip
+local NoClip = false
 local function NoClipUpdate()
     local char = Player.Character
     if not char then return end
@@ -932,6 +1164,8 @@ local function NoClipUpdate()
     end
 end
 
+-- Anti-AFK
+local AntiAFK = false
 local function AntiAFKUpdate()
     if not AntiAFK then return end
     local char = Player.Character
@@ -943,7 +1177,12 @@ local function AntiAFKUpdate()
     end
 end
 
---// ESP
+-- ESP
+local ESPEnabled = false
+local ESPBox = false
+local ESPName = false
+local ESPHealth = false
+local ESPDistance = false
 local ESPObjects = {}
 local function CreateESP()
     local ESPGui = Instance.new("ScreenGui")
@@ -1100,25 +1339,27 @@ local ESPUpdate = CreateESP()
 --//===========================================================
 --// MAIN LOOP
 --//===========================================================
-local function StartPVPLoop()
+local RunningLoop = nil
+local function StartLoop()
     if RunningLoop then return end
     RunningLoop = RunService.Heartbeat:Connect(function()
-        SilentAimUpdate()
-        SoruAimbotUpdate()
+        SoruUpdate()
         WalkspeedUpdate()
         NoClipUpdate()
         AntiAFKUpdate()
         ESPUpdate()
+        -- Infinite jump is handled by event
+        InfiniteJumpUpdate()
     end)
 end
-local function StopPVPLoop()
+local function StopLoop()
     if RunningLoop then RunningLoop:Disconnect(); RunningLoop = nil end
 end
-local function CheckLoopState()
-    if SilentAimEnabled or AimbotSkills or SoruAimbot or WalkspeedState or NoClip or AntiAFK or ESPEnabled or InfiniteJump then
-        StartPVPLoop()
+local function CheckLoop()
+    if SoruEnabled or WalkspeedState or NoClip or AntiAFK or ESPEnabled or InfiniteJump then
+        StartLoop()
     else
-        StopPVPLoop()
+        StopLoop()
     end
 end
 
@@ -1128,50 +1369,158 @@ end
 Section(MainPage, "MAIN")
 Toggle(MainPage, "Welcome Feature", false, function(s) print("[IVORY] Welcome:", s) end)
 
-Section(CombatPage, "COMBAT")
-Toggle(CombatPage, "180° Silent Aim", false, function(s) SilentAimEnabled = s; CheckLoopState() end)
-Toggle(CombatPage, "Target Players", true, function(s) TargetPlayers = s end)
-Toggle(CombatPage, "Target NPCs", true, function(s) TargetNPCs = s end)
-Toggle(CombatPage, "Aimbot Skills", false, function(s) AimbotSkills = s; CheckLoopState() end)
+Section(CombatPage, "SILENT AIM")
+Toggle(CombatPage, "Player Silent Aim", false, function(s)
+    SilentAimModule:SetPlayerSilentAim(s)
+end)
+Toggle(CombatPage, "NPC Silent Aim", false, function(s)
+    SilentAimModule:SetNPCSilentAim(s)
+end)
 
-local fovGroup = Instance.new("Frame")
-fovGroup.Size = UDim2.new(1, -20, 0, 130)
-fovGroup.BackgroundTransparency = 1
-fovGroup.Parent = CombatPage
+-- Aim Mode
+Dropdown(CombatPage, "Aim Mode", {"360", "180", "FOV"}, "360", function(v)
+    SilentAimModule:SetAimMode(v)
+end)
 
-Toggle(fovGroup, "Show FOV Circle", false, function(s)
-    ShowFOVCircle = s
-    if s then CreateFOVCircle() else
-        if FOVCircleObj then
-            if FOVCircleObj:IsA("Drawing") then FOVCircleObj:Remove() else FOVCircleObj:Destroy() end
-            FOVCircleObj = nil; FOVCircleFrame = nil
-        end
+-- Target Priority
+local priorityDropdown = Dropdown(CombatPage, "Target Priority", {"Nearest", "Low HP", "Looking At Me", "Lock Player"}, "Nearest", function(v)
+    SilentAimModule:SetTargetPriority(v)
+    -- Show/hide player dropdown when Lock Player is selected
+    local lockPlayerGroup = CombatPage:FindFirstChild("LockPlayerGroup")
+    if lockPlayerGroup then
+        lockPlayerGroup.Visible = (v == "Lock Player")
     end
 end)
-Slider(fovGroup, "FOV Radius", 150, 10, 500, function(v)
-    FOVRadius = v
-    if ShowFOVCircle then
-        if FOVCircleObj and FOVCircleObj:IsA("Drawing") then FOVCircleObj.Radius = v
-        elseif FOVCircleObj and FOVCircleObj:IsA("Frame") then FOVCircleObj.Size = UDim2.new(0, v*2, 0, v*2) end
+
+-- Lock Player dropdown (dynamic)
+local lockPlayerGroup = Instance.new("Frame")
+lockPlayerGroup.Name = "LockPlayerGroup"
+lockPlayerGroup.Size = UDim2.new(1, -20, 0, 38)
+lockPlayerGroup.BackgroundTransparency = 1
+lockPlayerGroup.Visible = false
+lockPlayerGroup.Parent = CombatPage
+
+local playerList = {"None"}
+local function refreshPlayerList()
+    local list = {"None"}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= Player then table.insert(list, p.Name) end
+    end
+    return list
+end
+local lockPlayerDropdown = Dropdown(lockPlayerGroup, "Lock Player", refreshPlayerList(), "None", function(v)
+    SilentAimModule:SetSelectedPlayer(v)
+end)
+-- Update player list every few seconds
+task.spawn(function()
+    while true do
+        task.wait(3)
+        local newList = refreshPlayerList()
+        lockPlayerDropdown:SetValues(newList)
     end
 end)
-Dropdown(fovGroup, "FOV Mode", {"Screen Center", "Mouse Position"}, "Screen Center", function(v) FOVMode = v end)
 
-Toggle(CombatPage, "Soru Aimbot (F)", false, function(s) SoruAimbot = s; CheckLoopState() end)
-SliderToggle(CombatPage, "Walkspeed", false, 16, 100, 50, function(s, v) WalkspeedState = s; WalkspeedValue = v; CheckLoopState() end)
+-- FOV settings
+Section(CombatPage, "FOV SETTINGS")
+Toggle(CombatPage, "Show FOV Circle", false, function(s)
+    SilentAimModule:SetShowFOVCircle(s)
+end)
+Slider(CombatPage, "FOV Radius", 150, 10, 500, function(v)
+    SilentAimModule:SetFOVRadius(v)
+end)
+Dropdown(CombatPage, "FOV Mode", {"V1 (Screen Center)", "V2 (Mouse Position)"}, "V1 (Screen Center)", function(v)
+    local mode = (v == "V1 (Screen Center)") and "V1" or "V2"
+    SilentAimModule:SetFOVMode(mode)
+end)
 
+-- Range
+Slider(CombatPage, "Max Range", 1000, 100, 3000, function(v)
+    SilentAimModule:SetDistanceLimit(v)
+end, "m")
+
+-- Extras
+Section(CombatPage, "EXTRAS")
+Toggle(CombatPage, "Soru Aimbot (F)", false, function(s)
+    SoruEnabled = s
+    CheckLoop()
+end)
+SliderToggle(CombatPage, "Walkspeed", false, 16, 100, 50, function(s, v)
+    WalkspeedState = s
+    WalkspeedValue = v
+    CheckLoop()
+end)
+
+-- Blacklists (separate page for cleanliness)
+local BlacklistPage = CreatePage("Blacklist")
+Pages.Blacklist = BlacklistPage
+Section(BlacklistPage, "BLACKLIST KEYS")
+
+local function addBlacklistGroup(cat, keys)
+    Section(BlacklistPage, cat)
+    for _, key in ipairs(keys) do
+        Toggle(BlacklistPage, "Blacklist " .. cat .. " " .. key, false, function(s)
+            SilentAimModule:SetBlacklistKey(cat, key, s)
+        end)
+    end
+end
+addBlacklistGroup("Melee", {"Z","X","C"})
+addBlacklistGroup("Fruit", {"Z","X","C","V","F","TAP"})
+addBlacklistGroup("Sword", {"Z","X"})
+addBlacklistGroup("Gun", {"Z","X"})
+
+-- Add Blacklist tab to sidebar
+local function addTab(name, page)
+    local Tab = Instance.new("TextButton")
+    Tab.Size = UDim2.new(1,0,0,38)
+    Tab.BackgroundColor3 = DARKER
+    Tab.BorderSizePixel = 0
+    Tab.Text = name
+    Tab.TextColor3 = GRAY
+    Tab.TextSize = 11
+    Tab.Font = Enum.Font.GothamBold
+    Tab.AutoButtonColor = false
+    Tab.Parent = Sidebar
+    Corner(Tab,8)
+    AddStroke(Tab)
+    Tab.MouseEnter:Connect(function()
+        if CurrentTab ~= page then Tween(Tab,.15,{BackgroundColor3 = Color3.fromRGB(27,27,27)}) end
+    end)
+    Tab.MouseLeave:Connect(function()
+        if CurrentTab ~= page then Tween(Tab,.15,{BackgroundColor3 = DARKER}) end
+    end)
+    Tab.MouseButton1Click:Connect(function()
+        SelectTab(Tab, page)
+    end)
+    return Tab
+end
+
+-- Player page
 Section(PlayerPage, "PLAYER EXTRAS")
-Toggle(PlayerPage, "Infinite Jump", false, function(s) InfiniteJump = s; CheckLoopState() end)
-Toggle(PlayerPage, "No Clip", false, function(s) NoClip = s; CheckLoopState() end)
-Toggle(PlayerPage, "Anti-AFK", false, function(s) AntiAFK = s; CheckLoopState() end)
+Toggle(PlayerPage, "Infinite Jump", false, function(s)
+    InfiniteJump = s
+    CheckLoop()
+end)
+Toggle(PlayerPage, "No Clip", false, function(s)
+    NoClip = s
+    CheckLoop()
+end)
+Toggle(PlayerPage, "Anti-AFK", false, function(s)
+    AntiAFK = s
+    CheckLoop()
+end)
 
+-- Visuals page
 Section(VisualPage, "VISUALS (ESP)")
-Toggle(VisualPage, "Enable ESP", false, function(s) ESPEnabled = s; CheckLoopState() end)
+Toggle(VisualPage, "Enable ESP", false, function(s)
+    ESPEnabled = s
+    CheckLoop()
+end)
 Toggle(VisualPage, "Show Box", false, function(s) ESPBox = s end)
 Toggle(VisualPage, "Show Name", false, function(s) ESPName = s end)
 Toggle(VisualPage, "Show Health", false, function(s) ESPHealth = s end)
 Toggle(VisualPage, "Show Distance", false, function(s) ESPDistance = s end)
 
+-- Settings page
 Section(SettingsPage, "SETTINGS")
 Button(SettingsPage, "Show Notification", function()
     local Notification = Instance.new("Frame")
@@ -1197,12 +1546,13 @@ Button(SettingsPage, "Show Notification", function()
 end)
 Button(SettingsPage, "Print GUI Info", function()
     print("================================")
-    print("IVORY HUB - FOV Edition")
-    print("Features: 180 Silent Aim, Skill Aimbot (FOV), Soru, Walkspeed, ESP")
+    print("IVORY HUB - Obsidian Silent Aim")
+    print("Features: Silent Aim (Players/NPC), FOV, Soru, Walkspeed, ESP")
     print("Creators: Ivory & Rayo")
     print("================================")
 end)
 
+-- Credits page
 Section(CreditsPage, "CREATORS")
 local CreatorBox = Instance.new("Frame")
 CreatorBox.Size = UDim2.new(1,0,0,82)
@@ -1234,7 +1584,7 @@ Discord2.TextColor3 = GRAY
 Discord2.Position = UDim2.new(0,14,0,38)
 Discord2.Size = UDim2.new(1,-28,0,18)
 
-local Version = Text(CreditsPage,"Ivory Hub  •  FOV Edition",10,false)
+local Version = Text(CreditsPage,"Ivory Hub  •  Obsidian Aim",10,false)
 Version.TextColor3 = GRAY
 Version.Size = UDim2.new(1,0,0,25)
 
@@ -1242,44 +1592,51 @@ Version.Size = UDim2.new(1,0,0,25)
 --// TABS
 --//===========================================================
 local Tabs = {
-    {"MAIN", MainPage},
-    {"COMBAT", CombatPage},
-    {"PLAYER", PlayerPage},
-    {"VISUALS", VisualPage},
-    {"SETTINGS", SettingsPage},
-    {"CREDITS", CreditsPage}
+    {name="MAIN", page=MainPage},
+    {name="COMBAT", page=CombatPage},
+    {name="BLACKLIST", page=BlacklistPage},
+    {name="PLAYER", page=PlayerPage},
+    {name="VISUALS", page=VisualPage},
+    {name="SETTINGS", page=SettingsPage},
+    {name="CREDITS", page=CreditsPage}
 }
 local CurrentTab
 local function SelectTab(button,page)
-    for _,data in ipairs(Tabs) do
-        local otherButton = data[3]
+    for _, data in ipairs(Tabs) do
+        local otherButton = data.button
         if otherButton then Tween(otherButton,.15,{BackgroundColor3 = DARKER}) end
-        data[2].Visible = false
+        data.page.Visible = false
     end
     Tween(button,.15,{BackgroundColor3 = WHITE})
     button.TextColor3 = BLACK
     page.Visible = true
     CurrentTab = page
 end
-for _,data in ipairs(Tabs) do
-    local Name = data[1]; local Page = data[2]
-    local Tab = Instance.new("TextButton")
-    Tab.Size = UDim2.new(1,0,0,38)
-    Tab.BackgroundColor3 = DARKER
-    Tab.BorderSizePixel = 0
-    Tab.Text = Name
-    Tab.TextColor3 = GRAY
-    Tab.TextSize = 11
-    Tab.Font = Enum.Font.GothamBold
-    Tab.AutoButtonColor = false
-    Tab.Parent = Sidebar
-    Corner(Tab,8); AddStroke(Tab)
-    data[3] = Tab
-    Tab.MouseEnter:Connect(function() if CurrentTab ~= Page then Tween(Tab,.15,{BackgroundColor3 = Color3.fromRGB(27,27,27)}) end end)
-    Tab.MouseLeave:Connect(function() if CurrentTab ~= Page then Tween(Tab,.15,{BackgroundColor3 = DARKER}) end end)
-    Tab.MouseButton1Click:Connect(function() SelectTab(Tab,Page) end)
+for _, data in ipairs(Tabs) do
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1,0,0,38)
+    btn.BackgroundColor3 = DARKER
+    btn.BorderSizePixel = 0
+    btn.Text = data.name
+    btn.TextColor3 = GRAY
+    btn.TextSize = 11
+    btn.Font = Enum.Font.GothamBold
+    btn.AutoButtonColor = false
+    btn.Parent = Sidebar
+    Corner(btn,8)
+    AddStroke(btn)
+    data.button = btn
+    btn.MouseEnter:Connect(function()
+        if CurrentTab ~= data.page then Tween(btn,.15,{BackgroundColor3 = Color3.fromRGB(27,27,27)}) end
+    end)
+    btn.MouseLeave:Connect(function()
+        if CurrentTab ~= data.page then Tween(btn,.15,{BackgroundColor3 = DARKER}) end
+    end)
+    btn.MouseButton1Click:Connect(function()
+        SelectTab(btn, data.page)
+    end)
 end
-SelectTab(Tabs[2][3], Tabs[2][2])
+SelectTab(Tabs[2].button, Tabs[2].page)  -- Combat as default
 
 --//===========================================================
 --// DRAGGING, MINIMIZE, CLOSE
@@ -1304,10 +1661,10 @@ Minimize.MouseButton1Click:Connect(function()
     Minimized = not Minimized
     if Minimized then
         Sidebar.Visible = false; Content.Visible = false
-        Tween(Main,.25,{Size = UDim2.new(0,520,0,58)})
+        Tween(Main,.25,{Size = UDim2.new(0,560,0,58)})
         Minimize.Text = "+"
     else
-        Tween(Main,.25,{Size = UDim2.new(0,520,0,500)})
+        Tween(Main,.25,{Size = UDim2.new(0,560,0,550)})
         task.wait(.15)
         Sidebar.Visible = true; Content.Visible = true
         Minimize.Text = "—"
@@ -1330,10 +1687,10 @@ end)
 --//===========================================================
 --// START
 --//===========================================================
-CheckLoopState()
+CheckLoop()
 print("================================")
-print("        IVORY HUB LOADED (FOV Edition)")
+print("        IVORY HUB LOADED (Obsidian Aim)")
 print("================================")
-print("Features: 180 Silent Aim, Skill Aimbot (FOV), Soru, Walkspeed, ESP")
+print("Features: Silent Aim (Players/NPC), FOV, Soru, Walkspeed, ESP")
 print("Creators: Ivory & Rayo")
 print("================================")
