@@ -1,5 +1,5 @@
 --// ============================================================
---// IVORY HUB – COMPACT + HOLD INFINITE JUMP
+--// IVORY HUB – FINAL (NO FLOATING + SORU FIXED)
 --// ============================================================
 print("Ivory Hub: starting...")
 
@@ -9,6 +9,7 @@ local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
 local VirtualInputManager = pcall(function() return game:GetService("VirtualInputManager") end) and game:GetService("VirtualInputManager") or nil
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Player = Players.LocalPlayer
 
@@ -107,7 +108,7 @@ end)
 --//===========================================================
 local Main = Instance.new("Frame")
 Main.Name = "MainWindow"
-Main.Size = UDim2.new(0,480,0,420)   -- compact
+Main.Size = UDim2.new(0,480,0,420)
 Main.Position = UDim2.new(0.5,-240,0.5,-210)
 Main.BackgroundColor3 = BLACK
 Main.BorderSizePixel = 0
@@ -452,16 +453,14 @@ local SettingsPage = CreatePage("Settings")
 local CreditsPage = CreatePage("Credits")
 
 --//===========================================================
---// OBSIDIAN SILENT AIM MODULE (copied & adapted)
+--// OBSIDIAN SILENT AIM MODULE
 --//===========================================================
 local SilentAimModule = (function()
     local module = {}
     local player = Player
     local camera = Camera
     local UIS = UIS
-    local RS = game:GetService("ReplicatedStorage")
 
-    -- State
     local SilentAimPlayersEnabled = false
     local SilentAimNPCsEnabled = false
     local PredictionEnabled = true
@@ -469,7 +468,7 @@ local SilentAimModule = (function()
     local ZSkillorM1 = true
     local ShowFOVCircle = false
     local FOVRadius = 150
-    local FOVMode = "V1"  -- V1 = screen center, V2 = mouse
+    local FOVMode = "V1"
     local AimMode = "360"
     local TargetPriority = "Nearest"
     local maxRange = 1000
@@ -488,7 +487,7 @@ local SilentAimModule = (function()
         Gun   = { Z=false, X=false }
     }
 
-    -- FOV circle UI
+    -- FOV circle
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "FOV_System_Ivory"
     ScreenGui.ResetOnSpawn = false
@@ -508,13 +507,11 @@ local SilentAimModule = (function()
     FOVCorner.CornerRadius = UDim.new(1,0)
     FOVCorner.Parent = FOVFrame
 
-    -- Helper: get FOV center
     local function getFOVCenter(mode)
         if mode == "V2" then return UIS:GetMouseLocation() end
         return camera.ViewportSize / 2
     end
 
-    -- Helper: check if target is in FOV
     local function isTargetValid(hrp, lpHRP, aimMode, fovRadius, fovType)
         if not hrp or not lpHRP then return false end
         if aimMode == "180" then
@@ -529,7 +526,6 @@ local SilentAimModule = (function()
         return true
     end
 
-    -- Target acquisition
     local function getClosestplayer(lpHRP)
         if not lpHRP then return nil end
         if TargetPriority == "Lock Player" and Selectedplayer then
@@ -557,7 +553,7 @@ local SilentAimModule = (function()
             end
         end
         if #valid == 0 then return nil end
-        if AimMode == "360" or AimMode == "180" then
+        if AimMode == "360" or AimMode == "180" or AimMode == "FOV" then
             if TargetPriority == "Nearest" then table.sort(valid, function(a,b) return a.Distance < b.Distance end)
             elseif TargetPriority == "Low HP" then table.sort(valid, function(a,b) return a.Humanoid.Health < b.Humanoid.Health end)
             elseif TargetPriority == "Looking At Me" then
@@ -569,13 +565,6 @@ local SilentAimModule = (function()
                     return lookA:Dot(dirA) > lookB:Dot(dirB)
                 end)
             end
-        else -- FOV
-            local center = getFOVCenter(FOVMode)
-            table.sort(valid, function(a,b)
-                local pA = camera:WorldToViewportPoint(a.HRP.Position)
-                local pB = camera:WorldToViewportPoint(b.HRP.Position)
-                return (Vector2.new(pA.X, pA.Y) - center).Magnitude < (Vector2.new(pB.X, pB.Y) - center).Magnitude
-            end)
         end
         return valid[1].Player
     end
@@ -601,9 +590,6 @@ local SilentAimModule = (function()
         return closest
     end
 
-    -- Prediction
-    local lastVelocity = nil
-    local lastDirection = nil
     local function predicted(hrp)
         if not hrp then return nil end
         local hum = hrp.Parent:FindFirstChildOfClass("Humanoid")
@@ -611,20 +597,7 @@ local SilentAimModule = (function()
         if not PredictionEnabled then return hrp.Position end
         local vel = hrp.Velocity
         local speed = vel.Magnitude
-        if speed < 5 then
-            lastVelocity = nil; lastDirection = nil
-            return hrp.Position
-        end
-        local currentDirection = vel.Unit
-        if lastDirection then
-            local dot = lastDirection:Dot(currentDirection)
-            if dot < 0.7 then
-                lastVelocity = nil; lastDirection = nil
-                return hrp.Position
-            end
-        end
-        lastDirection = currentDirection
-        lastVelocity = vel
+        if speed < 5 then return hrp.Position end
         local ping = 0
         pcall(function()
             local PingService = game:GetService("Stats").Network.ServerStatsItem
@@ -636,7 +609,6 @@ local SilentAimModule = (function()
         return hrp.Position + (vel * predictionFactor)
     end
 
-    -- Tool category
     local function getToolCategory(tool)
         if not tool then return "Melee" end
         local name = string.lower(tool.Name)
@@ -655,11 +627,9 @@ local SilentAimModule = (function()
         return false
     end
 
-    -- Set current skill key
     local function setCurrentSkillKey(key)
         currentSkillKey = key
         lastSkillTime = os.clock()
-        -- face target if possible
         if SilentAimPlayersEnabled or SilentAimNPCsEnabled then
             local targetPos = PlayersPosition or NPCPosition
             if targetPos then
@@ -682,7 +652,6 @@ local SilentAimModule = (function()
         end)
     end
 
-    -- Hook input for skill keys
     local function hookMobileButton(btn)
         if btn:GetAttribute("Hooked") then return end
         btn:SetAttribute("Hooked", true)
@@ -692,12 +661,10 @@ local SilentAimModule = (function()
         end
     end
 
-    -- Main render loop for acquiring targets
-    local renderConnection, heartbeatConnection = nil, nil
+    local renderConnection = nil
     local function startRenderLoop()
         if renderConnection then return end
         renderConnection = RunService.RenderStepped:Connect(function()
-            -- Update FOV circle visibility
             if ShowFOVCircle then
                 local center = getFOVCenter(FOVMode)
                 FOVFrame.Position = UDim2.new(0, center.X, 0, center.Y)
@@ -706,7 +673,6 @@ local SilentAimModule = (function()
             else
                 FOVFrame.Visible = false
             end
-            -- Get targets
             local lpChar = player.Character
             if not lpChar then return end
             local lpHRP = lpChar:FindFirstChild("HumanoidRootPart")
@@ -730,29 +696,16 @@ local SilentAimModule = (function()
                 else NPCPosition = nil end
             end
         end)
-        if not heartbeatConnection then
-            heartbeatConnection = RunService.Heartbeat:Connect(function()
-                if not ZSkillorM1 or (not SilentAimPlayersEnabled and not SilentAimNPCsEnabled) then return end
-                if currentSkillKey and isKeyCurrentlyBlacklisted(currentSkillKey) then return end
-                if currentTool and (string.find(string.lower(currentTool.Name),"portal") or string.find(string.lower(currentTool.Name),"lightning")) then return end
-                local targetPos = PlayersPosition or NPCPosition
-                if targetPos then
-                    -- Redirect mouse Hit/Target for skills (handled by metatable hooks)
-                end
-            end)
-        end
     end
 
     local function stopRenderLoop()
         if renderConnection then renderConnection:Disconnect(); renderConnection = nil end
-        if heartbeatConnection then heartbeatConnection:Disconnect(); heartbeatConnection = nil end
         FOVFrame.Visible = false
         PlayersPosition = nil; NPCPosition = nil
     end
 
-    -- Metatable hooks for silent aim
+    local oldIndex, oldNamecall = nil, nil
     local function installHooks()
-        local oldIndex, oldNamecall = nil, nil
         if hookmetamethod then
             oldIndex = hookmetamethod(game, "__index", function(self, key)
                 if not checkcaller() and self == camera and (key == "Hit" or key == "Target") then
@@ -849,14 +802,7 @@ local SilentAimModule = (function()
     end
     installHooks()
 
-    -- Track tool changes
     local function onCharacterAdded(char)
-        local hum = char:WaitForChild("Humanoid", 5)
-        if hum then
-            hum.AnimationPlayed:Connect(function(track)
-                -- could detect skill usage if needed
-            end)
-        end
         for _, child in ipairs(char:GetChildren()) do
             if child:IsA("Tool") then
                 currentTool = child
@@ -884,7 +830,6 @@ local SilentAimModule = (function()
     player.CharacterAdded:Connect(onCharacterAdded)
     if player.Character then onCharacterAdded(player.Character) end
 
-    -- Hook mobile skill buttons
     spawn(function()
         local pg = player:FindFirstChild("PlayerGui")
         if pg then
@@ -915,7 +860,6 @@ local SilentAimModule = (function()
         end
     end)
 
-    -- Keyboard input for skills
     UIS.InputBegan:Connect(function(input, gp)
         if gp then return end
         local keyMap = { [Enum.KeyCode.Z]="Z", [Enum.KeyCode.X]="X", [Enum.KeyCode.C]="C", [Enum.KeyCode.V]="V", [Enum.KeyCode.F]="F" }
@@ -923,7 +867,6 @@ local SilentAimModule = (function()
         if key then setCurrentSkillKey(key) end
     end)
 
-    -- Public API
     function module:SetPlayerSilentAim(state)
         SilentAimPlayersEnabled = state
         if state then startRenderLoop() else if not SilentAimNPCsEnabled then stopRenderLoop() end end
@@ -936,81 +879,125 @@ local SilentAimModule = (function()
     function module:SetTargetPriority(prio) TargetPriority = prio end
     function module:SetShowFOVCircle(state) ShowFOVCircle = state; if not state then FOVFrame.Visible = false end end
     function module:SetFOVRadius(radius) FOVRadius = radius end
-    function module:SetFOVMode(mode) FOVMode = mode end  -- "V1" or "V2"
+    function module:SetFOVMode(mode) FOVMode = mode end
     function module:SetDistanceLimit(dist) maxRange = dist end
     function module:SetSelectedPlayer(name)
-        if name and name ~= "None" then
-            Selectedplayer = Players:FindFirstChild(name)
-        else Selectedplayer = nil end
+        if name and name ~= "None" then Selectedplayer = Players:FindFirstChild(name) else Selectedplayer = nil end
     end
     function module:SetBlacklistKey(cat, key, state)
-        if BlacklistedKeys[cat] and BlacklistedKeys[cat][key] ~= nil then
-            BlacklistedKeys[cat][key] = state
-        end
+        if BlacklistedKeys[cat] and BlacklistedKeys[cat][key] ~= nil then BlacklistedKeys[cat][key] = state end
     end
     function module:GetTargetPos() return PlayersPosition or NPCPosition end
     return module
 end)()
 
 --//===========================================================
---// EXTRA FEATURES
+--// EXTRA FEATURES (FLOATING FIXED + SORU FIXED)
 --//===========================================================
 
--- Soru Aimbot (auto-F)
-local SoruEnabled = false
-local SoruCooldown = 0
-local function SoruUpdate()
-    if not SoruEnabled or not VirtualInputManager then return end
-    if tick() < SoruCooldown then return end
-    local targetPos = SilentAimModule:GetTargetPos()
-    if not targetPos then return end
+-- Anti-Floating: forces character down if floating
+local antiFloatTimer = 0
+local function AntiFloatUpdate()
     local char = Player.Character
-    if char and char:FindFirstChild("HumanoidRootPart") then
-        local hrp = char.HumanoidRootPart
-        local dist = (targetPos - hrp.Position).Magnitude
-        if dist > 25 then return end
-        pcall(function()
-            local commF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
-            if commF then
-                commF:InvokeServer("Flashstep", targetPos)
-            else
-                hrp.CFrame = CFrame.new(targetPos + Vector3.new(0,3,0))
-            end
-        end)
-        SoruCooldown = tick() + 1.5
+    if not char then return end
+    local hum = char:FindFirstChild("Humanoid")
+    if not hum then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    -- Check if floating (in air but not jumping, no velocity)
+    if hum.FloorMaterial == Enum.Material.Air and hum:GetState() ~= Enum.HumanoidStateType.Jumping then
+        antiFloatTimer = antiFloatTimer + 0.1
+        if antiFloatTimer > 0.5 then
+            -- Force them down slightly to fix floating glitch
+            hrp.Velocity = Vector3.new(hrp.Velocity.X, -0.5, hrp.Velocity.Z)
+            antiFloatTimer = 0
+        end
+    else
+        antiFloatTimer = 0
     end
 end
 
--- Infinite Jump (hold to rise)
-local InfiniteJump = false
-local spaceHeld = false
+-- Soru Aimbot (teleport onto target) - FIXED
+local SoruEnabled = false
+local SoruCooldown = 0
+local FlashstepRemote = nil
 
+-- Find Flashstep remote
+task.spawn(function()
+    local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+    if remotes then
+        FlashstepRemote = remotes:FindFirstChild("CommF_")
+    end
+    if not FlashstepRemote then
+        -- Try other locations
+        for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
+            if obj.Name == "CommF_" or obj.Name == "Flashstep" then
+                if obj:IsA("RemoteFunction") or obj:IsA("RemoteEvent") then
+                    FlashstepRemote = obj
+                    break
+                end
+            end
+        end
+    end
+    print("Ivory Hub: Flashstep remote found:", FlashstepRemote and "yes" or "no")
+end)
+
+local function SoruTeleport(targetPos)
+    if not targetPos then return false end
+    local char = Player.Character
+    if not char then return false end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return false end
+
+    -- Check distance
+    local dist = (targetPos - hrp.Position).Magnitude
+    if dist > 30 then return false end
+
+    -- Teleport using Flashstep remote
+    pcall(function()
+        if FlashstepRemote then
+            FlashstepRemote:InvokeServer("Flashstep", targetPos)
+        else
+            hrp.CFrame = CFrame.new(targetPos + Vector3.new(0, 3, 0))
+        end
+    end)
+    return true
+end
+
+-- Intercept F key and teleport to target
 UIS.InputBegan:Connect(function(input, gpe)
     if gpe then return end
-    if input.KeyCode == Enum.KeyCode.Space then
-        spaceHeld = true
-    end
-end)
-UIS.InputEnded:Connect(function(input, gpe)
-    if gpe then return end
-    if input.KeyCode == Enum.KeyCode.Space then
-        spaceHeld = false
+    if input.KeyCode == Enum.KeyCode.F and SoruEnabled then
+        local targetPos = SilentAimModule:GetTargetPos()
+        if targetPos then
+            local success = SoruTeleport(targetPos)
+            if success then
+                SoruCooldown = tick() + 1.5
+                -- Prevent default Flashstep
+                return
+            end
+        end
     end
 end)
 
-local function InfiniteJumpUpdate()
-    if not InfiniteJump then return end
-    if not spaceHeld then return end
+-- Auto V4
+local AutoV4Enabled = false
+local function AutoV4Update()
+    if not AutoV4Enabled then return end
     local char = Player.Character
     if not char then return end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-    -- Apply upward velocity
-    hrp.Velocity = Vector3.new(hrp.Velocity.X, 50, hrp.Velocity.Z)
-    -- Also set humanoid to jumping state to prevent fall animation
-    local hum = char:FindFirstChild("Humanoid")
-    if hum and hum:GetState() ~= Enum.HumanoidStateType.Jumping then
-        hum:ChangeState(Enum.HumanoidStateType.Jumping)
+    local raceEnergy = char:GetAttribute("RaceEnergy")
+    if raceEnergy and raceEnergy >= 100 then
+        local awk = Player.Backpack:FindFirstChild("Awakening") or char:FindFirstChild("Awakening")
+        if awk and awk:FindFirstChild("RemoteFunction") then
+            awk.RemoteFunction:InvokeServer(true)
+        else
+            local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+            if remotes and remotes:FindFirstChild("CommF_") then
+                remotes.CommF_:InvokeServer("Awakening", true)
+            end
+        end
     end
 end
 
@@ -1020,20 +1007,58 @@ local function NoClipUpdate()
     local char = Player.Character
     if not char then return end
     for _, part in pairs(char:GetDescendants()) do
-        if part:IsA("BasePart") then part.CanCollide = not NoClip end
+        if part:IsA("BasePart") then
+            part.CanCollide = not NoClip
+        end
     end
 end
 
 -- Anti-AFK
 local AntiAFK = false
+local antiAFKTimer = 0
 local function AntiAFKUpdate()
     if not AntiAFK then return end
+    antiAFKTimer = antiAFKTimer + 0.1
+    if antiAFKTimer < 5 then return end
+    antiAFKTimer = 0
     local char = Player.Character
     if char and char:FindFirstChild("Humanoid") then
         local hum = char.Humanoid
         hum:Move(Vector3.new(1,0,0), true)
         task.wait(0.1)
         hum:Move(Vector3.new(-1,0,0), true)
+    end
+end
+
+-- Walk on Water
+local WalkOnWater = false
+local waterPlatform = nil
+local function WalkOnWaterUpdate()
+    if not WalkOnWater then
+        if waterPlatform then waterPlatform:Destroy(); waterPlatform = nil end
+        return
+    end
+    local char = Player.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    if hrp.Position.Y < 1.5 then
+        if not waterPlatform then
+            waterPlatform = Instance.new("Part")
+            waterPlatform.Size = Vector3.new(30, 1, 30)
+            waterPlatform.Transparency = 1
+            waterPlatform.Anchored = true
+            waterPlatform.CanCollide = true
+            waterPlatform.Material = Enum.Material.SmoothPlastic
+            waterPlatform.Name = "WaterPlatform"
+            waterPlatform.Parent = workspace
+        end
+        waterPlatform.Position = Vector3.new(hrp.Position.X, 0, hrp.Position.Z)
+        waterPlatform.CanCollide = true
+    else
+        if waterPlatform then
+            waterPlatform.CanCollide = false
+        end
     end
 end
 
@@ -1203,18 +1228,21 @@ local RunningLoop = nil
 local function StartLoop()
     if RunningLoop then return end
     RunningLoop = RunService.Heartbeat:Connect(function()
-        SoruUpdate()
-        InfiniteJumpUpdate()
+        AutoV4Update()
+        AntiFloatUpdate()
         NoClipUpdate()
         AntiAFKUpdate()
-        ESPUpdate()
+        WalkOnWaterUpdate()
+        if ESPEnabled then
+            ESPUpdate()
+        end
     end)
 end
 local function StopLoop()
     if RunningLoop then RunningLoop:Disconnect(); RunningLoop = nil end
 end
 local function CheckLoop()
-    if SoruEnabled or InfiniteJump or NoClip or AntiAFK or ESPEnabled then
+    if SoruEnabled or AutoV4Enabled or NoClip or AntiAFK or WalkOnWater or ESPEnabled then
         StartLoop()
     else
         StopLoop()
@@ -1225,12 +1253,12 @@ end
 --// BUILD UI PAGES
 --//===========================================================
 Section(MainPage, "MAIN")
-local welcomeLabel = Text(MainPage, "Ivory Hub – Obsidian Silent Aim", 12, true)
+local welcomeLabel = Text(MainPage, "Ivory Hub – Final (No Floating)", 12, true)
 welcomeLabel.Size = UDim2.new(1,0,0,22)
 welcomeLabel.TextColor3 = WHITE
 welcomeLabel.TextXAlignment = Enum.TextXAlignment.Center
 
-local subLabel = Text(MainPage, "Compact • Mobile • Hold Jump", 10, false)
+local subLabel = Text(MainPage, "Floating fixed • Soru fixed", 10, false)
 subLabel.Size = UDim2.new(1,0,0,18)
 subLabel.TextColor3 = GRAY
 subLabel.TextXAlignment = Enum.TextXAlignment.Center
@@ -1244,12 +1272,10 @@ Toggle(CombatPage, "NPC Silent Aim", false, function(s)
     SilentAimModule:SetNPCSilentAim(s)
 end)
 
--- Aim Mode
 Dropdown(CombatPage, "Aim Mode", {"360", "180", "FOV"}, "360", function(v)
     SilentAimModule:SetAimMode(v)
 end)
 
--- Target Priority
 local priorityDropdown = Dropdown(CombatPage, "Target Priority", {"Nearest", "Low HP", "Looking At Me", "Lock Player"}, "Nearest", function(v)
     SilentAimModule:SetTargetPriority(v)
     local lockPlayerGroup = CombatPage:FindFirstChild("LockPlayerGroup")
@@ -1258,7 +1284,6 @@ local priorityDropdown = Dropdown(CombatPage, "Target Priority", {"Nearest", "Lo
     end
 end)
 
--- Lock Player dropdown
 local lockPlayerGroup = Instance.new("Frame")
 lockPlayerGroup.Name = "LockPlayerGroup"
 lockPlayerGroup.Size = UDim2.new(1, -20, 0, 32)
@@ -1266,7 +1291,6 @@ lockPlayerGroup.BackgroundTransparency = 1
 lockPlayerGroup.Visible = false
 lockPlayerGroup.Parent = CombatPage
 
-local playerList = {"None"}
 local function refreshPlayerList()
     local list = {"None"}
     for _, p in ipairs(Players:GetPlayers()) do
@@ -1285,7 +1309,6 @@ task.spawn(function()
     end
 end)
 
--- FOV settings
 Section(CombatPage, "FOV SETTINGS")
 Toggle(CombatPage, "Show FOV Circle", false, function(s)
     SilentAimModule:SetShowFOVCircle(s)
@@ -1297,22 +1320,22 @@ Dropdown(CombatPage, "FOV Mode", {"V1 (Screen Center)", "V2 (Mouse Position)"}, 
     local mode = (v == "V1 (Screen Center)") and "V1" or "V2"
     SilentAimModule:SetFOVMode(mode)
 end)
-
--- Range
 Slider(CombatPage, "Max Range", 1000, 100, 3000, function(v)
     SilentAimModule:SetDistanceLimit(v)
 end, "m")
 
--- Extras
 Section(CombatPage, "EXTRAS")
 Toggle(CombatPage, "Soru Aimbot (F)", false, function(s)
     SoruEnabled = s
     CheckLoop()
 end)
+Toggle(CombatPage, "Auto V4", false, function(s)
+    AutoV4Enabled = s
+    CheckLoop()
+end)
 
 -- Blacklist page
 Section(BlacklistPage, "BLACKLIST KEYS")
-
 local function addBlacklistGroup(cat, keys)
     Section(BlacklistPage, cat)
     for _, key in ipairs(keys) do
@@ -1328,16 +1351,16 @@ addBlacklistGroup("Gun", {"Z","X"})
 
 -- Player page
 Section(PlayerPage, "PLAYER EXTRAS")
-Toggle(PlayerPage, "Infinite Jump (Hold)", false, function(s)
-    InfiniteJump = s
-    CheckLoop()
-end)
 Toggle(PlayerPage, "No Clip", false, function(s)
     NoClip = s
     CheckLoop()
 end)
 Toggle(PlayerPage, "Anti-AFK", false, function(s)
     AntiAFK = s
+    CheckLoop()
+end)
+Toggle(PlayerPage, "Walk on Water", false, function(s)
+    WalkOnWater = s
     CheckLoop()
 end)
 
@@ -1366,7 +1389,7 @@ Button(SettingsPage, "Show Notification", function()
     local T = Text(Notification,"IVORY HUB",13,true)
     T.Position = UDim2.new(0,12,0,6)
     T.Size = UDim2.new(1,-20,0,18)
-    local M = Text(Notification,"Loaded! Tap 'I' to toggle.",10,false)
+    local M = Text(Notification,"Floating fixed • Soru fixed",10,false)
     M.TextColor3 = GRAY
     M.Position = UDim2.new(0,12,0,28)
     M.Size = UDim2.new(1,-20,0,16)
@@ -1378,30 +1401,39 @@ Button(SettingsPage, "Show Notification", function()
 end)
 
 Button(SettingsPage, "Reset All Toggles", function()
-    -- Reset all toggles to default (off)
-    -- We need to find all toggle holders and set them off
     for _, page in pairs(Pages) do
         for _, child in ipairs(page:GetChildren()) do
             if child:IsA("Frame") and child:FindFirstChildOfClass("TextButton") then
                 local toggleBtn = child:FindFirstChildWhichIsA("TextButton")
-                if toggleBtn and toggleBtn.Size.X.Offset == 30 then -- approximate toggle switch
+                if toggleBtn and toggleBtn.Size.X.Offset == 30 then
                     toggleBtn.MouseButton1Click:Fire()
                 end
             end
         end
     end
-    -- Also reset silent aim toggles
     SilentAimModule:SetPlayerSilentAim(false)
     SilentAimModule:SetNPCSilentAim(false)
     SilentAimModule:SetShowFOVCircle(false)
     SoruEnabled = false
-    InfiniteJump = false
+    AutoV4Enabled = false
     NoClip = false
     AntiAFK = false
+    WalkOnWater = false
     ESPEnabled = false
     CheckLoop()
-    -- Also reset any blacklists? We'll skip that, just reset toggles.
-    Library:Notify({ Title = "Reset", Description = "All toggles reset to default.", Time = 3 })
+    local notif = Instance.new("Frame")
+    notif.Size = UDim2.new(0,200,0,40)
+    notif.Position = UDim2.new(0.5,-100,0.3,0)
+    notif.BackgroundColor3 = BLACK
+    notif.BorderColor3 = WHITE
+    notif.BorderSizePixel = 1
+    notif.Parent = Gui
+    Corner(notif,8)
+    local lbl = Text(notif,"All toggles reset",11,true)
+    lbl.Size = UDim2.new(1,-10,1,0)
+    lbl.Position = UDim2.new(0,5,0,0)
+    lbl.TextXAlignment = Enum.TextXAlignment.Center
+    task.delay(2, function() notif:Destroy() end)
 end)
 
 Button(SettingsPage, "Unload UI", function()
@@ -1410,14 +1442,12 @@ end)
 
 Button(SettingsPage, "Print Info", function()
     print("================================")
-    print("IVORY HUB - Compact Edition")
-    print("Features: Silent Aim (Players/NPC), FOV, Soru, Jump Hold, ESP")
+    print("IVORY HUB - Final (No Floating)")
+    print("Features: Silent Aim, FOV, Soru (fixed), Auto V4, Walk Water, ESP")
     print("Creators: Ivory & Rayo")
-    print("Discord: Ivory999 / rayo06996")
     print("================================")
 end)
 
--- Keybind info
 local keybindLabel = Text(SettingsPage, "Toggle key: RightShift", 10, false)
 keybindLabel.Size = UDim2.new(1,0,0,20)
 keybindLabel.TextColor3 = GRAY
@@ -1454,7 +1484,7 @@ Discord2.TextColor3 = GRAY
 Discord2.Position = UDim2.new(0,12,0,34)
 Discord2.Size = UDim2.new(1,-24,0,16)
 
-local Version = Text(CreditsPage,"Ivory Hub v2.0 • Compact • Obsidian Aim",9,false)
+local Version = Text(CreditsPage,"Ivory Hub v3.3 • Final",9,false)
 Version.TextColor3 = GRAY
 Version.Size = UDim2.new(1,0,0,18)
 
@@ -1559,8 +1589,9 @@ end)
 --//===========================================================
 CheckLoop()
 print("================================")
-print("        IVORY HUB LOADED (Compact)")
+print("        IVORY HUB LOADED (Final)")
 print("================================")
-print("Features: Silent Aim, FOV, Soru, Infinite Jump (Hold), ESP")
+print("Features: Silent Aim (FOV fixed), Soru (teleport to target), Auto V4, Walk on Water, ESP")
+print("Floating glitch fixed • No Infinite Jump")
 print("Creators: Ivory & Rayo")
 print("================================")
