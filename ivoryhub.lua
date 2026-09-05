@@ -5,7 +5,7 @@
 --// Ivory  | Discord: Ivory999
 --// Rayo   | Discord: rayo06996
 --//
---// Mobile Edition – Focused: Silent Aim, Soru Aimbot, Walkspeed, Gun M1
+--// Mobile Edition – Silent Aim, Soru, Walkspeed Slider, Fixed ESP
 --// =========================================================
 
 local Players = game:GetService("Players")
@@ -80,8 +80,8 @@ Gui.Parent = PlayerGui
 --// MAIN
 --//=========================================================
 local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0,520,0,340)
-Main.Position = UDim2.new(0.5,-260,0.5,-170)
+Main.Size = UDim2.new(0,520,0,380)
+Main.Position = UDim2.new(0.5,-260,0.5,-190)
 Main.BackgroundColor3 = BLACK
 Main.BorderSizePixel = 0
 Main.Parent = Gui
@@ -237,25 +237,25 @@ local function Button(parent,text,callback)
 end
 
 --//=========================================================
---// TOGGLE – shows ON/OFF
+--// TOGGLE – shows ON/OFF (slightly smaller for slider)
 --//=========================================================
-local function Toggle(parent, text, default, callback)
+local function Toggle(parent, text, default, callback, width)
     local State = default or false
     local Holder = Instance.new("Frame")
-    Holder.Size = UDim2.new(1,0,0,42)
+    Holder.Size = UDim2.new(1,0,0,38)
     Holder.BackgroundColor3 = DARKER
     Holder.BorderSizePixel = 0
     Holder.Parent = parent
     Corner(Holder,8)
     AddStroke(Holder)
 
-    local Label = Text(Holder, text .. ": OFF", 13, false)
+    local Label = Text(Holder, text .. ": OFF", 12, false)
     Label.Position = UDim2.new(0,13,0,0)
     Label.Size = UDim2.new(1,-70,1,0)
 
     local Switch = Instance.new("TextButton")
-    Switch.Size = UDim2.new(0,42,0,22)
-    Switch.Position = UDim2.new(1,-54,.5,-11)
+    Switch.Size = UDim2.new(0,36,0,20)
+    Switch.Position = UDim2.new(1,-46,.5,-10)
     Switch.BackgroundColor3 = Color3.fromRGB(35,35,35)
     Switch.Text = ""
     Switch.BorderSizePixel = 0
@@ -263,8 +263,8 @@ local function Toggle(parent, text, default, callback)
     Corner(Switch,20)
 
     local Circle = Instance.new("Frame")
-    Circle.Size = UDim2.new(0,16,0,16)
-    Circle.Position = UDim2.new(0,3,.5,-8)
+    Circle.Size = UDim2.new(0,14,0,14)
+    Circle.Position = UDim2.new(0,3,.5,-7)
     Circle.BackgroundColor3 = GRAY
     Circle.BorderSizePixel = 0
     Circle.Parent = Switch
@@ -273,11 +273,11 @@ local function Toggle(parent, text, default, callback)
     local function Update()
         if State then
             Tween(Switch,.2,{BackgroundColor3 = WHITE})
-            Tween(Circle,.2,{Position = UDim2.new(1,-19,.5,-8), BackgroundColor3 = BLACK})
+            Tween(Circle,.2,{Position = UDim2.new(1,-17,.5,-7), BackgroundColor3 = BLACK})
             Label.Text = text .. ": ON"
         else
             Tween(Switch,.2,{BackgroundColor3 = Color3.fromRGB(35,35,35)})
-            Tween(Circle,.2,{Position = UDim2.new(0,3,.5,-8), BackgroundColor3 = GRAY})
+            Tween(Circle,.2,{Position = UDim2.new(0,3,.5,-7), BackgroundColor3 = GRAY})
             Label.Text = text .. ": OFF"
         end
         if callback then callback(State) end
@@ -293,6 +293,165 @@ local function Toggle(parent, text, default, callback)
 end
 
 --//=========================================================
+--// SLIDER TOGGLE (combines toggle + slider)
+--//=========================================================
+local function SliderToggle(parent, text, default, minVal, maxVal, defaultSpeed, callback)
+    local State = default or false
+    local Speed = defaultSpeed or 50
+    local Holder = Instance.new("Frame")
+    Holder.Size = UDim2.new(1,0,0,58)
+    Holder.BackgroundColor3 = DARKER
+    Holder.BorderSizePixel = 0
+    Holder.Parent = parent
+    Corner(Holder,8)
+    AddStroke(Holder)
+
+    local Label = Text(Holder, text .. ": OFF", 12, false)
+    Label.Position = UDim2.new(0,13,0,4)
+    Label.Size = UDim2.new(0,100,1,0)
+
+    local Switch = Instance.new("TextButton")
+    Switch.Size = UDim2.new(0,36,0,20)
+    Switch.Position = UDim2.new(0,13,.5,-6)
+    Switch.BackgroundColor3 = Color3.fromRGB(35,35,35)
+    Switch.Text = ""
+    Switch.BorderSizePixel = 0
+    Switch.Parent = Holder
+    Corner(Switch,20)
+
+    local Circle = Instance.new("Frame")
+    Circle.Size = UDim2.new(0,14,0,14)
+    Circle.Position = UDim2.new(0,3,.5,-7)
+    Circle.BackgroundColor3 = GRAY
+    Circle.BorderSizePixel = 0
+    Circle.Parent = Switch
+    Corner(Circle,20)
+
+    local SliderBg = Instance.new("Frame")
+    SliderBg.Size = UDim2.new(0,160,0,4)
+    SliderBg.Position = UDim2.new(0,140,.5,8)
+    SliderBg.BackgroundColor3 = Color3.fromRGB(45,45,45)
+    SliderBg.BorderSizePixel = 0
+    SliderBg.Parent = Holder
+    Corner(SliderBg,2)
+
+    local SliderFill = Instance.new("Frame")
+    SliderFill.Size = UDim2.new(0.5,0,1,0)
+    SliderFill.BackgroundColor3 = WHITE
+    SliderFill.BorderSizePixel = 0
+    SliderFill.Parent = SliderBg
+    Corner(SliderFill,2)
+
+    local Knob = Instance.new("TextButton")
+    Knob.Size = UDim2.new(0,16,0,16)
+    Knob.Position = UDim2.new(0.5,-8,0.5,-8)
+    Knob.BackgroundColor3 = WHITE
+    Knob.Text = ""
+    Knob.BorderSizePixel = 0
+    Knob.Parent = SliderBg
+    Corner(Knob,20)
+
+    local ValueLabel = Text(Holder, tostring(Speed), 12, false)
+    ValueLabel.TextColor3 = GRAY
+    ValueLabel.Position = UDim2.new(1,-50,0,0)
+    ValueLabel.Size = UDim2.new(0,40,1,0)
+    ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
+
+    local function UpdateToggle()
+        if State then
+            Tween(Switch,.2,{BackgroundColor3 = WHITE})
+            Tween(Circle,.2,{Position = UDim2.new(1,-17,.5,-7), BackgroundColor3 = BLACK})
+            Label.Text = text .. ": ON"
+            SliderBg.Visible = true
+            ValueLabel.Visible = true
+        else
+            Tween(Switch,.2,{BackgroundColor3 = Color3.fromRGB(35,35,35)})
+            Tween(Circle,.2,{Position = UDim2.new(0,3,.5,-7), BackgroundColor3 = GRAY})
+            Label.Text = text .. ": OFF"
+            SliderBg.Visible = false
+            ValueLabel.Visible = false
+        end
+        if callback then callback(State, Speed) end
+    end
+
+    local function UpdateSlider(value)
+        local clamped = math.clamp(value, minVal, maxVal)
+        Speed = clamped
+        local ratio = (clamped - minVal) / (maxVal - minVal)
+        SliderFill.Size = UDim2.new(ratio,0,1,0)
+        Knob.Position = UDim2.new(ratio,-8,0.5,-8)
+        ValueLabel.Text = tostring(math.floor(clamped))
+        if State and callback then callback(State, Speed) end
+    end
+
+    local DraggingKnob = false
+    local function StartDrag(input)
+        DraggingKnob = true
+    end
+
+    local function EndDrag()
+        DraggingKnob = false
+    end
+
+    local function UpdateDrag(input)
+        if not DraggingKnob then return end
+        local pos = input.Position
+        local sliderAbsPos = SliderBg.AbsolutePosition
+        local sliderSize = SliderBg.AbsoluteSize.X
+        local relativeX = math.clamp(pos.X - sliderAbsPos.X, 0, sliderSize)
+        local ratio = relativeX / sliderSize
+        local value = minVal + ratio * (maxVal - minVal)
+        UpdateSlider(value)
+    end
+
+    Knob.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            StartDrag(input)
+        end
+    end)
+
+    Knob.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            EndDrag()
+        end
+    end)
+
+    UIS.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            UpdateDrag(input)
+        end
+    end)
+
+    SliderBg.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            local pos = input.Position
+            local sliderAbsPos = SliderBg.AbsolutePosition
+            local sliderSize = SliderBg.AbsoluteSize.X
+            local relativeX = math.clamp(pos.X - sliderAbsPos.X, 0, sliderSize)
+            local ratio = relativeX / sliderSize
+            local value = minVal + ratio * (maxVal - minVal)
+            UpdateSlider(value)
+        end
+    end)
+
+    Switch.MouseButton1Click:Connect(function()
+        State = not State
+        UpdateToggle()
+    end)
+
+    UpdateSlider(Speed)
+    UpdateToggle()
+
+    return {
+        Holder = Holder,
+        GetState = function() return State end,
+        GetSpeed = function() return Speed end,
+        SetSpeed = function(v) UpdateSlider(v) end,
+        Toggle = function() State = not State; UpdateToggle() end
+    }
+end
+
+--//=========================================================
 --// PAGES
 --//=========================================================
 local MainPage   = CreatePage("Main")
@@ -305,18 +464,15 @@ local CreditsPage = CreatePage("Credits")
 --//=========================================================
 --// FEATURE STATES
 --//=========================================================
--- Combat (main four)
 local SilentAim      = false
-local SoruAimbot     = false   -- Soru = Flash Step key F
-local Walkspeed      = false
-local GunM1          = false
+local SoruAimbot     = false
+local WalkspeedState = false
+local WalkspeedValue = 50
 
--- Player extras
 local InfiniteJump   = false
 local NoClip         = false
 local AntiAFK        = false
 
--- Visuals (ESP)
 local ESPEnabled     = false
 local ESPBox         = false
 local ESPName        = false
@@ -351,19 +507,8 @@ local function GetNearestPlayer()
     return nearest, dist
 end
 
-local function HasGunEquipped()
-    local char = Player.Character
-    if not char then return false end
-    for _, tool in pairs(char:GetChildren()) do
-        if tool:IsA("Tool") and (tool.Name:lower():find("gun") or tool.Name:lower():find("rifle") or tool.Name:lower():find("pistol") or tool.Name:lower():find("cannon") or tool:FindFirstChild("Handle")) then
-            return true
-        end
-    end
-    return false
-end
-
 --//=========================================================
---// COMBAT UPDATES (mobile compatible)
+--// COMBAT UPDATES
 --//=========================================================
 local function SilentAimUpdate()
     if not SilentAim then return end
@@ -385,37 +530,23 @@ local function SoruAimbotUpdate()
     if not SoruAimbot or not VIM then return end
     local target, dist = GetNearestPlayer()
     if not target or dist > 25 then return end
-    -- Simulate Soru (Flash Step) key F
     VIM:SendKeyEvent(true, Enum.KeyCode.F, false, game)
     task.wait(0.05)
     VIM:SendKeyEvent(false, Enum.KeyCode.F, false, game)
 end
 
 local function WalkspeedUpdate()
-    if not Walkspeed then
-        local char = Player.Character
-        if char and char:FindFirstChild("Humanoid") then
-            if char.Humanoid.WalkSpeed ~= 16 then
-                char.Humanoid.WalkSpeed = 16
-            end
-        end
-        return
-    end
     local char = Player.Character
-    if char and char:FindFirstChild("Humanoid") then
-        char.Humanoid.WalkSpeed = 50
+    if not char then return end
+    local hum = char:FindFirstChild("Humanoid")
+    if not hum then return end
+    if WalkspeedState then
+        hum.WalkSpeed = WalkspeedValue
+    else
+        if hum.WalkSpeed ~= 16 then
+            hum.WalkSpeed = 16
+        end
     end
-end
-
-local function GunM1Update()
-    if not GunM1 or not VIM then return end
-    if not HasGunEquipped() then return end
-    local target, dist = GetNearestPlayer()
-    if not target or dist > 25 then return end
-    VIM:SendMouseButtonEvent(1, true, game, 0, 0)
-    task.wait(0.05)
-    VIM:SendMouseButtonEvent(1, false, game, 0, 0)
-    task.wait(0.2)
 end
 
 --//=========================================================
@@ -470,13 +601,14 @@ local function AntiAFKUpdate()
 end
 
 --//=========================================================
---// ESP SYSTEM (unchanged)
+--// ESP SYSTEM (FIXED)
 --//=========================================================
 local ESPObjects = {}
 local function CreateESP()
     local ESPGui = Instance.new("ScreenGui")
     ESPGui.Name = "ESPOverlay"
     ESPGui.IgnoreGuiInset = true
+    ESPGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     ESPGui.Parent = Gui
 
     local function AddESPForPlayer(plr)
@@ -486,41 +618,47 @@ local function CreateESP()
         container.Size = UDim2.new(0,0,0,0)
         container.Parent = ESPGui
 
+        -- Box (white outline)
         local box = Instance.new("Frame")
-        box.BackgroundTransparency = 0.5
+        box.BackgroundTransparency = 0.3
         box.BackgroundColor3 = WHITE
         box.BorderSizePixel = 1
         box.BorderColor3 = WHITE
         box.Visible = false
         box.Parent = container
 
+        -- Name (just above head)
         local nameLabel = Instance.new("TextLabel")
         nameLabel.BackgroundTransparency = 1
         nameLabel.Text = plr.Name
         nameLabel.TextColor3 = WHITE
         nameLabel.TextSize = 12
         nameLabel.Font = Enum.Font.GothamBold
-        nameLabel.Size = UDim2.new(0,100,0,18)
+        nameLabel.TextXAlignment = Enum.TextXAlignment.Center
+        nameLabel.Size = UDim2.new(0,120,0,18)
         nameLabel.Parent = container
 
+        -- Health bar (below box)
         local healthBg = Instance.new("Frame")
         healthBg.BackgroundColor3 = Color3.fromRGB(20,20,20)
         healthBg.BorderSizePixel = 0
-        healthBg.Size = UDim2.new(0,100,0,4)
+        healthBg.Size = UDim2.new(0,0,0,4) -- will be sized in update
         healthBg.Parent = container
 
         local healthFill = Instance.new("Frame")
         healthFill.BackgroundColor3 = GREEN
         healthFill.BorderSizePixel = 0
-        healthFill.Size = UDim2.new(0,100,0,4)
+        healthFill.Size = UDim2.new(1,0,1,0)
         healthFill.Parent = healthBg
 
+        -- Distance (next to name)
         local distLabel = Instance.new("TextLabel")
         distLabel.BackgroundTransparency = 1
         distLabel.Text = ""
         distLabel.TextColor3 = GRAY
         distLabel.TextSize = 10
         distLabel.Font = Enum.Font.Gotham
+        distLabel.TextXAlignment = Enum.TextXAlignment.Right
         distLabel.Size = UDim2.new(0,60,0,16)
         distLabel.Parent = container
 
@@ -558,39 +696,47 @@ local function CreateESP()
                 if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") then
                     local root = char.HumanoidRootPart
                     local hum = char.Humanoid
-                    local pos, onScreen = Camera:WorldToScreenPoint(root.Position)
+                    local head = char:FindFirstChild("Head") or root
+                    -- Get screen positions for head and feet
+                    local headPos, onScreen = Camera:WorldToScreenPoint(head.Position)
+                    local footPos, _ = Camera:WorldToScreenPoint(root.Position - Vector3.new(0, 2, 0)) -- approximate feet
                     if onScreen then
                         data.container.Visible = true
-                        local head = char:FindFirstChild("Head") or root
-                        local headPos, _ = Camera:WorldToScreenPoint(head.Position)
-                        local rootPos, _ = Camera:WorldToScreenPoint(root.Position)
-                        local height = (headPos.Y - rootPos.Y) * 1.2
-                        local width = height * 0.6
+                        -- Calculate height and width
+                        local height = math.abs(headPos.Y - footPos.Y) * 0.9  -- slightly less than full
+                        local width = height * 0.5
+                        -- Position container so that the box top is at head, bottom at feet
+                        local boxTop = headPos.Y - height
+                        local boxLeft = headPos.X - width/2
+                        data.container.Position = UDim2.new(0, boxLeft, 0, boxTop)
+                        data.container.Size = UDim2.new(0, width, 0, height)
 
-                        data.container.Position = UDim2.new(0, pos.X - width/2, 0, pos.Y - height - 20)
-                        data.container.Size = UDim2.new(0, width, 0, height + 20)
-
+                        -- Box
                         if ESPBox then
                             data.box.Visible = true
-                            data.box.Size = UDim2.new(1,0,1,-20)
+                            data.box.Size = UDim2.new(1,0,1,0)
                             data.box.Position = UDim2.new(0,0,0,0)
                         else
                             data.box.Visible = false
                         end
 
+                        -- Name – placed just above the box (16 pixels above head)
                         if ESPName then
                             data.name.Visible = true
                             data.name.Text = plr.Name
-                            data.name.Size = UDim2.new(1,0,0,18)
-                            data.name.Position = UDim2.new(0,0,0,-18)
+                            data.name.Size = UDim2.new(0, width * 1.2, 0, 18)
+                            data.name.Position = UDim2.new(-0.1, 0, -1.2, -2) -- above box
+                            data.name.TextScaled = false
+                            data.name.TextSize = 12
                         else
                             data.name.Visible = false
                         end
 
+                        -- Health bar – placed below the box (at bottom + 4px)
                         if ESPHealth then
                             data.healthBg.Visible = true
                             data.healthBg.Size = UDim2.new(1,0,0,4)
-                            data.healthBg.Position = UDim2.new(0,0,1,-4)
+                            data.healthBg.Position = UDim2.new(0,0,1,4) -- below box
                             local healthPercent = hum.Health / hum.MaxHealth
                             data.healthFill.Size = UDim2.new(healthPercent,0,1,0)
                             if healthPercent > 0.5 then
@@ -604,12 +750,14 @@ local function CreateESP()
                             data.healthBg.Visible = false
                         end
 
+                        -- Distance – next to name (top right)
                         if ESPDistance then
                             data.dist.Visible = true
                             local dist = (root.Position - Camera.CFrame.Position).Magnitude
-                            data.dist.Text = math.floor(dist) .. " m"
+                            data.dist.Text = math.floor(dist) .. "m"
                             data.dist.Size = UDim2.new(0,60,0,16)
-                            data.dist.Position = UDim2.new(1,-60,0,-16)
+                            data.dist.Position = UDim2.new(1, -5, -1.2, -2) -- top right of box
+                            data.dist.TextXAlignment = Enum.TextXAlignment.Right
                         else
                             data.dist.Visible = false
                         end
@@ -641,7 +789,6 @@ local function StartPVPLoop()
         SilentAimUpdate()
         SoruAimbotUpdate()
         WalkspeedUpdate()
-        GunM1Update()
         NoClipUpdate()
         AntiAFKUpdate()
         ESPUpdate()
@@ -656,7 +803,7 @@ local function StopPVPLoop()
 end
 
 local function CheckLoopState()
-    if SilentAim or SoruAimbot or Walkspeed or GunM1 or NoClip or AntiAFK or ESPEnabled or InfiniteJump then
+    if SilentAim or SoruAimbot or WalkspeedState or NoClip or AntiAFK or ESPEnabled or InfiniteJump then
         StartPVPLoop()
     else
         StopPVPLoop()
@@ -673,32 +820,24 @@ Toggle(MainPage, "Welcome Feature", false, function(state)
     print("[IVORY] Welcome:", state)
 end)
 
--- COMBAT page – main four
+-- COMBAT page
 Section(CombatPage, "COMBAT")
 Toggle(CombatPage, "180° Silent Aim", false, function(state)
     SilentAim = state
     CheckLoopState()
 end)
-Toggle(CombatPage, "Soru Aimbot (F)", false, function(state)   -- renamed
+Toggle(CombatPage, "Soru Aimbot (F)", false, function(state)
     SoruAimbot = state
     CheckLoopState()
 end)
-Toggle(CombatPage, "Walkspeed (x2)", false, function(state)
-    Walkspeed = state
-    if not state then
-        local char = Player.Character
-        if char and char:FindFirstChild("Humanoid") then
-            char.Humanoid.WalkSpeed = 16
-        end
-    end
-    CheckLoopState()
-end)
-Toggle(CombatPage, "Gun M1 Aimbot", false, function(state)
-    GunM1 = state
+
+local wsSlider = SliderToggle(CombatPage, "Walkspeed", false, 16, 100, 50, function(state, speed)
+    WalkspeedState = state
+    WalkspeedValue = speed
     CheckLoopState()
 end)
 
--- PLAYER page (extras)
+-- PLAYER page
 Section(PlayerPage, "PLAYER EXTRAS")
 Toggle(PlayerPage, "Infinite Jump", false, function(state)
     InfiniteJump = state
@@ -746,7 +885,7 @@ Button(SettingsPage, "Show Notification", function()
     local T = Text(Notification,"IVORY HUB",14,true)
     T.Position = UDim2.new(0,14,0,8)
     T.Size = UDim2.new(1,-20,0,20)
-    local M = Text(Notification,"Mobile – Silent Aim, Soru, Speed, Gun",11,false)
+    local M = Text(Notification,"Mobile – Silent Aim, Soru, Speed Slider, ESP",11,false)
     M.TextColor3 = GRAY
     M.Position = UDim2.new(0,14,0,32)
     M.Size = UDim2.new(1,-20,0,18)
@@ -762,7 +901,7 @@ end)
 Button(SettingsPage, "Print GUI Info", function()
     print("================================")
     print("IVORY HUB - Mobile Edition")
-    print("Features: 180 Silent Aim, Soru Aimbot, Walkspeed, Gun M1")
+    print("Features: Silent Aim, Soru, Walkspeed Slider, ESP")
     print("Creators: Ivory & Rayo")
     print("================================")
 end)
@@ -913,7 +1052,7 @@ Minimize.MouseButton1Click:Connect(function()
         Tween(Main,.25,{Size = UDim2.new(0,520,0,58)})
         Minimize.Text = "+"
     else
-        Tween(Main,.25,{Size = UDim2.new(0,520,0,340)})
+        Tween(Main,.25,{Size = UDim2.new(0,520,0,380)})
         task.wait(.15)
         Sidebar.Visible = true
         Content.Visible = true
@@ -928,7 +1067,7 @@ Close.MouseButton1Click:Connect(function()
 end)
 
 --//=========================================================
---// OPEN/CLOSE KEY (optional – works on external keyboards)
+--// OPEN/CLOSE KEY (optional)
 --//=========================================================
 UIS.InputBegan:Connect(function(input,gpe)
     if gpe then return end
@@ -945,6 +1084,6 @@ CheckLoopState()
 print("================================")
 print("        IVORY HUB LOADED")
 print("================================")
-print("Mobile – Silent Aim, Soru Aimbot, Walkspeed, Gun M1")
+print("Mobile – Silent Aim, Soru, Walkspeed Slider, Fixed ESP")
 print("Creators: Ivory & Rayo")
 print("================================")
