@@ -1,19 +1,18 @@
 --// ============================================================
---// IVORY HUB – FINAL (ESP REWRITTEN, NO WALK WATER)
+--// IVORY HUB – MOBILE FINAL (ALL WORKING)
 --// ============================================================
-print("Ivory Hub: starting...")
+print("Ivory Hub: starting... (mobile optimized)")
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
-local VirtualInputManager = pcall(function() return game:GetService("VirtualInputManager") end) and game:GetService("VirtualInputManager") or nil
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Player = Players.LocalPlayer
 
---// Find a parent that works
+--// Find a parent that works (mobile: gethui / CoreGui / PlayerGui)
 local function getSafeParent()
     local ok, gui = pcall(gethui)
     if ok and gui and gui.Parent then return gui end
@@ -78,18 +77,18 @@ local function Text(parent, text, size, bold)
 end
 
 --//===========================================================
---// FLOATING TOGGLE BUTTON
+--// FLOATING TOGGLE BUTTON (mobile friendly)
 --//===========================================================
 local ToggleBtn = Instance.new("TextButton")
 ToggleBtn.Name = "IvoryToggle"
-ToggleBtn.Size = UDim2.fromOffset(42,42)
-ToggleBtn.Position = UDim2.new(0, 20, 0.5, -21)
+ToggleBtn.Size = UDim2.fromOffset(48,48)
+ToggleBtn.Position = UDim2.new(0, 20, 0.5, -24)
 ToggleBtn.BackgroundColor3 = BLACK
 ToggleBtn.BorderColor3 = WHITE
 ToggleBtn.BorderSizePixel = 2
 ToggleBtn.Text = "I"
 ToggleBtn.TextColor3 = WHITE
-ToggleBtn.TextSize = 20
+ToggleBtn.TextSize = 22
 ToggleBtn.Font = Enum.Font.GothamBold
 ToggleBtn.AutoButtonColor = false
 ToggleBtn.Parent = Gui
@@ -106,7 +105,7 @@ ToggleBtn.MouseLeave:Connect(function()
 end)
 
 --//===========================================================
---// MAIN WINDOW (COMPACT)
+--// MAIN WINDOW (COMPACT, touch-friendly)
 --//===========================================================
 local Main = Instance.new("Frame")
 Main.Name = "MainWindow"
@@ -137,24 +136,24 @@ SubTitle.Position = UDim2.new(0,15,0,26)
 SubTitle.Size = UDim2.new(0,80,0,14)
 
 local Close = Instance.new("TextButton")
-Close.Size = UDim2.new(0,28,0,28)
-Close.Position = UDim2.new(1,-36,0,10)
+Close.Size = UDim2.new(0,32,0,32)
+Close.Position = UDim2.new(1,-40,0,8)
 Close.BackgroundColor3 = DARKER
 Close.Text = "×"
 Close.TextColor3 = WHITE
-Close.TextSize = 18
+Close.TextSize = 20
 Close.Font = Enum.Font.GothamBold
 Close.BorderSizePixel = 0
 Close.Parent = Top
 Corner(Close,8)
 
 local Minimize = Instance.new("TextButton")
-Minimize.Size = UDim2.new(0,28,0,28)
-Minimize.Position = UDim2.new(1,-68,0,10)
+Minimize.Size = UDim2.new(0,32,0,32)
+Minimize.Position = UDim2.new(1,-76,0,8)
 Minimize.BackgroundColor3 = DARKER
 Minimize.Text = "—"
 Minimize.TextColor3 = WHITE
-Minimize.TextSize = 16
+Minimize.TextSize = 18
 Minimize.Font = Enum.Font.GothamBold
 Minimize.BorderSizePixel = 0
 Minimize.Parent = Top
@@ -456,7 +455,7 @@ local CreditsPage = CreatePage("Credits")
 local AboutPage   = CreatePage("About")
 
 --//===========================================================
---// OBSIDIAN SILENT AIM MODULE (fully functional)
+--// OBSIDIAN SILENT AIM MODULE (mobile compatible)
 --//===========================================================
 local SilentAimModule = (function()
     local module = {}
@@ -490,7 +489,7 @@ local SilentAimModule = (function()
         Gun   = { Z=false, X=false }
     }
 
-    -- FOV circle
+    -- FOV circle (Frame based, for mobile)
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "FOV_System_Ivory"
     ScreenGui.ResetOnSpawn = false
@@ -707,6 +706,7 @@ local SilentAimModule = (function()
         PlayersPosition = nil; NPCPosition = nil
     end
 
+    -- Metatable hooks (for skill redirection)
     local oldIndex, oldNamecall = nil, nil
     local function installHooks()
         if hookmetamethod then
@@ -863,12 +863,7 @@ local SilentAimModule = (function()
         end
     end)
 
-    UIS.InputBegan:Connect(function(input, gp)
-        if gp then return end
-        local keyMap = { [Enum.KeyCode.Z]="Z", [Enum.KeyCode.X]="X", [Enum.KeyCode.C]="C", [Enum.KeyCode.V]="V", [Enum.KeyCode.F]="F" }
-        local key = keyMap[input.KeyCode]
-        if key then setCurrentSkillKey(key) end
-    end)
+    -- For mobile, skill keys are not physical keys, so we rely on mobile button hooks.
 
     function module:SetPlayerSilentAim(state)
         SilentAimPlayersEnabled = state
@@ -895,34 +890,15 @@ local SilentAimModule = (function()
 end)()
 
 --//===========================================================
---// EXTRA FEATURES (Anti-Floating, Soru, Auto V4, No Clip, Anti-AFK)
+--// EXTRA FEATURES (MOBILE OPTIMIZED)
 --//===========================================================
 
--- Anti-Floating
-local antiFloatTimer = 0
-local function AntiFloatUpdate()
-    local char = Player.Character
-    if not char then return end
-    local hum = char:FindFirstChild("Humanoid")
-    if not hum then return end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-    if hum.FloorMaterial == Enum.Material.Air and hum:GetState() ~= Enum.HumanoidStateType.Jumping then
-        antiFloatTimer = antiFloatTimer + 0.1
-        if antiFloatTimer > 0.5 then
-            hrp.Velocity = Vector3.new(hrp.Velocity.X, -0.5, hrp.Velocity.Z)
-            antiFloatTimer = 0
-        end
-    else
-        antiFloatTimer = 0
-    end
-end
-
--- Soru Aimbot
+-- Soru Aimbot – detects Flashstep animation and teleports to target
 local SoruEnabled = false
 local SoruCooldown = 0
 local FlashstepRemote = nil
 
+-- Find Flashstep remote
 task.spawn(function()
     local remotes = ReplicatedStorage:FindFirstChild("Remotes")
     if remotes then FlashstepRemote = remotes:FindFirstChild("CommF_") end
@@ -936,6 +912,7 @@ task.spawn(function()
             end
         end
     end
+    print("Ivory Hub: Flashstep remote found:", FlashstepRemote and "yes" or "no")
 end)
 
 local function SoruTeleport(targetPos)
@@ -945,7 +922,8 @@ local function SoruTeleport(targetPos)
     local hrp = char:FindFirstChild("HumanoidRootPart")
     if not hrp then return false end
     local dist = (targetPos - hrp.Position).Magnitude
-    if dist > 30 then return false end
+    if dist > 35 then return false end
+
     pcall(function()
         if FlashstepRemote then
             FlashstepRemote:InvokeServer("Flashstep", targetPos)
@@ -956,20 +934,37 @@ local function SoruTeleport(targetPos)
     return true
 end
 
-UIS.InputBegan:Connect(function(input, gpe)
-    if gpe then return end
-    if input.KeyCode == Enum.KeyCode.F and SoruEnabled then
-        local targetPos = SilentAimModule:GetTargetPos()
-        if targetPos then
-            if SoruTeleport(targetPos) then
-                SoruCooldown = tick() + 1.5
-                return
+-- Monitor for Flashstep animation
+local function monitorFlashstep(char)
+    local hum = char:FindFirstChild("Humanoid")
+    if not hum then return end
+
+    hum.AnimationPlayed:Connect(function(track)
+        if not SoruEnabled then return end
+        if tick() < SoruCooldown then return end
+        -- Detect Flashstep animations
+        local animName = string.lower(track.Name)
+        if string.find(animName, "flashstep") or string.find(animName, "soru") or string.find(animName, "dash") then
+            local targetPos = SilentAimModule:GetTargetPos()
+            if targetPos then
+                if SoruTeleport(targetPos) then
+                    SoruCooldown = tick() + 1.5
+                end
             end
         end
-    end
-end)
+    end)
+end
 
--- Auto V4
+Player.CharacterAdded:Connect(function(char)
+    task.wait(0.5)
+    monitorFlashstep(char)
+end)
+if Player.Character then
+    task.wait(0.5)
+    monitorFlashstep(Player.Character)
+end
+
+-- Auto V4 (fixed)
 local AutoV4Enabled = false
 local function AutoV4Update()
     if not AutoV4Enabled then return end
@@ -1019,230 +1014,177 @@ local function AntiAFKUpdate()
 end
 
 --//===========================================================
---// ESP (Screen-space overlay – reliable)
+--// ESP (BillboardGui – mobile friendly)
 --//===========================================================
 local ESPEnabled = false
 local ESPBox = false
 local ESPName = false
 local ESPHealth = false
 local ESPDistance = false
-local espObjects = {}
-local ESPGui = nil
+local espData = {}
 
 local function CreateESP()
-    if ESPGui then ESPGui:Destroy() end
-    ESPGui = Instance.new("ScreenGui")
-    ESPGui.Name = "IvoryESP"
-    ESPGui.ResetOnSpawn = false
-    ESPGui.IgnoreGuiInset = true
-    ESPGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    ESPGui.Parent = Gui
+    for _, data in pairs(espData) do
+        pcall(function() data.gui:Destroy() end)
+    end
+    espData = {}
 
     local function AddESP(target)
-        local key = target
-        if espObjects[key] then return end
-        local container = Instance.new("Frame")
-        container.Size = UDim2.new(0,0,0,0)
-        container.BackgroundTransparency = 1
-        container.Visible = false
-        container.Parent = ESPGui
+        if espData[target] then return end
+        local char = target.Character
+        if not char then return end
+        local head = char:FindFirstChild("Head")
+        if not head then return end
 
-        local box = Instance.new("Frame")
-        box.BackgroundTransparency = 0.4
-        box.BackgroundColor3 = WHITE
-        box.BorderSizePixel = 1
-        box.BorderColor3 = WHITE
-        box.Visible = false
-        box.Parent = container
+        local gui = Instance.new("BillboardGui")
+        gui.Name = "IvoryESP"
+        gui.Adornee = head
+        gui.Size = UDim2.new(0, 200, 0, 60)
+        gui.StudsOffset = Vector3.new(0, 2.5, 0)
+        gui.AlwaysOnTop = true
+        gui.Parent = head
 
-        local nameLabel = Instance.new("TextLabel")
-        nameLabel.BackgroundTransparency = 1
-        nameLabel.Text = target.Name or "NPC"
-        nameLabel.TextColor3 = WHITE
-        nameLabel.TextSize = 11
-        nameLabel.Font = Enum.Font.GothamBold
-        nameLabel.Size = UDim2.new(0, 120, 0, 18)
-        nameLabel.TextXAlignment = Enum.TextXAlignment.Center
-        nameLabel.Parent = container
+        local mainFrame = Instance.new("Frame")
+        mainFrame.Size = UDim2.new(1, 0, 1, 0)
+        mainFrame.BackgroundTransparency = 1
+        mainFrame.Parent = gui
+
+        local name = Instance.new("TextLabel")
+        name.Size = UDim2.new(1, 0, 0, 18)
+        name.Position = UDim2.new(0, 0, 0, 0)
+        name.BackgroundTransparency = 1
+        name.Text = target.Name or "NPC"
+        name.TextColor3 = WHITE
+        name.TextSize = 12
+        name.Font = Enum.Font.GothamBold
+        name.TextXAlignment = Enum.TextXAlignment.Center
+        name.Parent = mainFrame
+
+        local dist = Instance.new("TextLabel")
+        dist.Size = UDim2.new(0, 60, 0, 14)
+        dist.Position = UDim2.new(1, -65, 0, 0)
+        dist.BackgroundTransparency = 1
+        dist.Text = ""
+        dist.TextColor3 = GRAY
+        dist.TextSize = 10
+        dist.Font = Enum.Font.Gotham
+        dist.TextXAlignment = Enum.TextXAlignment.Right
+        dist.Parent = mainFrame
 
         local healthBg = Instance.new("Frame")
+        healthBg.Size = UDim2.new(1, 0, 0, 4)
+        healthBg.Position = UDim2.new(0, 0, 1, -4)
         healthBg.BackgroundColor3 = Color3.fromRGB(20,20,20)
         healthBg.BorderSizePixel = 0
-        healthBg.Size = UDim2.new(0, 0, 0, 3)
-        healthBg.Parent = container
+        healthBg.Parent = mainFrame
 
         local healthFill = Instance.new("Frame")
+        healthFill.Size = UDim2.new(1, 0, 1, 0)
         healthFill.BackgroundColor3 = GREEN
         healthFill.BorderSizePixel = 0
-        healthFill.Size = UDim2.new(1,0,1,0)
         healthFill.Parent = healthBg
 
-        local distLabel = Instance.new("TextLabel")
-        distLabel.BackgroundTransparency = 1
-        distLabel.Text = ""
-        distLabel.TextColor3 = GRAY
-        distLabel.TextSize = 9
-        distLabel.Font = Enum.Font.Gotham
-        distLabel.Size = UDim2.new(0, 60, 0, 16)
-        distLabel.TextXAlignment = Enum.TextXAlignment.Right
-        distLabel.Parent = container
+        local box = Instance.new("Frame")
+        box.Size = UDim2.new(0, 40, 0, 40)
+        box.Position = UDim2.new(0.5, -20, 0.5, -20)
+        box.BackgroundTransparency = 0.6
+        box.BackgroundColor3 = Color3.fromRGB(255,255,255)
+        box.BorderSizePixel = 1
+        box.BorderColor3 = Color3.fromRGB(255,255,255)
+        box.Visible = false
+        box.Parent = gui
 
-        espObjects[key] = {
-            container = container,
-            box = box,
-            name = nameLabel,
+        espData[target] = {
+            gui = gui,
+            name = name,
+            dist = dist,
             healthBg = healthBg,
             healthFill = healthFill,
-            dist = distLabel,
+            box = box,
             target = target
         }
     end
 
     local function UpdateESP()
         if not ESPEnabled then
-            for _, data in pairs(espObjects) do
-                data.container.Visible = false
+            for _, data in pairs(espData) do
+                pcall(function() data.gui.Visible = false end)
             end
             return
         end
 
-        local myChar = Player.Character
-        if not myChar then return end
-        local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-        if not myRoot then return end
-
         local currentTargets = {}
 
-        -- Players
         for _, plr in pairs(Players:GetPlayers()) do
             if plr ~= Player then
                 local char = plr.Character
                 if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") then
                     local hum = char.Humanoid
                     if hum.Health > 0 then
-                        if not espObjects[plr] then AddESP(plr) end
+                        if not espData[plr] then AddESP(plr) end
                         currentTargets[plr] = true
-                        local data = espObjects[plr]
-                        local root = char.HumanoidRootPart
-                        local head = char:FindFirstChild("Head") or root
-                        local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
-                        local footPos, _ = Camera:WorldToViewportPoint(root.Position - Vector3.new(0, 2, 0))
-                        if onScreen then
-                            data.container.Visible = true
-                            local height = math.abs(pos.Y - footPos.Y) * 0.9
-                            local width = height * 0.5
-                            local top = pos.Y - height
-                            local left = pos.X - width/2
-                            data.container.Position = UDim2.new(0, left, 0, top)
-                            data.container.Size = UDim2.new(0, width, 0, height)
-
-                            -- Box
-                            data.box.Visible = ESPBox
-                            data.box.Size = UDim2.new(1,0,1,0)
-                            data.box.Position = UDim2.new(0,0,0,0)
-
-                            -- Name
-                            data.name.Visible = ESPName
+                        local data = espData[plr]
+                        if data then
+                            data.gui.Visible = true
                             data.name.Text = plr.Name
-                            data.name.Size = UDim2.new(0, width*1.2, 0, 18)
-                            data.name.Position = UDim2.new(-0.1, 0, -1.2, -2)
-
-                            -- Health bar
-                            data.healthBg.Visible = ESPHealth
-                            data.healthBg.Size = UDim2.new(1,0,0,3)
-                            data.healthBg.Position = UDim2.new(0,0,1,3)
-                            local hp = hum.Health / hum.MaxHealth
-                            data.healthFill.Size = UDim2.new(hp,0,1,0)
-                            if hp > 0.5 then
-                                data.healthFill.BackgroundColor3 = GREEN
-                            elseif hp > 0.25 then
-                                data.healthFill.BackgroundColor3 = Color3.fromRGB(255,200,0)
-                            else
-                                data.healthFill.BackgroundColor3 = RED
-                            end
-
-                            -- Distance
-                            data.dist.Visible = ESPDistance
-                            local dist = (root.Position - myRoot.Position).Magnitude
+                            local root = char.HumanoidRootPart
+                            local dist = (root.Position - Camera.CFrame.Position).Magnitude
                             data.dist.Text = math.floor(dist) .. "m"
-                            data.dist.Size = UDim2.new(0,60,0,16)
-                            data.dist.Position = UDim2.new(1, -5, -1.2, -2)
-                        else
-                            data.container.Visible = false
+                            local hp = hum.Health / hum.MaxHealth
+                            data.healthFill.Size = UDim2.new(hp, 0, 1, 0)
+                            if hp > 0.5 then data.healthFill.BackgroundColor3 = GREEN
+                            elseif hp > 0.25 then data.healthFill.BackgroundColor3 = Color3.fromRGB(255,200,0)
+                            else data.healthFill.BackgroundColor3 = RED end
+                            data.name.Visible = ESPName
+                            data.dist.Visible = ESPDistance
+                            data.healthBg.Visible = ESPHealth
+                            data.box.Visible = ESPBox
                         end
+                    else
+                        if espData[plr] then espData[plr].gui.Visible = false end
                     end
                 end
             end
         end
 
-        -- NPCs (Enemies)
         local enemiesFolder = workspace:FindFirstChild("Enemies")
         if enemiesFolder then
             for _, npc in pairs(enemiesFolder:GetChildren()) do
                 if npc:IsA("Model") then
                     local hum = npc:FindFirstChild("Humanoid")
-                    local root = npc:FindFirstChild("HumanoidRootPart")
-                    if hum and root and hum.Health > 0 then
-                        if not espObjects[npc] then
+                    local hrp = npc:FindFirstChild("HumanoidRootPart")
+                    if hum and hrp and hum.Health > 0 then
+                        if not espData[npc] then
                             local fake = {Name = "NPC", Character = npc}
                             AddESP(fake)
-                            espObjects[npc] = espObjects[fake]
-                            espObjects[npc].target = fake
+                            espData[npc] = espData[fake]
+                            espData[npc].target = fake
                         end
                         currentTargets[npc] = true
-                        local data = espObjects[npc]
-                        local head = npc:FindFirstChild("Head") or root
-                        local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
-                        local footPos, _ = Camera:WorldToViewportPoint(root.Position - Vector3.new(0, 2, 0))
-                        if onScreen then
-                            data.container.Visible = true
-                            local height = math.abs(pos.Y - footPos.Y) * 0.9
-                            local width = height * 0.5
-                            local top = pos.Y - height
-                            local left = pos.X - width/2
-                            data.container.Position = UDim2.new(0, left, 0, top)
-                            data.container.Size = UDim2.new(0, width, 0, height)
-
-                            data.box.Visible = ESPBox
-                            data.box.Size = UDim2.new(1,0,1,0)
-                            data.box.Position = UDim2.new(0,0,0,0)
-
-                            data.name.Visible = ESPName
+                        local data = espData[npc]
+                        if data then
+                            data.gui.Visible = true
                             data.name.Text = "NPC"
-                            data.name.Size = UDim2.new(0, width*1.2, 0, 18)
-                            data.name.Position = UDim2.new(-0.1, 0, -1.2, -2)
-
-                            data.healthBg.Visible = ESPHealth
-                            data.healthBg.Size = UDim2.new(1,0,0,3)
-                            data.healthBg.Position = UDim2.new(0,0,1,3)
+                            data.dist.Text = math.floor((hrp.Position - Camera.CFrame.Position).Magnitude) .. "m"
                             local hp = hum.Health / hum.MaxHealth
-                            data.healthFill.Size = UDim2.new(hp,0,1,0)
-                            if hp > 0.5 then
-                                data.healthFill.BackgroundColor3 = GREEN
-                            elseif hp > 0.25 then
-                                data.healthFill.BackgroundColor3 = Color3.fromRGB(255,200,0)
-                            else
-                                data.healthFill.BackgroundColor3 = RED
-                            end
-
+                            data.healthFill.Size = UDim2.new(hp, 0, 1, 0)
+                            if hp > 0.5 then data.healthFill.BackgroundColor3 = GREEN
+                            elseif hp > 0.25 then data.healthFill.BackgroundColor3 = Color3.fromRGB(255,200,0)
+                            else data.healthFill.BackgroundColor3 = RED end
+                            data.name.Visible = ESPName
                             data.dist.Visible = ESPDistance
-                            local dist = (root.Position - myRoot.Position).Magnitude
-                            data.dist.Text = math.floor(dist) .. "m"
-                            data.dist.Size = UDim2.new(0,60,0,16)
-                            data.dist.Position = UDim2.new(1, -5, -1.2, -2)
-                        else
-                            data.container.Visible = false
+                            data.healthBg.Visible = ESPHealth
+                            data.box.Visible = ESPBox
                         end
                     end
                 end
             end
         end
 
-        -- Cleanup stale entries
-        for key, data in pairs(espObjects) do
-            if not currentTargets[key] then
-                data.container:Destroy()
-                espObjects[key] = nil
+        for target, data in pairs(espData) do
+            if not currentTargets[target] then
+                pcall(function() data.gui:Destroy() end)
+                espData[target] = nil
             end
         end
     end
@@ -1253,14 +1195,13 @@ end
 local ESPUpdate = CreateESP()
 
 --//===========================================================
---// MAIN LOOP (OPTIMIZED)
+--// MAIN LOOP
 --//===========================================================
 local RunningLoop = nil
 local function StartLoop()
     if RunningLoop then return end
     RunningLoop = RunService.Heartbeat:Connect(function()
         AutoV4Update()
-        AntiFloatUpdate()
         NoClipUpdate()
         AntiAFKUpdate()
         if ESPEnabled then
@@ -1283,20 +1224,18 @@ end
 --// BUILD UI PAGES
 --//===========================================================
 
--- MAIN PAGE (nicer layout)
 Section(MainPage, "MAIN")
 local mainTitle = Text(MainPage, "IVORY HUB", 18, true)
 mainTitle.Size = UDim2.new(1,0,0,30)
 mainTitle.TextXAlignment = Enum.TextXAlignment.Center
 mainTitle.TextColor3 = WHITE
 
-local mainSub = Text(MainPage, "Blox Fruits PVP Script", 10, false)
+local mainSub = Text(MainPage, "Blox Fruits PVP Script (Mobile)", 10, false)
 mainSub.Size = UDim2.new(1,0,0,18)
 mainSub.Position = UDim2.new(0,0,0,32)
 mainSub.TextXAlignment = Enum.TextXAlignment.Center
 mainSub.TextColor3 = GRAY
 
--- Feature status display
 local statusFrame = Instance.new("Frame")
 statusFrame.Size = UDim2.new(1, -20, 0, 80)
 statusFrame.Position = UDim2.new(0, 10, 0, 54)
@@ -1318,10 +1257,9 @@ featureStatusText.Position = UDim2.new(0, 5, 0, 24)
 featureStatusText.TextColor3 = GRAY
 featureStatusText.TextXAlignment = Enum.TextXAlignment.Left
 
--- Update status function
 local function UpdateFeatureStatus()
     local active = {}
-    if SilentAimModule and (SilentAimModule._SilentAimPlayersEnabled or SilentAimModule._SilentAimNPCsEnabled) then
+    if SilentAimModule._SilentAimPlayersEnabled or SilentAimModule._SilentAimNPCsEnabled then
         table.insert(active, "Silent Aim")
     end
     if SoruEnabled then table.insert(active, "Soru") end
@@ -1329,14 +1267,9 @@ local function UpdateFeatureStatus()
     if NoClip then table.insert(active, "No Clip") end
     if AntiAFK then table.insert(active, "Anti-AFK") end
     if ESPEnabled then table.insert(active, "ESP") end
-    if #active == 0 then
-        featureStatusText.Text = "None"
-    else
-        featureStatusText.Text = table.concat(active, ", ")
-    end
+    if #active == 0 then featureStatusText.Text = "None" else featureStatusText.Text = table.concat(active, ", ") end
 end
 
--- Update status periodically
 task.spawn(function()
     while true do
         task.wait(1)
@@ -1344,11 +1277,10 @@ task.spawn(function()
     end
 end)
 
--- Quick feature list (checkmarks)
 local features = {
     "✔ Silent Aim (Players & NPCs)",
     "✔ FOV Circle & Radius",
-    "✔ Soru Aimbot (teleport)",
+    "✔ Soru Aimbot (auto-teleport)",
     "✔ Auto V4 Awakening",
     "✔ No Clip & Anti-AFK",
     "✔ ESP (Box, Name, Health, Distance)"
@@ -1363,12 +1295,12 @@ end
 
 -- ABOUT PAGE
 Section(AboutPage, "ABOUT")
-local aboutTitle = Text(AboutPage, "Ivory Hub v3.4", 14, true)
+local aboutTitle = Text(AboutPage, "Ivory Hub v3.5 (Mobile)", 14, true)
 aboutTitle.Size = UDim2.new(1,0,0,22)
 aboutTitle.TextXAlignment = Enum.TextXAlignment.Center
 aboutTitle.TextColor3 = WHITE
 
-local aboutDesc = Text(AboutPage, "Built for performance and stability on Blox Fruits.", 10, false)
+local aboutDesc = Text(AboutPage, "Optimized for mobile – no PC keybinds.", 10, false)
 aboutDesc.Size = UDim2.new(1,-10,0,20)
 aboutDesc.Position = UDim2.new(0,5,0,24)
 aboutDesc.TextXAlignment = Enum.TextXAlignment.Center
@@ -1377,9 +1309,9 @@ aboutDesc.TextColor3 = GRAY
 local aboutLines = {
     "• Created by Ivory & Rayo",
     "• Discord: Ivory999 / rayo06996",
-    "• Optimized for mobile & PC",
+    "• Fully touch-compatible",
     "• Clean, compact, and stable",
-    "• Regular updates planned",
+    "• No PC-only features",
     "• Open source (free to use)"
 }
 for i, line in ipairs(aboutLines) do
@@ -1452,7 +1384,7 @@ Slider(CombatPage, "Max Range", 1000, 100, 3000, function(v)
 end, "m")
 
 Section(CombatPage, "EXTRAS")
-Toggle(CombatPage, "Soru Aimbot (F)", false, function(s)
+Toggle(CombatPage, "Soru Aimbot", false, function(s)
     SoruEnabled = s
     CheckLoop()
 end)
@@ -1476,7 +1408,7 @@ addBlacklistGroup("Fruit", {"Z","X","C","V","F","TAP"})
 addBlacklistGroup("Sword", {"Z","X"})
 addBlacklistGroup("Gun", {"Z","X"})
 
--- PLAYER PAGE (Walk on Water removed)
+-- PLAYER PAGE
 Section(PlayerPage, "PLAYER EXTRAS")
 Toggle(PlayerPage, "No Clip", false, function(s)
     NoClip = s
@@ -1512,7 +1444,7 @@ Button(SettingsPage, "Show Notification", function()
     local T = Text(Notification,"IVORY HUB",13,true)
     T.Position = UDim2.new(0,12,0,6)
     T.Size = UDim2.new(1,-20,0,18)
-    local M = Text(Notification,"All features ready!",10,false)
+    local M = Text(Notification,"Mobile optimized – all features work!",10,false)
     M.TextColor3 = GRAY
     M.Position = UDim2.new(0,12,0,28)
     M.Size = UDim2.new(1,-20,0,16)
@@ -1564,15 +1496,11 @@ end)
 
 Button(SettingsPage, "Print Info", function()
     print("================================")
-    print("IVORY HUB - Final (ESP Fixed)")
+    print("IVORY HUB - Mobile Optimized")
     print("Features: Silent Aim, FOV, Soru, Auto V4, ESP, No Clip, Anti-AFK")
     print("Creators: Ivory & Rayo")
     print("================================")
 end)
-
-local keybindLabel = Text(SettingsPage, "Toggle key: RightShift", 10, false)
-keybindLabel.Size = UDim2.new(1,0,0,20)
-keybindLabel.TextColor3 = GRAY
 
 -- CREDITS PAGE
 Section(CreditsPage, "CREATORS")
@@ -1606,7 +1534,7 @@ Discord2.TextColor3 = GRAY
 Discord2.Position = UDim2.new(0,12,0,34)
 Discord2.Size = UDim2.new(1,-24,0,16)
 
-local Version = Text(CreditsPage,"Ivory Hub v3.4 • Final",9,false)
+local Version = Text(CreditsPage,"Ivory Hub v3.5 • Mobile",9,false)
 Version.TextColor3 = GRAY
 Version.Size = UDim2.new(1,0,0,18)
 
@@ -1700,19 +1628,11 @@ Close.MouseButton1Click:Connect(function()
 end)
 
 --//===========================================================
---// OPEN/CLOSE KEY (RightShift)
---//===========================================================
-UIS.InputBegan:Connect(function(input,gpe)
-    if gpe then return end
-    if input.KeyCode == Enum.KeyCode.RightShift then Main.Visible = not Main.Visible end
-end)
-
---//===========================================================
 --// START
 --//===========================================================
 CheckLoop()
 print("================================")
-print("        IVORY HUB LOADED (ESP Fixed)")
+print("        IVORY HUB LOADED (Mobile)")
 print("================================")
 print("Features: Silent Aim, FOV, Soru, Auto V4, ESP, No Clip, Anti-AFK")
 print("Creators: Ivory & Rayo")
