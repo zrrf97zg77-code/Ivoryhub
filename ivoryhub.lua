@@ -2,7 +2,7 @@
 --// FULL BLACK / WHITE TEXT
 --// Creator: Ivory
 --// Ideas / Concepts: Rayo
---// Modified for Blox Fruits PVP (with features)
+--// Enhanced for Blox Fruits PVP – with tabs, silent aim 180, macros, and more
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -21,13 +21,14 @@ local REGULAR = Enum.Font.Gotham
 --==================================================
 -- FEATURE STATES
 --==================================================
-local AimbotEnabled = false
+local SilentAimEnabled = false        -- 180° silent aim
 local AutoDodgeEnabled = false
 local AutoComboEnabled = false
 local KillAuraEnabled = false
+local AutoClickMacro = false          -- spam mouse1
+local ComboMacro = false              -- spam 1,2,3
+local AntiAFK = false
 
-local TargetPlayer = nil
-local FeatureButtons = {}
 local RunningLoop = nil
 local ComboStep = 0
 local ComboTimer = 0
@@ -137,7 +138,7 @@ HeaderLine.BorderSizePixel = 0
 HeaderLine.Parent = Header
 
 --==================================================
--- SIDEBAR
+-- SIDEBAR (no labels)
 --==================================================
 
 local Sidebar = Instance.new("Frame")
@@ -146,24 +147,6 @@ Sidebar.Position = UDim2.new(0,0,0,53)
 Sidebar.BackgroundColor3 = BLACK
 Sidebar.BorderSizePixel = 0
 Sidebar.Parent = Main
-
-local function SectionLabel(text,y)
-
-	local Label = Instance.new("TextLabel")
-	Label.Size = UDim2.new(1,-22,0,18)
-	Label.Position = UDim2.fromOffset(11,y)
-	Label.BackgroundTransparency = 1
-	Label.Text = text
-	Label.TextColor3 = WHITE
-	Label.TextSize = 9
-	Label.Font = BOLD
-	Label.TextXAlignment = Enum.TextXAlignment.Left
-	Label.Parent = Sidebar
-
-end
-
-SectionLabel("MAIN",10)
-SectionLabel("OTHER",125)
 
 --==================================================
 -- CONTENT
@@ -184,22 +167,23 @@ Content.Parent = Main
 local Pages = {}
 
 local function CreatePage(name)
-
 	local Page = Instance.new("Frame")
 	Page.Name = name
 	Page.Size = UDim2.new(1,0,1,0)
 	Page.BackgroundTransparency = 1
 	Page.Visible = false
 	Page.Parent = Content
-
 	Pages[name] = Page
-
 	return Page
 end
 
+-- Pages
 local Home = CreatePage("Home")
-local Features = CreatePage("Features")
-local Settings = CreatePage("Settings")
+local AimbotPage = CreatePage("Aimbot")
+local CombatPage = CreatePage("Combat")
+local MacrosPage = CreatePage("Macros")
+local UtilityPage = CreatePage("Utility")
+local SettingsPage = CreatePage("Settings")
 local Credits = CreatePage("Credits")
 
 --==================================================
@@ -228,10 +212,7 @@ WelcomeSub.Font = REGULAR
 WelcomeSub.TextXAlignment = Enum.TextXAlignment.Left
 WelcomeSub.Parent = Home
 
---==================================================
--- CREATOR CARD
---==================================================
-
+-- Creator Card
 local CreatorCard = Instance.new("Frame")
 CreatorCard.Size = UDim2.new(1,-30,0,62)
 CreatorCard.Position = UDim2.fromOffset(15,82)
@@ -239,7 +220,6 @@ CreatorCard.BackgroundColor3 = BLACK
 CreatorCard.BorderColor3 = WHITE
 CreatorCard.BorderSizePixel = 1
 CreatorCard.Parent = Home
-
 local CreatorCorner = Instance.new("UICorner")
 CreatorCorner.CornerRadius = UDim.new(0,8)
 CreatorCorner.Parent = CreatorCard
@@ -266,10 +246,7 @@ CreatorName.Font = BOLD
 CreatorName.TextXAlignment = Enum.TextXAlignment.Left
 CreatorName.Parent = CreatorCard
 
---==================================================
--- RAYO CARD
---==================================================
-
+-- Idea Card
 local IdeaCard = Instance.new("Frame")
 IdeaCard.Size = UDim2.new(1,-30,0,62)
 IdeaCard.Position = UDim2.fromOffset(15,153)
@@ -277,7 +254,6 @@ IdeaCard.BackgroundColor3 = BLACK
 IdeaCard.BorderColor3 = WHITE
 IdeaCard.BorderSizePixel = 1
 IdeaCard.Parent = Home
-
 local IdeaCorner = Instance.new("UICorner")
 IdeaCorner.CornerRadius = UDim.new(0,8)
 IdeaCorner.Parent = IdeaCard
@@ -304,10 +280,7 @@ IdeaName.Font = BOLD
 IdeaName.TextXAlignment = Enum.TextXAlignment.Left
 IdeaName.Parent = IdeaCard
 
---==================================================
--- STATUS
---==================================================
-
+-- Status
 local Status = Instance.new("TextLabel")
 Status.Size = UDim2.new(1,-30,0,20)
 Status.Position = UDim2.new(0,15,1,-25)
@@ -320,22 +293,44 @@ Status.TextXAlignment = Enum.TextXAlignment.Left
 Status.Parent = Home
 
 --==================================================
--- FEATURES
+-- HELPER FUNCTIONS FOR UI
 --==================================================
 
-local FeatureTitle = Instance.new("TextLabel")
-FeatureTitle.Size = UDim2.new(1,-30,0,30)
-FeatureTitle.Position = UDim2.fromOffset(15,15)
-FeatureTitle.BackgroundTransparency = 1
-FeatureTitle.Text = "FEATURES"
-FeatureTitle.TextColor3 = WHITE
-FeatureTitle.TextSize = 20
-FeatureTitle.Font = BOLD
-FeatureTitle.TextXAlignment = Enum.TextXAlignment.Left
-FeatureTitle.Parent = Features
+local function UpdateFeatureButton(button, enabled)
+	if enabled then
+		TweenService:Create(button, TweenInfo.new(0.15), {
+			BackgroundColor3 = WHITE,
+			TextColor3 = BLACK
+		}):Play()
+	else
+		TweenService:Create(button, TweenInfo.new(0.15), {
+			BackgroundColor3 = BLACK,
+			TextColor3 = WHITE
+		}):Play()
+	end
+end
 
-local function FeatureButton(text,y, callback)
+local function UpdateStatus()
+	local active = {}
+	if SilentAimEnabled then table.insert(active, "SILENT AIM") end
+	if AutoDodgeEnabled then table.insert(active, "DODGE") end
+	if AutoComboEnabled then table.insert(active, "COMBO") end
+	if KillAuraEnabled then table.insert(active, "AURA") end
+	if AutoClickMacro then table.insert(active, "AUTO-CLICK") end
+	if ComboMacro then table.insert(active, "COMBO-MACRO") end
+	if AntiAFK then table.insert(active, "ANTI-AFK") end
+	if #active == 0 then
+		Status.Text = "IVORY HUB  //  READY"
+	else
+		Status.Text = "IVORY HUB  //  " .. table.concat(active, " | ")
+	end
+end
 
+--==================================================
+-- FEATURE BUTTON CREATOR (with white border)
+--==================================================
+
+local function FeatureButton(text, y, callback, parent)
 	local Button = Instance.new("TextButton")
 	Button.Size = UDim2.new(1,-30,0,38)
 	Button.Position = UDim2.fromOffset(15,y)
@@ -347,32 +342,25 @@ local function FeatureButton(text,y, callback)
 	Button.TextSize = 11
 	Button.Font = BOLD
 	Button.AutoButtonColor = false
-	Button.Parent = Features
+	Button.Parent = parent or CombatPage
 
 	local Corner = Instance.new("UICorner")
 	Corner.CornerRadius = UDim.new(0,7)
 	Corner.Parent = Button
 
 	Button.MouseEnter:Connect(function()
-		TweenService:Create(
-			Button,
-			TweenInfo.new(0.15),
-			{
-				BackgroundColor3 = WHITE,
-				TextColor3 = BLACK
-			}
-		):Play()
+		TweenService:Create(Button, TweenInfo.new(0.15), {
+			BackgroundColor3 = WHITE,
+			TextColor3 = BLACK
+		}):Play()
 	end)
-
 	Button.MouseLeave:Connect(function()
-		TweenService:Create(
-			Button,
-			TweenInfo.new(0.15),
-			{
+		if Button.BackgroundColor3 ~= WHITE or Button.TextColor3 ~= BLACK then
+			TweenService:Create(Button, TweenInfo.new(0.15), {
 				BackgroundColor3 = BLACK,
 				TextColor3 = WHITE
-			}
-		):Play()
+			}):Play()
+		end
 	end)
 
 	if callback then
@@ -383,72 +371,386 @@ local function FeatureButton(text,y, callback)
 end
 
 --==================================================
--- SETTINGS
+-- PVP CORE FUNCTIONS
 --==================================================
 
-local SettingsTitle = Instance.new("TextLabel")
-SettingsTitle.Size = UDim2.new(1,-30,0,30)
-SettingsTitle.Position = UDim2.fromOffset(15,15)
-SettingsTitle.BackgroundTransparency = 1
-SettingsTitle.Text = "SETTINGS"
-SettingsTitle.TextColor3 = WHITE
-SettingsTitle.TextSize = 20
-SettingsTitle.Font = BOLD
-SettingsTitle.TextXAlignment = Enum.TextXAlignment.Left
-SettingsTitle.Parent = Settings
+-- Get nearest enemy
+local function GetNearestPlayer()
+	local nearest = nil
+	local dist = math.huge
+	local myChar = Player.Character
+	if not myChar then return nil end
+	local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+	if not myRoot then return nil end
+	local myPos = myRoot.Position
 
-local SettingsInfo = Instance.new("TextLabel")
-SettingsInfo.Size = UDim2.new(1,-30,0,50)
-SettingsInfo.Position = UDim2.fromOffset(15,55)
-SettingsInfo.BackgroundTransparency = 1
-SettingsInfo.Text = "Customize your Ivory experience.\nMore options can be added here."
-SettingsInfo.TextColor3 = WHITE
-SettingsInfo.TextSize = 11
-SettingsInfo.Font = REGULAR
-SettingsInfo.TextXAlignment = Enum.TextXAlignment.Left
-SettingsInfo.TextYAlignment = Enum.TextYAlignment.Top
-SettingsInfo.Parent = Settings
+	for _, plr in pairs(Players:GetPlayers()) do
+		if plr ~= Player then
+			local char = plr.Character
+			if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
+				local pos = char.HumanoidRootPart.Position
+				local d = (pos - myPos).magnitude
+				if d < dist then
+					dist = d
+					nearest = plr
+				end
+			end
+		end
+	end
+	return nearest, dist
+end
+
+-- Silent Aim 180 – only adjust character facing, not camera
+local function SilentAimUpdate()
+	if not SilentAimEnabled then return end
+	local target, dist = GetNearestPlayer()
+	if not target or dist > 50 then return end -- range limit
+	local targetRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+	if not targetRoot then return end
+
+	local myChar = Player.Character
+	if not myChar then return end
+	local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+	if not myRoot then return end
+
+	-- Calculate direction to target (ignoring Y to keep character upright)
+	local lookDir = Vector3.new(targetRoot.Position.X - myRoot.Position.X, 0, targetRoot.Position.Z - myRoot.Position.Z)
+	if lookDir.Magnitude > 0.5 then
+		-- Set root CFrame to face target, but keep position
+		local newCF = CFrame.lookAt(myRoot.Position, myRoot.Position + lookDir.Unit)
+		myRoot.CFrame = newCF
+	end
+end
+
+-- Auto Dodge – use Flash Step (F) when enemy is close and facing us
+local function AutoDodgeUpdate()
+	if not AutoDodgeEnabled or not VIM then return end
+	local myChar = Player.Character
+	if not myChar then return end
+	local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+	if not myRoot then return end
+
+	local target, dist = GetNearestPlayer()
+	if not target or dist > 25 then return end
+	local enemyRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+	if not enemyRoot then return end
+
+	-- Check if enemy is facing us (rough)
+	local enemyLook = enemyRoot.CFrame.LookVector
+	local toUs = (myRoot.Position - enemyRoot.Position).Unit
+	if enemyLook:Dot(toUs) > 0.4 then
+		VIM:SendKeyEvent(true, Enum.KeyCode.F, false, game)
+		task.wait(0.05)
+		VIM:SendKeyEvent(false, Enum.KeyCode.F, false, game)
+	end
+end
+
+-- Auto Combo – sequence: mouse1, 1, 2, 3
+local function AutoComboUpdate()
+	if not AutoComboEnabled or not VIM then return end
+	local target, dist = GetNearestPlayer()
+	if not target or dist > 30 then
+		ComboStep = 0
+		return
+	end
+	local myChar = Player.Character
+	if not myChar then return end
+
+	if dist < 30 then
+		local step = ComboStep
+		if step == 0 then
+			VIM:SendMouseButtonEvent(1, true, game, 0, 0)
+			task.wait(0.05)
+			VIM:SendMouseButtonEvent(1, false, game, 0, 0)
+			ComboStep = 1
+			ComboTimer = tick() + 0.3
+		elseif step == 1 and tick() > ComboTimer then
+			VIM:SendKeyEvent(true, Enum.KeyCode.One, false, game)
+			task.wait(0.05)
+			VIM:SendKeyEvent(false, Enum.KeyCode.One, false, game)
+			ComboStep = 2
+			ComboTimer = tick() + 0.4
+		elseif step == 2 and tick() > ComboTimer then
+			VIM:SendKeyEvent(true, Enum.KeyCode.Two, false, game)
+			task.wait(0.05)
+			VIM:SendKeyEvent(false, Enum.KeyCode.Two, false, game)
+			ComboStep = 3
+			ComboTimer = tick() + 0.4
+		elseif step == 3 and tick() > ComboTimer then
+			VIM:SendKeyEvent(true, Enum.KeyCode.Three, false, game)
+			task.wait(0.05)
+			VIM:SendKeyEvent(false, Enum.KeyCode.Three, false, game)
+			ComboStep = 0
+			ComboTimer = tick() + 0.8
+		end
+	end
+end
+
+-- Kill Aura – spam mouse1 when enemy in range
+local function KillAuraUpdate()
+	if not KillAuraEnabled or not VIM then return end
+	local target, dist = GetNearestPlayer()
+	if not target or dist > 22 then return end
+	VIM:SendMouseButtonEvent(1, true, game, 0, 0)
+	task.wait(0.08)
+	VIM:SendMouseButtonEvent(1, false, game, 0, 0)
+end
+
+-- Macros
+local function AutoClickMacroUpdate()
+	if not AutoClickMacro or not VIM then return end
+	VIM:SendMouseButtonEvent(1, true, game, 0, 0)
+	task.wait(0.05)
+	VIM:SendMouseButtonEvent(1, false, game, 0, 0)
+	task.wait(0.1)
+end
+
+local function ComboMacroUpdate()
+	if not ComboMacro or not VIM then return end
+	-- spam 1,2,3, mouse1 repeatedly
+	VIM:SendKeyEvent(true, Enum.KeyCode.One, false, game)
+	task.wait(0.05)
+	VIM:SendKeyEvent(false, Enum.KeyCode.One, false, game)
+	task.wait(0.1)
+	VIM:SendKeyEvent(true, Enum.KeyCode.Two, false, game)
+	task.wait(0.05)
+	VIM:SendKeyEvent(false, Enum.KeyCode.Two, false, game)
+	task.wait(0.1)
+	VIM:SendKeyEvent(true, Enum.KeyCode.Three, false, game)
+	task.wait(0.05)
+	VIM:SendKeyEvent(false, Enum.KeyCode.Three, false, game)
+	task.wait(0.1)
+	VIM:SendMouseButtonEvent(1, true, game, 0, 0)
+	task.wait(0.05)
+	VIM:SendMouseButtonEvent(1, false, game, 0, 0)
+	task.wait(0.15)
+end
+
+-- Anti-AFK – simply move a tiny bit
+local function AntiAFKUpdate()
+	if not AntiAFK then return end
+	local myChar = Player.Character
+	if myChar and myChar:FindFirstChild("Humanoid") then
+		local hum = myChar.Humanoid
+		hum:Move(Vector3.new(1,0,0), true) -- move a step
+		task.wait(0.1)
+		hum:Move(Vector3.new(-1,0,0), true)
+	end
+end
 
 --==================================================
--- CREDITS
+-- MAIN LOOP CONTROLLER
 --==================================================
 
-local CreditsTitle = Instance.new("TextLabel")
-CreditsTitle.Size = UDim2.new(1,-30,0,35)
-CreditsTitle.Position = UDim2.fromOffset(15,15)
-CreditsTitle.BackgroundTransparency = 1
-CreditsTitle.Text = "CREDITS"
-CreditsTitle.TextColor3 = WHITE
-CreditsTitle.TextSize = 21
-CreditsTitle.Font = BOLD
-CreditsTitle.TextXAlignment = Enum.TextXAlignment.Left
-CreditsTitle.Parent = Credits
+local function StartPVPLoop()
+	if RunningLoop then return end
+	RunningLoop = RunService.Heartbeat:Connect(function()
+		SilentAimUpdate()
+		AutoDodgeUpdate()
+		AutoComboUpdate()
+		KillAuraUpdate()
+		AutoClickMacroUpdate()
+		ComboMacroUpdate()
+		AntiAFKUpdate()
+	end)
+end
 
-local CreditsText = Instance.new("TextLabel")
-CreditsText.Size = UDim2.new(1,-30,0,150)
-CreditsText.Position = UDim2.fromOffset(15,60)
-CreditsText.BackgroundTransparency = 1
-CreditsText.Text =
-	"IVORY\n" ..
-	"CREATOR / DEVELOPER\n\n" ..
-	"RAYO\n" ..
-	"IDEAS / CONCEPTS\n\n" ..
-	"IVORY HUB"
-CreditsText.TextColor3 = WHITE
-CreditsText.TextSize = 12
-CreditsText.Font = REGULAR
-CreditsText.TextXAlignment = Enum.TextXAlignment.Left
-CreditsText.TextYAlignment = Enum.TextYAlignment.Top
-CreditsText.Parent = Credits
+local function StopPVPLoop()
+	if RunningLoop then
+		RunningLoop:Disconnect()
+		RunningLoop = nil
+	end
+end
+
+-- Check if any feature is active to start/stop loop
+local function CheckLoopState()
+	if SilentAimEnabled or AutoDodgeEnabled or AutoComboEnabled or KillAuraEnabled or AutoClickMacro or ComboMacro or AntiAFK then
+		StartPVPLoop()
+	else
+		StopPVPLoop()
+	end
+end
+
+-- Toggle functions
+local function ToggleSilentAim()
+	SilentAimEnabled = not SilentAimEnabled
+	UpdateFeatureButton(aimbotBtn, SilentAimEnabled)
+	UpdateStatus()
+	CheckLoopState()
+end
+
+local function ToggleAutoDodge()
+	AutoDodgeEnabled = not AutoDodgeEnabled
+	UpdateFeatureButton(dodgeBtn, AutoDodgeEnabled)
+	UpdateStatus()
+	CheckLoopState()
+end
+
+local function ToggleAutoCombo()
+	AutoComboEnabled = not AutoComboEnabled
+	UpdateFeatureButton(comboBtn, AutoComboEnabled)
+	UpdateStatus()
+	CheckLoopState()
+end
+
+local function ToggleKillAura()
+	KillAuraEnabled = not KillAuraEnabled
+	UpdateFeatureButton(auraBtn, KillAuraEnabled)
+	UpdateStatus()
+	CheckLoopState()
+end
+
+local function ToggleAutoClick()
+	AutoClickMacro = not AutoClickMacro
+	UpdateFeatureButton(clickBtn, AutoClickMacro)
+	UpdateStatus()
+	CheckLoopState()
+end
+
+local function ToggleComboMacro()
+	ComboMacro = not ComboMacro
+	UpdateFeatureButton(comboMacroBtn, ComboMacro)
+	UpdateStatus()
+	CheckLoopState()
+end
+
+local function ToggleAntiAFK()
+	AntiAFK = not AntiAFK
+	UpdateFeatureButton(afkBtn, AntiAFK)
+	UpdateStatus()
+	CheckLoopState()
+end
 
 --==================================================
--- SIDEBAR TABS
+-- BUILD PAGES
+--==================================================
+
+-- Aimbot Page
+local aimbotTitle = Instance.new("TextLabel")
+aimbotTitle.Size = UDim2.new(1,-30,0,30)
+aimbotTitle.Position = UDim2.fromOffset(15,15)
+aimbotTitle.BackgroundTransparency = 1
+aimbotTitle.Text = "AIMBOT"
+aimbotTitle.TextColor3 = WHITE
+aimbotTitle.TextSize = 20
+aimbotTitle.Font = BOLD
+aimbotTitle.TextXAlignment = Enum.TextXAlignment.Left
+aimbotTitle.Parent = AimbotPage
+
+local aimbotDesc = Instance.new("TextLabel")
+aimbotDesc.Size = UDim2.new(1,-30,0,25)
+aimbotDesc.Position = UDim2.fromOffset(15,48)
+aimbotDesc.BackgroundTransparency = 1
+aimbotDesc.Text = "180° Silent Aim – locks onto nearest enemy without moving your camera."
+aimbotDesc.TextColor3 = WHITE
+aimbotDesc.TextSize = 10
+aimbotDesc.Font = REGULAR
+aimbotDesc.TextXAlignment = Enum.TextXAlignment.Left
+aimbotDesc.TextYAlignment = Enum.TextYAlignment.Top
+aimbotDesc.Parent = AimbotPage
+
+local aimbotBtn = FeatureButton("SILENT AIM", 85, ToggleSilentAim, AimbotPage)
+
+-- Combat Page
+local combatTitle = Instance.new("TextLabel")
+combatTitle.Size = UDim2.new(1,-30,0,30)
+combatTitle.Position = UDim2.fromOffset(15,15)
+combatTitle.BackgroundTransparency = 1
+combatTitle.Text = "COMBAT"
+combatTitle.TextColor3 = WHITE
+combatTitle.TextSize = 20
+combatTitle.Font = BOLD
+combatTitle.TextXAlignment = Enum.TextXAlignment.Left
+combatTitle.Parent = CombatPage
+
+dodgeBtn = FeatureButton("AUTO DODGE", 55, ToggleAutoDodge, CombatPage)
+comboBtn = FeatureButton("AUTO COMBO", 100, ToggleAutoCombo, CombatPage)
+auraBtn = FeatureButton("KILL AURA", 145, ToggleKillAura, CombatPage)
+
+-- Macros Page
+local macroTitle = Instance.new("TextLabel")
+macroTitle.Size = UDim2.new(1,-30,0,30)
+macroTitle.Position = UDim2.fromOffset(15,15)
+macroTitle.BackgroundTransparency = 1
+macroTitle.Text = "MACROS"
+macroTitle.TextColor3 = WHITE
+macroTitle.TextSize = 20
+macroTitle.Font = BOLD
+macroTitle.TextXAlignment = Enum.TextXAlignment.Left
+macroTitle.Parent = MacrosPage
+
+clickBtn = FeatureButton("AUTO CLICK", 55, ToggleAutoClick, MacrosPage)
+comboMacroBtn = FeatureButton("COMBO MACRO (1,2,3,M1)", 100, ToggleComboMacro, MacrosPage)
+
+-- Utility Page
+local utilTitle = Instance.new("TextLabel")
+utilTitle.Size = UDim2.new(1,-30,0,30)
+utilTitle.Position = UDim2.fromOffset(15,15)
+utilTitle.BackgroundTransparency = 1
+utilTitle.Text = "UTILITY"
+utilTitle.TextColor3 = WHITE
+utilTitle.TextSize = 20
+utilTitle.Font = BOLD
+utilTitle.TextXAlignment = Enum.TextXAlignment.Left
+utilTitle.Parent = UtilityPage
+
+afkBtn = FeatureButton("ANTI-AFK", 55, ToggleAntiAFK, UtilityPage)
+
+-- Settings Page
+local settingsTitle = Instance.new("TextLabel")
+settingsTitle.Size = UDim2.new(1,-30,0,30)
+settingsTitle.Position = UDim2.fromOffset(15,15)
+settingsTitle.BackgroundTransparency = 1
+settingsTitle.Text = "SETTINGS"
+settingsTitle.TextColor3 = WHITE
+settingsTitle.TextSize = 20
+settingsTitle.Font = BOLD
+settingsTitle.TextXAlignment = Enum.TextXAlignment.Left
+settingsTitle.Parent = SettingsPage
+
+local settingsInfo = Instance.new("TextLabel")
+settingsInfo.Size = UDim2.new(1,-30,0,60)
+settingsInfo.Position = UDim2.fromOffset(15,55)
+settingsInfo.BackgroundTransparency = 1
+settingsInfo.Text = "Customize your Ivory experience.\nMore options can be added here."
+settingsInfo.TextColor3 = WHITE
+settingsInfo.TextSize = 11
+settingsInfo.Font = REGULAR
+settingsInfo.TextXAlignment = Enum.TextXAlignment.Left
+settingsInfo.TextYAlignment = Enum.TextYAlignment.Top
+settingsInfo.Parent = SettingsPage
+
+-- Credits Page
+local creditsTitle = Instance.new("TextLabel")
+creditsTitle.Size = UDim2.new(1,-30,0,35)
+creditsTitle.Position = UDim2.fromOffset(15,15)
+creditsTitle.BackgroundTransparency = 1
+creditsTitle.Text = "CREDITS"
+creditsTitle.TextColor3 = WHITE
+creditsTitle.TextSize = 21
+creditsTitle.Font = BOLD
+creditsTitle.TextXAlignment = Enum.TextXAlignment.Left
+creditsTitle.Parent = Credits
+
+local creditsText = Instance.new("TextLabel")
+creditsText.Size = UDim2.new(1,-30,0,150)
+creditsText.Position = UDim2.fromOffset(15,60)
+creditsText.BackgroundTransparency = 1
+creditsText.Text = "IVORY\nCREATOR / DEVELOPER\n\nRAYO\nIDEAS / CONCEPTS\n\nIVORY HUB"
+creditsText.TextColor3 = WHITE
+creditsText.TextSize = 12
+creditsText.Font = REGULAR
+creditsText.TextXAlignment = Enum.TextXAlignment.Left
+creditsText.TextYAlignment = Enum.TextYAlignment.Top
+creditsText.Parent = Credits
+
+--==================================================
+-- SIDEBAR TABS (with white borders)
 --==================================================
 
 local CurrentTab
 
-local function CreateTab(text,y,page)
-
+local function CreateTab(text, y, page)
 	local Button = Instance.new("TextButton")
 	Button.Size = UDim2.new(1,-18,0,34)
 	Button.Position = UDim2.fromOffset(9,y)
@@ -475,7 +777,6 @@ local function CreateTab(text,y,page)
 	Indicator.Parent = Button
 
 	local function Select()
-
 		if CurrentTab then
 			CurrentTab.Button.BackgroundColor3 = BLACK
 			CurrentTab.Button.TextColor3 = WHITE
@@ -491,25 +792,15 @@ local function CreateTab(text,y,page)
 
 		Button.BackgroundColor3 = WHITE
 		Button.TextColor3 = BLACK
-
 		Indicator.BackgroundColor3 = BLACK
 		Indicator.Visible = true
 
 		page.Visible = true
 		page.Position = UDim2.new(0,15,0,0)
 
-		TweenService:Create(
-			page,
-			TweenInfo.new(
-				0.18,
-				Enum.EasingStyle.Quart,
-				Enum.EasingDirection.Out
-			),
-			{
-				Position = UDim2.new(0,0,0,0)
-			}
-		):Play()
-
+		TweenService:Create(page, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+			Position = UDim2.new(0,0,0,0)
+		}):Play()
 	end
 
 	Button.MouseButton1Click:Connect(Select)
@@ -522,10 +813,14 @@ local function CreateTab(text,y,page)
 	}
 end
 
-local HomeTab = CreateTab("HOME",35,Home)
-local FeaturesTab = CreateTab("FEATURES",75,Features)
-local SettingsTab = CreateTab("SETTINGS",150,Settings)
-local CreditsTab = CreateTab("CREDITS",190,Credits)
+-- Create all tabs (no labels on sidebar)
+local HomeTab = CreateTab("HOME", 20, Home)
+local AimbotTab = CreateTab("AIMBOT", 60, AimbotPage)
+local CombatTab = CreateTab("COMBAT", 100, CombatPage)
+local MacrosTab = CreateTab("MACROS", 140, MacrosPage)
+local UtilityTab = CreateTab("UTILITY", 180, UtilityPage)
+local SettingsTab = CreateTab("SETTINGS", 220, SettingsPage)
+local CreditsTab = CreateTab("CREDITS", 260, Credits)
 
 HomeTab.Select()
 
@@ -533,396 +828,79 @@ HomeTab.Select()
 -- DRAGGING
 --==================================================
 
-local function MakeDraggable(object,handle)
-
+local function MakeDraggable(object, handle)
 	local dragging = false
 	local dragStart
 	local startPosition
 
 	handle.InputBegan:Connect(function(input)
-
-		if input.UserInputType == Enum.UserInputType.MouseButton1
-		or input.UserInputType == Enum.UserInputType.Touch then
-
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			dragging = true
 			dragStart = input.Position
 			startPosition = object.Position
-
 			input.Changed:Connect(function()
-
 				if input.UserInputState == Enum.UserInputState.End then
 					dragging = false
 				end
-
 			end)
-
 		end
-
 	end)
 
 	UIS.InputChanged:Connect(function(input)
-
-		if not dragging then
-			return
-		end
-
-		if input.UserInputType == Enum.UserInputType.MouseMovement
-		or input.UserInputType == Enum.UserInputType.Touch then
-
+		if not dragging then return end
+		if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
 			local delta = input.Position - dragStart
-
 			object.Position = UDim2.new(
 				startPosition.X.Scale,
 				startPosition.X.Offset + delta.X,
 				startPosition.Y.Scale,
 				startPosition.Y.Offset + delta.Y
 			)
-
 		end
-
 	end)
 end
 
-MakeDraggable(Main,Header)
-MakeDraggable(Toggle,Toggle)
+MakeDraggable(Main, Header)
+MakeDraggable(Toggle, Toggle)
 
 --==================================================
--- TOGGLE
+-- TOGGLE VISIBILITY
 --==================================================
 
 local Open = true
-
 Toggle.MouseButton1Click:Connect(function()
-
 	Open = not Open
-
 	if Open then
-
 		Main.Visible = true
 		Main.Size = UDim2.fromOffset(435,270)
-
-		TweenService:Create(
-			Main,
-			TweenInfo.new(
-				0.2,
-				Enum.EasingStyle.Quart,
-				Enum.EasingDirection.Out
-			),
-			{
-				Size = UDim2.fromOffset(455,285)
-			}
-		):Play()
-
+		TweenService:Create(Main, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+			Size = UDim2.fromOffset(455,285)
+		}):Play()
 	else
-
-		TweenService:Create(
-			Main,
-			TweenInfo.new(
-				0.15,
-				Enum.EasingStyle.Quart,
-				Enum.EasingDirection.In
-			),
-			{
-				Size = UDim2.fromOffset(435,270)
-			}
-		):Play()
-
+		TweenService:Create(Main, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+			Size = UDim2.fromOffset(435,270)
+		}):Play()
 		task.wait(0.15)
 		Main.Visible = false
-
 	end
-
 end)
 
---==================================================
--- TOGGLE HOVER
---==================================================
-
+-- Hover effects on toggle
 Toggle.MouseEnter:Connect(function()
-
-	TweenService:Create(
-		Toggle,
-		TweenInfo.new(0.15),
-		{
-			BackgroundColor3 = WHITE,
-			TextColor3 = BLACK
-		}
-	):Play()
-
+	TweenService:Create(Toggle, TweenInfo.new(0.15), {
+		BackgroundColor3 = WHITE,
+		TextColor3 = BLACK
+	}):Play()
 end)
-
 Toggle.MouseLeave:Connect(function()
-
-	TweenService:Create(
-		Toggle,
-		TweenInfo.new(0.15),
-		{
-			BackgroundColor3 = BLACK,
-			TextColor3 = WHITE
-		}
-	):Play()
-
+	TweenService:Create(Toggle, TweenInfo.new(0.15), {
+		BackgroundColor3 = BLACK,
+		TextColor3 = WHITE
+	}):Play()
 end)
 
-print("IVORY HUB // LOADED")
-
 --==================================================
--- PVP FEATURES IMPLEMENTATION
+-- INIT
 --==================================================
-
--- Helper function to update button appearance
-local function UpdateFeatureButton(button, enabled)
-	if enabled then
-		TweenService:Create(button, TweenInfo.new(0.15), {
-			BackgroundColor3 = WHITE,
-			TextColor3 = BLACK
-		}):Play()
-	else
-		TweenService:Create(button, TweenInfo.new(0.15), {
-			BackgroundColor3 = BLACK,
-			TextColor3 = WHITE
-		}):Play()
-	end
-end
-
--- Update status text on Home page
-local function UpdateStatus()
-	local statusText = "IVORY HUB  //  "
-	local active = {}
-	if AimbotEnabled then table.insert(active, "AIM") end
-	if AutoDodgeEnabled then table.insert(active, "DODGE") end
-	if AutoComboEnabled then table.insert(active, "COMBO") end
-	if KillAuraEnabled then table.insert(active, "AURA") end
-	if #active == 0 then
-		statusText = statusText .. "READY"
-	else
-		statusText = statusText .. table.concat(active, " | ")
-	end
-	Status.Text = statusText
-end
-
--- Get nearest enemy player
-local function GetNearestPlayer()
-	local nearest = nil
-	local dist = math.huge
-	local myChar = Player.Character
-	if not myChar then return nil end
-	local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-	if not myRoot then return nil end
-	local myPos = myRoot.Position
-
-	for _, plr in pairs(Players:GetPlayers()) do
-		if plr ~= Player then
-			local char = plr.Character
-			if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
-				local pos = char.HumanoidRootPart.Position
-				local d = (pos - myPos).magnitude
-				if d < dist then
-					dist = d
-					nearest = plr
-				end
-			end
-		end
-	end
-	return nearest
-end
-
--- Aimbot: face nearest player
-local function AimbotUpdate()
-	if not AimbotEnabled then return end
-	local target = GetNearestPlayer()
-	if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-		local targetPart = target.Character:FindFirstChild("Head") or target.Character:FindFirstChild("HumanoidRootPart")
-		if targetPart then
-			local myChar = Player.Character
-			if myChar and myChar:FindFirstChild("HumanoidRootPart") then
-				local myRoot = myChar.HumanoidRootPart
-				local lookVec = (targetPart.Position - myRoot.Position).Unit
-				myRoot.CFrame = CFrame.lookAt(myRoot.Position, myRoot.Position + Vector3.new(lookVec.X, 0, lookVec.Z))
-			end
-		end
-	end
-end
-
--- Auto Dodge: simulate Flash Step (key 'F') when enemy is near and attacking
-local function AutoDodgeUpdate()
-	if not AutoDodgeEnabled then return end
-	if not VIM then return end -- VirtualInputManager not available
-
-	local myChar = Player.Character
-	if not myChar then return end
-	local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-	if not myRoot then return end
-
-	local nearest = GetNearestPlayer()
-	if nearest and nearest.Character then
-		local enemyRoot = nearest.Character:FindFirstChild("HumanoidRootPart")
-		if enemyRoot then
-			local dist = (enemyRoot.Position - myRoot.Position).magnitude
-			if dist < 20 then -- dodge range
-				-- Check if enemy is facing us (rough detection)
-				local enemyLook = enemyRoot.CFrame.LookVector
-				local toUs = (myRoot.Position - enemyRoot.Position).Unit
-				local dot = enemyLook:Dot(toUs)
-				if dot > 0.5 then -- enemy looking at us
-					-- Simulate Flash Step (key F)
-					VIM:SendKeyEvent(true, Enum.KeyCode.F, false, game)
-					task.wait(0.05)
-					VIM:SendKeyEvent(false, Enum.KeyCode.F, false, game)
-				end
-			end
-		end
-	end
-end
-
--- Auto Combo: perform sequence (mouse1, 1, 2, 3) with delays
-local function AutoComboUpdate()
-	if not AutoComboEnabled then return end
-	if not VIM then return end
-
-	local nearest = GetNearestPlayer()
-	if nearest and nearest.Character then
-		local enemyRoot = nearest.Character:FindFirstChild("HumanoidRootPart")
-		if enemyRoot then
-			local myChar = Player.Character
-			if myChar and myChar:FindFirstChild("HumanoidRootPart") then
-				local dist = (enemyRoot.Position - myChar.HumanoidRootPart.Position).magnitude
-				if dist < 25 then
-					-- Execute combo steps with timing
-					local step = ComboStep
-					if step == 0 then
-						-- Attack (mouse1)
-						VIM:SendMouseButtonEvent(1, true, game, 0, 0)
-						task.wait(0.05)
-						VIM:SendMouseButtonEvent(1, false, game, 0, 0)
-						ComboStep = 1
-						ComboTimer = tick() + 0.3
-					elseif step == 1 and tick() > ComboTimer then
-						-- Skill 1 (key 1)
-						VIM:SendKeyEvent(true, Enum.KeyCode.One, false, game)
-						task.wait(0.05)
-						VIM:SendKeyEvent(false, Enum.KeyCode.One, false, game)
-						ComboStep = 2
-						ComboTimer = tick() + 0.4
-					elseif step == 2 and tick() > ComboTimer then
-						-- Skill 2 (key 2)
-						VIM:SendKeyEvent(true, Enum.KeyCode.Two, false, game)
-						task.wait(0.05)
-						VIM:SendKeyEvent(false, Enum.KeyCode.Two, false, game)
-						ComboStep = 3
-						ComboTimer = tick() + 0.4
-					elseif step == 3 and tick() > ComboTimer then
-						-- Skill 3 (key 3)
-						VIM:SendKeyEvent(true, Enum.KeyCode.Three, false, game)
-						task.wait(0.05)
-						VIM:SendKeyEvent(false, Enum.KeyCode.Three, false, game)
-						ComboStep = 0
-						ComboTimer = tick() + 0.8
-					end
-				else
-					ComboStep = 0 -- reset if out of range
-				end
-			end
-		end
-	end
-end
-
--- Kill Aura: auto attack (mouse1) when enemy in range
-local function KillAuraUpdate()
-	if not KillAuraEnabled then return end
-	if not VIM then return end
-
-	local nearest = GetNearestPlayer()
-	if nearest and nearest.Character then
-		local enemyRoot = nearest.Character:FindFirstChild("HumanoidRootPart")
-		if enemyRoot then
-			local myChar = Player.Character
-			if myChar and myChar:FindFirstChild("HumanoidRootPart") then
-				local dist = (enemyRoot.Position - myChar.HumanoidRootPart.Position).magnitude
-				if dist < 20 then
-					-- Hold mouse1 (attack)
-					VIM:SendMouseButtonEvent(1, true, game, 0, 0)
-					-- Release after a short delay to avoid spamming too fast
-					task.wait(0.1)
-					VIM:SendMouseButtonEvent(1, false, game, 0, 0)
-				end
-			end
-		end
-	end
-end
-
--- Main loop
-local function StartPVPLoop()
-	if RunningLoop then return end
-	RunningLoop = RunService.Heartbeat:Connect(function()
-		-- Update features
-		AimbotUpdate()
-		AutoDodgeUpdate()
-		AutoComboUpdate()
-		KillAuraUpdate()
-	end)
-end
-
--- Stop loop
-local function StopPVPLoop()
-	if RunningLoop then
-		RunningLoop:Disconnect()
-		RunningLoop = nil
-	end
-end
-
--- Toggle functions for each feature
-local function ToggleAimbot()
-	AimbotEnabled = not AimbotEnabled
-	UpdateFeatureButton(FeatureButtons[1], AimbotEnabled)
-	UpdateStatus()
-	if AimbotEnabled or AutoDodgeEnabled or AutoComboEnabled or KillAuraEnabled then
-		StartPVPLoop()
-	else
-		StopPVPLoop()
-	end
-end
-
-local function ToggleAutoDodge()
-	AutoDodgeEnabled = not AutoDodgeEnabled
-	UpdateFeatureButton(FeatureButtons[2], AutoDodgeEnabled)
-	UpdateStatus()
-	if AimbotEnabled or AutoDodgeEnabled or AutoComboEnabled or KillAuraEnabled then
-		StartPVPLoop()
-	else
-		StopPVPLoop()
-	end
-end
-
-local function ToggleAutoCombo()
-	AutoComboEnabled = not AutoComboEnabled
-	UpdateFeatureButton(FeatureButtons[3], AutoComboEnabled)
-	UpdateStatus()
-	if AimbotEnabled or AutoDodgeEnabled or AutoComboEnabled or KillAuraEnabled then
-		StartPVPLoop()
-	else
-		StopPVPLoop()
-	end
-end
-
-local function ToggleKillAura()
-	KillAuraEnabled = not KillAuraEnabled
-	UpdateFeatureButton(FeatureButtons[4], KillAuraEnabled)
-	UpdateStatus()
-	if AimbotEnabled or AutoDodgeEnabled or AutoComboEnabled or KillAuraEnabled then
-		StartPVPLoop()
-	else
-		StopPVPLoop()
-	end
-end
-
--- Create feature buttons with toggles
-FeatureButtons[1] = FeatureButton("AIMBOT", 55, ToggleAimbot)
-FeatureButtons[2] = FeatureButton("AUTO DODGE", 100, ToggleAutoDodge)
-FeatureButtons[3] = FeatureButton("AUTO COMBO", 145, ToggleAutoCombo)
-FeatureButtons[4] = FeatureButton("KILL AURA", 190, ToggleKillAura)
-
--- Initially none are active, so loop not started
 UpdateStatus()
-
-print("IVORY HUB PVP FEATURES // LOADED")
+print("IVORY HUB // LOADED – Enhanced PVP Edition")
