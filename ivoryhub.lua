@@ -1,906 +1,950 @@
---// IVORY HUB
---// FULL BLACK / WHITE TEXT
---// Creator: Ivory
---// Ideas / Concepts: Rayo
---// Enhanced for Blox Fruits PVP – with tabs, silent aim 180, macros, and more
+--// =========================================================
+--//                    IVORY HUB
+--// =========================================================
+--// Creators:
+--// Ivory  | Discord: Ivory999
+--// Rayo   | Discord: rayo06996
+--//
+--// Mobile Edition – Focused: Silent Aim, Soru Aimbot, Walkspeed, Gun M1
+--// =========================================================
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
 local VIM = pcall(function() return game:GetService("VirtualInputManager") end) and game:GetService("VirtualInputManager") or nil
 
 local Player = Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
 
-local BLACK = Color3.fromRGB(0,0,0)
-local WHITE = Color3.fromRGB(255,255,255)
+--// Remove previous version
+local Old = PlayerGui:FindFirstChild("IvoryHub")
+if Old then Old:Destroy() end
 
-local BOLD = Enum.Font.GothamBold
-local REGULAR = Enum.Font.Gotham
+--//=========================================================
+--// COLORS
+--//=========================================================
+local BLACK = Color3.fromRGB(7,7,7)
+local DARK = Color3.fromRGB(13,13,13)
+local DARKER = Color3.fromRGB(19,19,19)
+local WHITE = Color3.fromRGB(245,245,245)
+local GRAY = Color3.fromRGB(145,145,145)
+local BORDER = Color3.fromRGB(40,40,40)
+local RED = Color3.fromRGB(255,50,50)
+local GREEN = Color3.fromRGB(50,255,50)
 
---==================================================
--- FEATURE STATES
---==================================================
-local SilentAimEnabled = false        -- 180° silent aim
-local AutoDodgeEnabled = false
-local AutoComboEnabled = false
-local KillAuraEnabled = false
-local AutoClickMacro = false          -- spam mouse1
-local ComboMacro = false              -- spam 1,2,3
-local AntiAFK = false
+--//=========================================================
+--// HELPERS
+--//=========================================================
+local function Corner(obj, radius)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, radius)
+    c.Parent = obj
+end
 
-local RunningLoop = nil
-local ComboStep = 0
-local ComboTimer = 0
+local function AddStroke(obj)
+    local s = Instance.new("UIStroke")
+    s.Color = BORDER
+    s.Thickness = 1
+    s.Parent = obj
+end
 
---==================================================
--- GUI
---==================================================
+local function Tween(obj, time, properties)
+    TweenService:Create(obj, TweenInfo.new(time, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), properties):Play()
+end
 
+local function Text(parent, text, size, bold)
+    local t = Instance.new("TextLabel")
+    t.BackgroundTransparency = 1
+    t.Text = text
+    t.TextColor3 = WHITE
+    t.TextSize = size
+    t.Font = bold and Enum.Font.GothamBold or Enum.Font.Gotham
+    t.TextXAlignment = Enum.TextXAlignment.Left
+    t.Parent = parent
+    return t
+end
+
+--//=========================================================
+--// SCREEN GUI
+--//=========================================================
 local Gui = Instance.new("ScreenGui")
 Gui.Name = "IvoryHub"
 Gui.ResetOnSpawn = false
+Gui.IgnoreGuiInset = true
 Gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-Gui.Parent = Player:WaitForChild("PlayerGui")
+Gui.Parent = PlayerGui
 
---==================================================
--- FLOATING TOGGLE
---==================================================
-
-local Toggle = Instance.new("TextButton")
-Toggle.Name = "IvoryToggle"
-Toggle.Size = UDim2.fromOffset(48,48)
-Toggle.Position = UDim2.new(0,30,0.5,-24)
-Toggle.BackgroundColor3 = BLACK
-Toggle.BorderColor3 = WHITE
-Toggle.BorderSizePixel = 2
-Toggle.Text = "I"
-Toggle.TextColor3 = WHITE
-Toggle.TextSize = 22
-Toggle.Font = BOLD
-Toggle.AutoButtonColor = false
-Toggle.Parent = Gui
-
-local ToggleCorner = Instance.new("UICorner")
-ToggleCorner.CornerRadius = UDim.new(0,10)
-ToggleCorner.Parent = Toggle
-
---==================================================
--- MAIN WINDOW
---==================================================
-
+--//=========================================================
+--// MAIN
+--//=========================================================
 local Main = Instance.new("Frame")
-Main.Name = "Main"
-Main.Size = UDim2.fromOffset(455,285)
-Main.Position = UDim2.new(0.5,-227,0.5,-142)
+Main.Size = UDim2.new(0,520,0,340)
+Main.Position = UDim2.new(0.5,-260,0.5,-170)
 Main.BackgroundColor3 = BLACK
-Main.BorderColor3 = WHITE
-Main.BorderSizePixel = 2
+Main.BorderSizePixel = 0
 Main.Parent = Gui
+Corner(Main,12)
+AddStroke(Main)
 
-local MainCorner = Instance.new("UICorner")
-MainCorner.CornerRadius = UDim.new(0,12)
-MainCorner.Parent = Main
+--//=========================================================
+--// TOP BAR
+--//=========================================================
+local Top = Instance.new("Frame")
+Top.Size = UDim2.new(1,0,0,58)
+Top.BackgroundColor3 = DARK
+Top.BorderSizePixel = 0
+Top.Parent = Main
+Corner(Top,12)
 
---==================================================
--- HEADER
---==================================================
+local Title = Text(Top,"IVORY",19,true)
+Title.Position = UDim2.new(0,18,0,7)
+Title.Size = UDim2.new(0,150,0,27)
 
-local Header = Instance.new("Frame")
-Header.Size = UDim2.new(1,0,0,52)
-Header.BackgroundColor3 = BLACK
-Header.BorderSizePixel = 0
-Header.Parent = Main
+local SubTitle = Text(Top,"H U B",10,false)
+SubTitle.TextColor3 = GRAY
+SubTitle.Position = UDim2.new(0,19,0,34)
+SubTitle.Size = UDim2.new(0,100,0,15)
 
-local Logo = Instance.new("TextLabel")
-Logo.Size = UDim2.fromOffset(38,38)
-Logo.Position = UDim2.fromOffset(12,7)
-Logo.BackgroundColor3 = BLACK
-Logo.BorderColor3 = WHITE
-Logo.BorderSizePixel = 1
-Logo.Text = "I"
-Logo.TextColor3 = WHITE
-Logo.TextSize = 20
-Logo.Font = BOLD
-Logo.Parent = Header
+-- Close
+local Close = Instance.new("TextButton")
+Close.Size = UDim2.new(0,32,0,32)
+Close.Position = UDim2.new(1,-42,0,13)
+Close.BackgroundColor3 = DARKER
+Close.Text = "×"
+Close.TextColor3 = WHITE
+Close.TextSize = 21
+Close.Font = Enum.Font.GothamBold
+Close.BorderSizePixel = 0
+Close.Parent = Top
+Corner(Close,8)
 
-local LogoCorner = Instance.new("UICorner")
-LogoCorner.CornerRadius = UDim.new(0,8)
-LogoCorner.Parent = Logo
+-- Minimize
+local Minimize = Instance.new("TextButton")
+Minimize.Size = UDim2.new(0,32,0,32)
+Minimize.Position = UDim2.new(1,-80,0,13)
+Minimize.BackgroundColor3 = DARKER
+Minimize.Text = "—"
+Minimize.TextColor3 = WHITE
+Minimize.TextSize = 18
+Minimize.Font = Enum.Font.GothamBold
+Minimize.BorderSizePixel = 0
+Minimize.Parent = Top
+Corner(Minimize,8)
 
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.fromOffset(150,24)
-Title.Position = UDim2.fromOffset(60,7)
-Title.BackgroundTransparency = 1
-Title.Text = "IVORY"
-Title.TextColor3 = WHITE
-Title.TextSize = 18
-Title.Font = BOLD
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.Parent = Header
-
-local Subtitle = Instance.new("TextLabel")
-Subtitle.Size = UDim2.fromOffset(200,17)
-Subtitle.Position = UDim2.fromOffset(60,28)
-Subtitle.BackgroundTransparency = 1
-Subtitle.Text = "CONTROL PANEL"
-Subtitle.TextColor3 = WHITE
-Subtitle.TextSize = 9
-Subtitle.Font = REGULAR
-Subtitle.TextXAlignment = Enum.TextXAlignment.Left
-Subtitle.Parent = Header
-
-local HeaderLine = Instance.new("Frame")
-HeaderLine.Size = UDim2.new(1,-24,0,1)
-HeaderLine.Position = UDim2.new(0,12,1,-1)
-HeaderLine.BackgroundColor3 = WHITE
-HeaderLine.BorderSizePixel = 0
-HeaderLine.Parent = Header
-
---==================================================
--- SIDEBAR (no labels)
---==================================================
-
+--//=========================================================
+--// SIDEBAR
+--//=========================================================
 local Sidebar = Instance.new("Frame")
-Sidebar.Size = UDim2.new(0,125,1,-53)
-Sidebar.Position = UDim2.new(0,0,0,53)
-Sidebar.BackgroundColor3 = BLACK
+Sidebar.Size = UDim2.new(0,135,1,-70)
+Sidebar.Position = UDim2.new(0,10,0,65)
+Sidebar.BackgroundColor3 = DARK
 Sidebar.BorderSizePixel = 0
 Sidebar.Parent = Main
+Corner(Sidebar,10)
+AddStroke(Sidebar)
 
---==================================================
--- CONTENT
---==================================================
+local TabLayout = Instance.new("UIListLayout")
+TabLayout.Padding = UDim.new(0,6)
+TabLayout.SortOrder = Enum.SortOrder.LayoutOrder
+TabLayout.Parent = Sidebar
 
+local Padding = Instance.new("UIPadding")
+Padding.PaddingTop = UDim.new(0,10)
+Padding.PaddingLeft = UDim.new(0,8)
+Padding.PaddingRight = UDim.new(0,8)
+Padding.Parent = Sidebar
+
+--//=========================================================
+--// CONTENT
+--//=========================================================
 local Content = Instance.new("Frame")
-Content.Size = UDim2.new(1,-125,1,-53)
-Content.Position = UDim2.new(0,125,0,53)
-Content.BackgroundColor3 = BLACK
+Content.Size = UDim2.new(1,-155,1,-70)
+Content.Position = UDim2.new(0,145,0,65)
+Content.BackgroundColor3 = DARK
 Content.BorderSizePixel = 0
-Content.ClipsDescendants = true
 Content.Parent = Main
-
---==================================================
--- PAGE SYSTEM
---==================================================
+Corner(Content,10)
+AddStroke(Content)
 
 local Pages = {}
 
+--//=========================================================
+--// CREATE PAGE
+--//=========================================================
 local function CreatePage(name)
-	local Page = Instance.new("Frame")
-	Page.Name = name
-	Page.Size = UDim2.new(1,0,1,0)
-	Page.BackgroundTransparency = 1
-	Page.Visible = false
-	Page.Parent = Content
-	Pages[name] = Page
-	return Page
+    local Page = Instance.new("ScrollingFrame")
+    Page.Name = name
+    Page.Size = UDim2.new(1,-20,1,-20)
+    Page.Position = UDim2.new(0,10,0,10)
+    Page.BackgroundTransparency = 1
+    Page.BorderSizePixel = 0
+    Page.ScrollBarThickness = 3
+    Page.ScrollBarImageColor3 = WHITE
+    Page.Visible = false
+    Page.CanvasSize = UDim2.new(0,0,0,0)
+    Page.Parent = Content
+
+    local Layout = Instance.new("UIListLayout")
+    Layout.Padding = UDim.new(0,8)
+    Layout.SortOrder = Enum.SortOrder.LayoutOrder
+    Layout.Parent = Page
+
+    Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        Page.CanvasSize = UDim2.new(0,0,0,Layout.AbsoluteContentSize.Y + 15)
+    end)
+
+    Pages[name] = Page
+    return Page
 end
 
--- Pages
-local Home = CreatePage("Home")
-local AimbotPage = CreatePage("Aimbot")
+--//=========================================================
+--// SECTION TITLE
+--//=========================================================
+local function Section(parent,text)
+    local Label = Text(parent,text,10,true)
+    Label.TextColor3 = GRAY
+    Label.Size = UDim2.new(1,0,0,24)
+    return Label
+end
+
+--//=========================================================
+--// BUTTON (kept for settings)
+--//=========================================================
+local function Button(parent,text,callback)
+    local Btn = Instance.new("TextButton")
+    Btn.Size = UDim2.new(1,0,0,40)
+    Btn.BackgroundColor3 = DARKER
+    Btn.BorderSizePixel = 0
+    Btn.Text = text
+    Btn.TextColor3 = WHITE
+    Btn.TextSize = 13
+    Btn.Font = Enum.Font.GothamMedium
+    Btn.AutoButtonColor = false
+    Btn.Parent = parent
+    Corner(Btn,8)
+    AddStroke(Btn)
+
+    Btn.MouseEnter:Connect(function()
+        Tween(Btn,.15,{BackgroundColor3 = Color3.fromRGB(28,28,28)})
+    end)
+    Btn.MouseLeave:Connect(function()
+        Tween(Btn,.15,{BackgroundColor3 = DARKER})
+    end)
+    Btn.MouseButton1Click:Connect(callback)
+    return Btn
+end
+
+--//=========================================================
+--// TOGGLE – shows ON/OFF
+--//=========================================================
+local function Toggle(parent, text, default, callback)
+    local State = default or false
+    local Holder = Instance.new("Frame")
+    Holder.Size = UDim2.new(1,0,0,42)
+    Holder.BackgroundColor3 = DARKER
+    Holder.BorderSizePixel = 0
+    Holder.Parent = parent
+    Corner(Holder,8)
+    AddStroke(Holder)
+
+    local Label = Text(Holder, text .. ": OFF", 13, false)
+    Label.Position = UDim2.new(0,13,0,0)
+    Label.Size = UDim2.new(1,-70,1,0)
+
+    local Switch = Instance.new("TextButton")
+    Switch.Size = UDim2.new(0,42,0,22)
+    Switch.Position = UDim2.new(1,-54,.5,-11)
+    Switch.BackgroundColor3 = Color3.fromRGB(35,35,35)
+    Switch.Text = ""
+    Switch.BorderSizePixel = 0
+    Switch.Parent = Holder
+    Corner(Switch,20)
+
+    local Circle = Instance.new("Frame")
+    Circle.Size = UDim2.new(0,16,0,16)
+    Circle.Position = UDim2.new(0,3,.5,-8)
+    Circle.BackgroundColor3 = GRAY
+    Circle.BorderSizePixel = 0
+    Circle.Parent = Switch
+    Corner(Circle,20)
+
+    local function Update()
+        if State then
+            Tween(Switch,.2,{BackgroundColor3 = WHITE})
+            Tween(Circle,.2,{Position = UDim2.new(1,-19,.5,-8), BackgroundColor3 = BLACK})
+            Label.Text = text .. ": ON"
+        else
+            Tween(Switch,.2,{BackgroundColor3 = Color3.fromRGB(35,35,35)})
+            Tween(Circle,.2,{Position = UDim2.new(0,3,.5,-8), BackgroundColor3 = GRAY})
+            Label.Text = text .. ": OFF"
+        end
+        if callback then callback(State) end
+    end
+
+    Switch.MouseButton1Click:Connect(function()
+        State = not State
+        Update()
+    end)
+
+    Update()
+    return Holder
+end
+
+--//=========================================================
+--// PAGES
+--//=========================================================
+local MainPage   = CreatePage("Main")
 local CombatPage = CreatePage("Combat")
-local MacrosPage = CreatePage("Macros")
-local UtilityPage = CreatePage("Utility")
+local PlayerPage = CreatePage("Player")
+local VisualPage = CreatePage("Visuals")
 local SettingsPage = CreatePage("Settings")
-local Credits = CreatePage("Credits")
+local CreditsPage = CreatePage("Credits")
 
---==================================================
--- HOME
---==================================================
+--//=========================================================
+--// FEATURE STATES
+--//=========================================================
+-- Combat (main four)
+local SilentAim      = false
+local SoruAimbot     = false   -- Soru = Flash Step key F
+local Walkspeed      = false
+local GunM1          = false
 
-local Welcome = Instance.new("TextLabel")
-Welcome.Size = UDim2.new(1,-30,0,35)
-Welcome.Position = UDim2.fromOffset(15,15)
-Welcome.BackgroundTransparency = 1
-Welcome.Text = "WELCOME TO IVORY"
-Welcome.TextColor3 = WHITE
-Welcome.TextSize = 21
-Welcome.Font = BOLD
-Welcome.TextXAlignment = Enum.TextXAlignment.Left
-Welcome.Parent = Home
+-- Player extras
+local InfiniteJump   = false
+local NoClip         = false
+local AntiAFK        = false
 
-local WelcomeSub = Instance.new("TextLabel")
-WelcomeSub.Size = UDim2.new(1,-30,0,20)
-WelcomeSub.Position = UDim2.fromOffset(16,48)
-WelcomeSub.BackgroundTransparency = 1
-WelcomeSub.Text = "Clean. Simple. Built different."
-WelcomeSub.TextColor3 = WHITE
-WelcomeSub.TextSize = 11
-WelcomeSub.Font = REGULAR
-WelcomeSub.TextXAlignment = Enum.TextXAlignment.Left
-WelcomeSub.Parent = Home
+-- Visuals (ESP)
+local ESPEnabled     = false
+local ESPBox         = false
+local ESPName        = false
+local ESPHealth      = false
+local ESPDistance    = false
 
--- Creator Card
-local CreatorCard = Instance.new("Frame")
-CreatorCard.Size = UDim2.new(1,-30,0,62)
-CreatorCard.Position = UDim2.fromOffset(15,82)
-CreatorCard.BackgroundColor3 = BLACK
-CreatorCard.BorderColor3 = WHITE
-CreatorCard.BorderSizePixel = 1
-CreatorCard.Parent = Home
-local CreatorCorner = Instance.new("UICorner")
-CreatorCorner.CornerRadius = UDim.new(0,8)
-CreatorCorner.Parent = CreatorCard
+local RunningLoop = nil
 
-local CreatorTitle = Instance.new("TextLabel")
-CreatorTitle.Size = UDim2.new(1,-20,0,20)
-CreatorTitle.Position = UDim2.fromOffset(10,8)
-CreatorTitle.BackgroundTransparency = 1
-CreatorTitle.Text = "CREATOR"
-CreatorTitle.TextColor3 = WHITE
-CreatorTitle.TextSize = 9
-CreatorTitle.Font = BOLD
-CreatorTitle.TextXAlignment = Enum.TextXAlignment.Left
-CreatorTitle.Parent = CreatorCard
-
-local CreatorName = Instance.new("TextLabel")
-CreatorName.Size = UDim2.new(1,-20,0,25)
-CreatorName.Position = UDim2.fromOffset(10,27)
-CreatorName.BackgroundTransparency = 1
-CreatorName.Text = "Ivory"
-CreatorName.TextColor3 = WHITE
-CreatorName.TextSize = 16
-CreatorName.Font = BOLD
-CreatorName.TextXAlignment = Enum.TextXAlignment.Left
-CreatorName.Parent = CreatorCard
-
--- Idea Card
-local IdeaCard = Instance.new("Frame")
-IdeaCard.Size = UDim2.new(1,-30,0,62)
-IdeaCard.Position = UDim2.fromOffset(15,153)
-IdeaCard.BackgroundColor3 = BLACK
-IdeaCard.BorderColor3 = WHITE
-IdeaCard.BorderSizePixel = 1
-IdeaCard.Parent = Home
-local IdeaCorner = Instance.new("UICorner")
-IdeaCorner.CornerRadius = UDim.new(0,8)
-IdeaCorner.Parent = IdeaCard
-
-local IdeaTitle = Instance.new("TextLabel")
-IdeaTitle.Size = UDim2.new(1,-20,0,20)
-IdeaTitle.Position = UDim2.fromOffset(10,8)
-IdeaTitle.BackgroundTransparency = 1
-IdeaTitle.Text = "IDEAS / CONCEPTS"
-IdeaTitle.TextColor3 = WHITE
-IdeaTitle.TextSize = 9
-IdeaTitle.Font = BOLD
-IdeaTitle.TextXAlignment = Enum.TextXAlignment.Left
-IdeaTitle.Parent = IdeaCard
-
-local IdeaName = Instance.new("TextLabel")
-IdeaName.Size = UDim2.new(1,-20,0,25)
-IdeaName.Position = UDim2.fromOffset(10,27)
-IdeaName.BackgroundTransparency = 1
-IdeaName.Text = "Rayo"
-IdeaName.TextColor3 = WHITE
-IdeaName.TextSize = 16
-IdeaName.Font = BOLD
-IdeaName.TextXAlignment = Enum.TextXAlignment.Left
-IdeaName.Parent = IdeaCard
-
--- Status
-local Status = Instance.new("TextLabel")
-Status.Size = UDim2.new(1,-30,0,20)
-Status.Position = UDim2.new(0,15,1,-25)
-Status.BackgroundTransparency = 1
-Status.Text = "IVORY HUB  //  READY"
-Status.TextColor3 = WHITE
-Status.TextSize = 9
-Status.Font = BOLD
-Status.TextXAlignment = Enum.TextXAlignment.Left
-Status.Parent = Home
-
---==================================================
--- HELPER FUNCTIONS FOR UI
---==================================================
-
-local function UpdateFeatureButton(button, enabled)
-	if enabled then
-		TweenService:Create(button, TweenInfo.new(0.15), {
-			BackgroundColor3 = WHITE,
-			TextColor3 = BLACK
-		}):Play()
-	else
-		TweenService:Create(button, TweenInfo.new(0.15), {
-			BackgroundColor3 = BLACK,
-			TextColor3 = WHITE
-		}):Play()
-	end
-end
-
-local function UpdateStatus()
-	local active = {}
-	if SilentAimEnabled then table.insert(active, "SILENT AIM") end
-	if AutoDodgeEnabled then table.insert(active, "DODGE") end
-	if AutoComboEnabled then table.insert(active, "COMBO") end
-	if KillAuraEnabled then table.insert(active, "AURA") end
-	if AutoClickMacro then table.insert(active, "AUTO-CLICK") end
-	if ComboMacro then table.insert(active, "COMBO-MACRO") end
-	if AntiAFK then table.insert(active, "ANTI-AFK") end
-	if #active == 0 then
-		Status.Text = "IVORY HUB  //  READY"
-	else
-		Status.Text = "IVORY HUB  //  " .. table.concat(active, " | ")
-	end
-end
-
---==================================================
--- FEATURE BUTTON CREATOR (with white border)
---==================================================
-
-local function FeatureButton(text, y, callback, parent)
-	local Button = Instance.new("TextButton")
-	Button.Size = UDim2.new(1,-30,0,38)
-	Button.Position = UDim2.fromOffset(15,y)
-	Button.BackgroundColor3 = BLACK
-	Button.BorderColor3 = WHITE
-	Button.BorderSizePixel = 1
-	Button.Text = text
-	Button.TextColor3 = WHITE
-	Button.TextSize = 11
-	Button.Font = BOLD
-	Button.AutoButtonColor = false
-	Button.Parent = parent or CombatPage
-
-	local Corner = Instance.new("UICorner")
-	Corner.CornerRadius = UDim.new(0,7)
-	Corner.Parent = Button
-
-	Button.MouseEnter:Connect(function()
-		TweenService:Create(Button, TweenInfo.new(0.15), {
-			BackgroundColor3 = WHITE,
-			TextColor3 = BLACK
-		}):Play()
-	end)
-	Button.MouseLeave:Connect(function()
-		if Button.BackgroundColor3 ~= WHITE or Button.TextColor3 ~= BLACK then
-			TweenService:Create(Button, TweenInfo.new(0.15), {
-				BackgroundColor3 = BLACK,
-				TextColor3 = WHITE
-			}):Play()
-		end
-	end)
-
-	if callback then
-		Button.MouseButton1Click:Connect(callback)
-	end
-
-	return Button
-end
-
---==================================================
--- PVP CORE FUNCTIONS
---==================================================
-
--- Get nearest enemy
+--//=========================================================
+--// HELPERS
+--//=========================================================
 local function GetNearestPlayer()
-	local nearest = nil
-	local dist = math.huge
-	local myChar = Player.Character
-	if not myChar then return nil end
-	local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-	if not myRoot then return nil end
-	local myPos = myRoot.Position
-
-	for _, plr in pairs(Players:GetPlayers()) do
-		if plr ~= Player then
-			local char = plr.Character
-			if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
-				local pos = char.HumanoidRootPart.Position
-				local d = (pos - myPos).magnitude
-				if d < dist then
-					dist = d
-					nearest = plr
-				end
-			end
-		end
-	end
-	return nearest, dist
+    local nearest, dist = nil, math.huge
+    local char = Player.Character
+    if not char then return nil end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
+    local pos = root.Position
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= Player then
+            local c = plr.Character
+            if c and c:FindFirstChild("HumanoidRootPart") and c:FindFirstChild("Humanoid") and c.Humanoid.Health > 0 then
+                local p = c.HumanoidRootPart.Position
+                local d = (p - pos).Magnitude
+                if d < dist then
+                    dist = d
+                    nearest = plr
+                end
+            end
+        end
+    end
+    return nearest, dist
 end
 
--- Silent Aim 180 – only adjust character facing, not camera
+local function HasGunEquipped()
+    local char = Player.Character
+    if not char then return false end
+    for _, tool in pairs(char:GetChildren()) do
+        if tool:IsA("Tool") and (tool.Name:lower():find("gun") or tool.Name:lower():find("rifle") or tool.Name:lower():find("pistol") or tool.Name:lower():find("cannon") or tool:FindFirstChild("Handle")) then
+            return true
+        end
+    end
+    return false
+end
+
+--//=========================================================
+--// COMBAT UPDATES (mobile compatible)
+--//=========================================================
 local function SilentAimUpdate()
-	if not SilentAimEnabled then return end
-	local target, dist = GetNearestPlayer()
-	if not target or dist > 50 then return end -- range limit
-	local targetRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
-	if not targetRoot then return end
-
-	local myChar = Player.Character
-	if not myChar then return end
-	local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-	if not myRoot then return end
-
-	-- Calculate direction to target (ignoring Y to keep character upright)
-	local lookDir = Vector3.new(targetRoot.Position.X - myRoot.Position.X, 0, targetRoot.Position.Z - myRoot.Position.Z)
-	if lookDir.Magnitude > 0.5 then
-		-- Set root CFrame to face target, but keep position
-		local newCF = CFrame.lookAt(myRoot.Position, myRoot.Position + lookDir.Unit)
-		myRoot.CFrame = newCF
-	end
+    if not SilentAim then return end
+    local target, dist = GetNearestPlayer()
+    if not target or dist > 50 then return end
+    local tRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+    if not tRoot then return end
+    local myChar = Player.Character
+    if not myChar then return end
+    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return end
+    local look = Vector3.new(tRoot.Position.X - myRoot.Position.X, 0, tRoot.Position.Z - myRoot.Position.Z)
+    if look.Magnitude > 0.5 then
+        myRoot.CFrame = CFrame.lookAt(myRoot.Position, myRoot.Position + look.Unit)
+    end
 end
 
--- Auto Dodge – use Flash Step (F) when enemy is close and facing us
-local function AutoDodgeUpdate()
-	if not AutoDodgeEnabled or not VIM then return end
-	local myChar = Player.Character
-	if not myChar then return end
-	local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-	if not myRoot then return end
-
-	local target, dist = GetNearestPlayer()
-	if not target or dist > 25 then return end
-	local enemyRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
-	if not enemyRoot then return end
-
-	-- Check if enemy is facing us (rough)
-	local enemyLook = enemyRoot.CFrame.LookVector
-	local toUs = (myRoot.Position - enemyRoot.Position).Unit
-	if enemyLook:Dot(toUs) > 0.4 then
-		VIM:SendKeyEvent(true, Enum.KeyCode.F, false, game)
-		task.wait(0.05)
-		VIM:SendKeyEvent(false, Enum.KeyCode.F, false, game)
-	end
+local function SoruAimbotUpdate()
+    if not SoruAimbot or not VIM then return end
+    local target, dist = GetNearestPlayer()
+    if not target or dist > 25 then return end
+    -- Simulate Soru (Flash Step) key F
+    VIM:SendKeyEvent(true, Enum.KeyCode.F, false, game)
+    task.wait(0.05)
+    VIM:SendKeyEvent(false, Enum.KeyCode.F, false, game)
 end
 
--- Auto Combo – sequence: mouse1, 1, 2, 3
-local function AutoComboUpdate()
-	if not AutoComboEnabled or not VIM then return end
-	local target, dist = GetNearestPlayer()
-	if not target or dist > 30 then
-		ComboStep = 0
-		return
-	end
-	local myChar = Player.Character
-	if not myChar then return end
-
-	if dist < 30 then
-		local step = ComboStep
-		if step == 0 then
-			VIM:SendMouseButtonEvent(1, true, game, 0, 0)
-			task.wait(0.05)
-			VIM:SendMouseButtonEvent(1, false, game, 0, 0)
-			ComboStep = 1
-			ComboTimer = tick() + 0.3
-		elseif step == 1 and tick() > ComboTimer then
-			VIM:SendKeyEvent(true, Enum.KeyCode.One, false, game)
-			task.wait(0.05)
-			VIM:SendKeyEvent(false, Enum.KeyCode.One, false, game)
-			ComboStep = 2
-			ComboTimer = tick() + 0.4
-		elseif step == 2 and tick() > ComboTimer then
-			VIM:SendKeyEvent(true, Enum.KeyCode.Two, false, game)
-			task.wait(0.05)
-			VIM:SendKeyEvent(false, Enum.KeyCode.Two, false, game)
-			ComboStep = 3
-			ComboTimer = tick() + 0.4
-		elseif step == 3 and tick() > ComboTimer then
-			VIM:SendKeyEvent(true, Enum.KeyCode.Three, false, game)
-			task.wait(0.05)
-			VIM:SendKeyEvent(false, Enum.KeyCode.Three, false, game)
-			ComboStep = 0
-			ComboTimer = tick() + 0.8
-		end
-	end
+local function WalkspeedUpdate()
+    if not Walkspeed then
+        local char = Player.Character
+        if char and char:FindFirstChild("Humanoid") then
+            if char.Humanoid.WalkSpeed ~= 16 then
+                char.Humanoid.WalkSpeed = 16
+            end
+        end
+        return
+    end
+    local char = Player.Character
+    if char and char:FindFirstChild("Humanoid") then
+        char.Humanoid.WalkSpeed = 50
+    end
 end
 
--- Kill Aura – spam mouse1 when enemy in range
-local function KillAuraUpdate()
-	if not KillAuraEnabled or not VIM then return end
-	local target, dist = GetNearestPlayer()
-	if not target or dist > 22 then return end
-	VIM:SendMouseButtonEvent(1, true, game, 0, 0)
-	task.wait(0.08)
-	VIM:SendMouseButtonEvent(1, false, game, 0, 0)
+local function GunM1Update()
+    if not GunM1 or not VIM then return end
+    if not HasGunEquipped() then return end
+    local target, dist = GetNearestPlayer()
+    if not target or dist > 25 then return end
+    VIM:SendMouseButtonEvent(1, true, game, 0, 0)
+    task.wait(0.05)
+    VIM:SendMouseButtonEvent(1, false, game, 0, 0)
+    task.wait(0.2)
 end
 
--- Macros
-local function AutoClickMacroUpdate()
-	if not AutoClickMacro or not VIM then return end
-	VIM:SendMouseButtonEvent(1, true, game, 0, 0)
-	task.wait(0.05)
-	VIM:SendMouseButtonEvent(1, false, game, 0, 0)
-	task.wait(0.1)
+--//=========================================================
+--// PLAYER EXTRAS
+--//=========================================================
+local function InfiniteJumpUpdate()
+    local char = Player.Character
+    if char and char:FindFirstChild("Humanoid") then
+        char.Humanoid.JumpPower = InfiniteJump and 50 or 50
+    end
 end
 
-local function ComboMacroUpdate()
-	if not ComboMacro or not VIM then return end
-	-- spam 1,2,3, mouse1 repeatedly
-	VIM:SendKeyEvent(true, Enum.KeyCode.One, false, game)
-	task.wait(0.05)
-	VIM:SendKeyEvent(false, Enum.KeyCode.One, false, game)
-	task.wait(0.1)
-	VIM:SendKeyEvent(true, Enum.KeyCode.Two, false, game)
-	task.wait(0.05)
-	VIM:SendKeyEvent(false, Enum.KeyCode.Two, false, game)
-	task.wait(0.1)
-	VIM:SendKeyEvent(true, Enum.KeyCode.Three, false, game)
-	task.wait(0.05)
-	VIM:SendKeyEvent(false, Enum.KeyCode.Three, false, game)
-	task.wait(0.1)
-	VIM:SendMouseButtonEvent(1, true, game, 0, 0)
-	task.wait(0.05)
-	VIM:SendMouseButtonEvent(1, false, game, 0, 0)
-	task.wait(0.15)
+local function HandleJump()
+    if InfiniteJump then
+        local char = Player.Character
+        if char and char:FindFirstChild("Humanoid") and char:FindFirstChild("HumanoidRootPart") then
+            local hum = char.Humanoid
+            local root = char.HumanoidRootPart
+            if hum:GetState() ~= Enum.HumanoidStateType.Jumping and hum:GetState() ~= Enum.HumanoidStateType.Freefall then
+                root.Velocity = Vector3.new(root.Velocity.X, 50, root.Velocity.Z)
+            end
+        end
+    end
 end
 
--- Anti-AFK – simply move a tiny bit
+UIS.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == Enum.KeyCode.Space then
+        HandleJump()
+    end
+end)
+
+local function NoClipUpdate()
+    local char = Player.Character
+    if not char then return end
+    for _, part in pairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = not NoClip
+        end
+    end
+end
+
 local function AntiAFKUpdate()
-	if not AntiAFK then return end
-	local myChar = Player.Character
-	if myChar and myChar:FindFirstChild("Humanoid") then
-		local hum = myChar.Humanoid
-		hum:Move(Vector3.new(1,0,0), true) -- move a step
-		task.wait(0.1)
-		hum:Move(Vector3.new(-1,0,0), true)
-	end
+    if not AntiAFK then return end
+    local char = Player.Character
+    if char and char:FindFirstChild("Humanoid") then
+        local hum = char.Humanoid
+        hum:Move(Vector3.new(1,0,0), true)
+        task.wait(0.1)
+        hum:Move(Vector3.new(-1,0,0), true)
+    end
 end
 
---==================================================
--- MAIN LOOP CONTROLLER
---==================================================
+--//=========================================================
+--// ESP SYSTEM (unchanged)
+--//=========================================================
+local ESPObjects = {}
+local function CreateESP()
+    local ESPGui = Instance.new("ScreenGui")
+    ESPGui.Name = "ESPOverlay"
+    ESPGui.IgnoreGuiInset = true
+    ESPGui.Parent = Gui
 
+    local function AddESPForPlayer(plr)
+        if ESPObjects[plr] then return end
+        local container = Instance.new("Frame")
+        container.BackgroundTransparency = 1
+        container.Size = UDim2.new(0,0,0,0)
+        container.Parent = ESPGui
+
+        local box = Instance.new("Frame")
+        box.BackgroundTransparency = 0.5
+        box.BackgroundColor3 = WHITE
+        box.BorderSizePixel = 1
+        box.BorderColor3 = WHITE
+        box.Visible = false
+        box.Parent = container
+
+        local nameLabel = Instance.new("TextLabel")
+        nameLabel.BackgroundTransparency = 1
+        nameLabel.Text = plr.Name
+        nameLabel.TextColor3 = WHITE
+        nameLabel.TextSize = 12
+        nameLabel.Font = Enum.Font.GothamBold
+        nameLabel.Size = UDim2.new(0,100,0,18)
+        nameLabel.Parent = container
+
+        local healthBg = Instance.new("Frame")
+        healthBg.BackgroundColor3 = Color3.fromRGB(20,20,20)
+        healthBg.BorderSizePixel = 0
+        healthBg.Size = UDim2.new(0,100,0,4)
+        healthBg.Parent = container
+
+        local healthFill = Instance.new("Frame")
+        healthFill.BackgroundColor3 = GREEN
+        healthFill.BorderSizePixel = 0
+        healthFill.Size = UDim2.new(0,100,0,4)
+        healthFill.Parent = healthBg
+
+        local distLabel = Instance.new("TextLabel")
+        distLabel.BackgroundTransparency = 1
+        distLabel.Text = ""
+        distLabel.TextColor3 = GRAY
+        distLabel.TextSize = 10
+        distLabel.Font = Enum.Font.Gotham
+        distLabel.Size = UDim2.new(0,60,0,16)
+        distLabel.Parent = container
+
+        ESPObjects[plr] = {
+            container = container,
+            box = box,
+            name = nameLabel,
+            healthBg = healthBg,
+            healthFill = healthFill,
+            dist = distLabel
+        }
+    end
+
+    local function RemoveESPForPlayer(plr)
+        local data = ESPObjects[plr]
+        if data then
+            data.container:Destroy()
+            ESPObjects[plr] = nil
+        end
+    end
+
+    local function UpdateESP()
+        if not ESPEnabled then
+            for _, data in pairs(ESPObjects) do
+                data.container.Visible = false
+            end
+            return
+        end
+
+        for _, plr in pairs(Players:GetPlayers()) do
+            if plr ~= Player then
+                if not ESPObjects[plr] then AddESPForPlayer(plr) end
+                local data = ESPObjects[plr]
+                local char = plr.Character
+                if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") then
+                    local root = char.HumanoidRootPart
+                    local hum = char.Humanoid
+                    local pos, onScreen = Camera:WorldToScreenPoint(root.Position)
+                    if onScreen then
+                        data.container.Visible = true
+                        local head = char:FindFirstChild("Head") or root
+                        local headPos, _ = Camera:WorldToScreenPoint(head.Position)
+                        local rootPos, _ = Camera:WorldToScreenPoint(root.Position)
+                        local height = (headPos.Y - rootPos.Y) * 1.2
+                        local width = height * 0.6
+
+                        data.container.Position = UDim2.new(0, pos.X - width/2, 0, pos.Y - height - 20)
+                        data.container.Size = UDim2.new(0, width, 0, height + 20)
+
+                        if ESPBox then
+                            data.box.Visible = true
+                            data.box.Size = UDim2.new(1,0,1,-20)
+                            data.box.Position = UDim2.new(0,0,0,0)
+                        else
+                            data.box.Visible = false
+                        end
+
+                        if ESPName then
+                            data.name.Visible = true
+                            data.name.Text = plr.Name
+                            data.name.Size = UDim2.new(1,0,0,18)
+                            data.name.Position = UDim2.new(0,0,0,-18)
+                        else
+                            data.name.Visible = false
+                        end
+
+                        if ESPHealth then
+                            data.healthBg.Visible = true
+                            data.healthBg.Size = UDim2.new(1,0,0,4)
+                            data.healthBg.Position = UDim2.new(0,0,1,-4)
+                            local healthPercent = hum.Health / hum.MaxHealth
+                            data.healthFill.Size = UDim2.new(healthPercent,0,1,0)
+                            if healthPercent > 0.5 then
+                                data.healthFill.BackgroundColor3 = GREEN
+                            elseif healthPercent > 0.25 then
+                                data.healthFill.BackgroundColor3 = Color3.fromRGB(255,200,0)
+                            else
+                                data.healthFill.BackgroundColor3 = RED
+                            end
+                        else
+                            data.healthBg.Visible = false
+                        end
+
+                        if ESPDistance then
+                            data.dist.Visible = true
+                            local dist = (root.Position - Camera.CFrame.Position).Magnitude
+                            data.dist.Text = math.floor(dist) .. " m"
+                            data.dist.Size = UDim2.new(0,60,0,16)
+                            data.dist.Position = UDim2.new(1,-60,0,-16)
+                        else
+                            data.dist.Visible = false
+                        end
+                    else
+                        data.container.Visible = false
+                    end
+                else
+                    data.container.Visible = false
+                end
+            end
+        end
+    end
+
+    Players.PlayerRemoving:Connect(RemoveESPForPlayer)
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= Player then AddESPForPlayer(plr) end
+    end
+    return UpdateESP
+end
+
+local ESPUpdate = CreateESP()
+
+--//=========================================================
+--// MAIN LOOP
+--//=========================================================
 local function StartPVPLoop()
-	if RunningLoop then return end
-	RunningLoop = RunService.Heartbeat:Connect(function()
-		SilentAimUpdate()
-		AutoDodgeUpdate()
-		AutoComboUpdate()
-		KillAuraUpdate()
-		AutoClickMacroUpdate()
-		ComboMacroUpdate()
-		AntiAFKUpdate()
-	end)
+    if RunningLoop then return end
+    RunningLoop = RunService.Heartbeat:Connect(function()
+        SilentAimUpdate()
+        SoruAimbotUpdate()
+        WalkspeedUpdate()
+        GunM1Update()
+        NoClipUpdate()
+        AntiAFKUpdate()
+        ESPUpdate()
+    end)
 end
 
 local function StopPVPLoop()
-	if RunningLoop then
-		RunningLoop:Disconnect()
-		RunningLoop = nil
-	end
+    if RunningLoop then
+        RunningLoop:Disconnect()
+        RunningLoop = nil
+    end
 end
 
--- Check if any feature is active to start/stop loop
 local function CheckLoopState()
-	if SilentAimEnabled or AutoDodgeEnabled or AutoComboEnabled or KillAuraEnabled or AutoClickMacro or ComboMacro or AntiAFK then
-		StartPVPLoop()
-	else
-		StopPVPLoop()
-	end
+    if SilentAim or SoruAimbot or Walkspeed or GunM1 or NoClip or AntiAFK or ESPEnabled or InfiniteJump then
+        StartPVPLoop()
+    else
+        StopPVPLoop()
+    end
 end
 
--- Toggle functions
-local function ToggleSilentAim()
-	SilentAimEnabled = not SilentAimEnabled
-	UpdateFeatureButton(aimbotBtn, SilentAimEnabled)
-	UpdateStatus()
-	CheckLoopState()
-end
+--//=========================================================
+--// BUILD PAGES
+--//=========================================================
 
-local function ToggleAutoDodge()
-	AutoDodgeEnabled = not AutoDodgeEnabled
-	UpdateFeatureButton(dodgeBtn, AutoDodgeEnabled)
-	UpdateStatus()
-	CheckLoopState()
-end
+-- MAIN page
+Section(MainPage, "MAIN")
+Toggle(MainPage, "Welcome Feature", false, function(state)
+    print("[IVORY] Welcome:", state)
+end)
 
-local function ToggleAutoCombo()
-	AutoComboEnabled = not AutoComboEnabled
-	UpdateFeatureButton(comboBtn, AutoComboEnabled)
-	UpdateStatus()
-	CheckLoopState()
-end
+-- COMBAT page – main four
+Section(CombatPage, "COMBAT")
+Toggle(CombatPage, "180° Silent Aim", false, function(state)
+    SilentAim = state
+    CheckLoopState()
+end)
+Toggle(CombatPage, "Soru Aimbot (F)", false, function(state)   -- renamed
+    SoruAimbot = state
+    CheckLoopState()
+end)
+Toggle(CombatPage, "Walkspeed (x2)", false, function(state)
+    Walkspeed = state
+    if not state then
+        local char = Player.Character
+        if char and char:FindFirstChild("Humanoid") then
+            char.Humanoid.WalkSpeed = 16
+        end
+    end
+    CheckLoopState()
+end)
+Toggle(CombatPage, "Gun M1 Aimbot", false, function(state)
+    GunM1 = state
+    CheckLoopState()
+end)
 
-local function ToggleKillAura()
-	KillAuraEnabled = not KillAuraEnabled
-	UpdateFeatureButton(auraBtn, KillAuraEnabled)
-	UpdateStatus()
-	CheckLoopState()
-end
+-- PLAYER page (extras)
+Section(PlayerPage, "PLAYER EXTRAS")
+Toggle(PlayerPage, "Infinite Jump", false, function(state)
+    InfiniteJump = state
+    CheckLoopState()
+end)
+Toggle(PlayerPage, "No Clip", false, function(state)
+    NoClip = state
+    CheckLoopState()
+end)
+Toggle(PlayerPage, "Anti-AFK", false, function(state)
+    AntiAFK = state
+    CheckLoopState()
+end)
 
-local function ToggleAutoClick()
-	AutoClickMacro = not AutoClickMacro
-	UpdateFeatureButton(clickBtn, AutoClickMacro)
-	UpdateStatus()
-	CheckLoopState()
-end
+-- VISUALS page
+Section(VisualPage, "VISUALS (ESP)")
+Toggle(VisualPage, "Enable ESP", false, function(state)
+    ESPEnabled = state
+    CheckLoopState()
+end)
+Toggle(VisualPage, "Show Box", false, function(state)
+    ESPBox = state
+end)
+Toggle(VisualPage, "Show Name", false, function(state)
+    ESPName = state
+end)
+Toggle(VisualPage, "Show Health", false, function(state)
+    ESPHealth = state
+end)
+Toggle(VisualPage, "Show Distance", false, function(state)
+    ESPDistance = state
+end)
 
-local function ToggleComboMacro()
-	ComboMacro = not ComboMacro
-	UpdateFeatureButton(comboMacroBtn, ComboMacro)
-	UpdateStatus()
-	CheckLoopState()
-end
+-- SETTINGS page
+Section(SettingsPage, "SETTINGS")
+Button(SettingsPage, "Show Notification", function()
+    local Notification = Instance.new("Frame")
+    Notification.Size = UDim2.new(0,280,0,65)
+    Notification.Position = UDim2.new(1,20,0,20)
+    Notification.BackgroundColor3 = BLACK
+    Notification.BorderSizePixel = 0
+    Notification.Parent = Gui
+    Corner(Notification,10)
+    AddStroke(Notification)
+    local T = Text(Notification,"IVORY HUB",14,true)
+    T.Position = UDim2.new(0,14,0,8)
+    T.Size = UDim2.new(1,-20,0,20)
+    local M = Text(Notification,"Mobile – Silent Aim, Soru, Speed, Gun",11,false)
+    M.TextColor3 = GRAY
+    M.Position = UDim2.new(0,14,0,32)
+    M.Size = UDim2.new(1,-20,0,18)
 
-local function ToggleAntiAFK()
-	AntiAFK = not AntiAFK
-	UpdateFeatureButton(afkBtn, AntiAFK)
-	UpdateStatus()
-	CheckLoopState()
-end
+    Tween(Notification,.3,{Position = UDim2.new(1,-300,0,20)})
+    task.delay(3,function()
+        Tween(Notification,.3,{Position = UDim2.new(1,20,0,20)})
+        task.wait(.3)
+        Notification:Destroy()
+    end)
+end)
 
---==================================================
--- BUILD PAGES
---==================================================
+Button(SettingsPage, "Print GUI Info", function()
+    print("================================")
+    print("IVORY HUB - Mobile Edition")
+    print("Features: 180 Silent Aim, Soru Aimbot, Walkspeed, Gun M1")
+    print("Creators: Ivory & Rayo")
+    print("================================")
+end)
 
--- Aimbot Page
-local aimbotTitle = Instance.new("TextLabel")
-aimbotTitle.Size = UDim2.new(1,-30,0,30)
-aimbotTitle.Position = UDim2.fromOffset(15,15)
-aimbotTitle.BackgroundTransparency = 1
-aimbotTitle.Text = "AIMBOT"
-aimbotTitle.TextColor3 = WHITE
-aimbotTitle.TextSize = 20
-aimbotTitle.Font = BOLD
-aimbotTitle.TextXAlignment = Enum.TextXAlignment.Left
-aimbotTitle.Parent = AimbotPage
+-- CREDITS page
+Section(CreditsPage, "CREATORS")
+local CreatorBox = Instance.new("Frame")
+CreatorBox.Size = UDim2.new(1,0,0,82)
+CreatorBox.BackgroundColor3 = DARKER
+CreatorBox.BorderSizePixel = 0
+CreatorBox.Parent = CreditsPage
+Corner(CreatorBox,8)
+AddStroke(CreatorBox)
+local Creator1 = Text(CreatorBox,"IVORY",15,true)
+Creator1.Position = UDim2.new(0,14,0,10)
+Creator1.Size = UDim2.new(1,-28,0,22)
+local Discord1 = Text(CreatorBox,"Discord  •  Ivory999",11,false)
+Discord1.TextColor3 = GRAY
+Discord1.Position = UDim2.new(0,14,0,38)
+Discord1.Size = UDim2.new(1,-28,0,18)
 
-local aimbotDesc = Instance.new("TextLabel")
-aimbotDesc.Size = UDim2.new(1,-30,0,25)
-aimbotDesc.Position = UDim2.fromOffset(15,48)
-aimbotDesc.BackgroundTransparency = 1
-aimbotDesc.Text = "180° Silent Aim – locks onto nearest enemy without moving your camera."
-aimbotDesc.TextColor3 = WHITE
-aimbotDesc.TextSize = 10
-aimbotDesc.Font = REGULAR
-aimbotDesc.TextXAlignment = Enum.TextXAlignment.Left
-aimbotDesc.TextYAlignment = Enum.TextYAlignment.Top
-aimbotDesc.Parent = AimbotPage
+local CreatorBox2 = Instance.new("Frame")
+CreatorBox2.Size = UDim2.new(1,0,0,82)
+CreatorBox2.BackgroundColor3 = DARKER
+CreatorBox2.BorderSizePixel = 0
+CreatorBox2.Parent = CreditsPage
+Corner(CreatorBox2,8)
+AddStroke(CreatorBox2)
+local Creator2 = Text(CreatorBox2,"RAYO",15,true)
+Creator2.Position = UDim2.new(0,14,0,10)
+Creator2.Size = UDim2.new(1,-28,0,22)
+local Discord2 = Text(CreatorBox2,"Discord  •  rayo06996",11,false)
+Discord2.TextColor3 = GRAY
+Discord2.Position = UDim2.new(0,14,0,38)
+Discord2.Size = UDim2.new(1,-28,0,18)
 
-local aimbotBtn = FeatureButton("SILENT AIM", 85, ToggleSilentAim, AimbotPage)
+local Version = Text(CreditsPage,"Ivory Hub  •  Mobile Edition",10,false)
+Version.TextColor3 = GRAY
+Version.Size = UDim2.new(1,0,0,25)
 
--- Combat Page
-local combatTitle = Instance.new("TextLabel")
-combatTitle.Size = UDim2.new(1,-30,0,30)
-combatTitle.Position = UDim2.fromOffset(15,15)
-combatTitle.BackgroundTransparency = 1
-combatTitle.Text = "COMBAT"
-combatTitle.TextColor3 = WHITE
-combatTitle.TextSize = 20
-combatTitle.Font = BOLD
-combatTitle.TextXAlignment = Enum.TextXAlignment.Left
-combatTitle.Parent = CombatPage
-
-dodgeBtn = FeatureButton("AUTO DODGE", 55, ToggleAutoDodge, CombatPage)
-comboBtn = FeatureButton("AUTO COMBO", 100, ToggleAutoCombo, CombatPage)
-auraBtn = FeatureButton("KILL AURA", 145, ToggleKillAura, CombatPage)
-
--- Macros Page
-local macroTitle = Instance.new("TextLabel")
-macroTitle.Size = UDim2.new(1,-30,0,30)
-macroTitle.Position = UDim2.fromOffset(15,15)
-macroTitle.BackgroundTransparency = 1
-macroTitle.Text = "MACROS"
-macroTitle.TextColor3 = WHITE
-macroTitle.TextSize = 20
-macroTitle.Font = BOLD
-macroTitle.TextXAlignment = Enum.TextXAlignment.Left
-macroTitle.Parent = MacrosPage
-
-clickBtn = FeatureButton("AUTO CLICK", 55, ToggleAutoClick, MacrosPage)
-comboMacroBtn = FeatureButton("COMBO MACRO (1,2,3,M1)", 100, ToggleComboMacro, MacrosPage)
-
--- Utility Page
-local utilTitle = Instance.new("TextLabel")
-utilTitle.Size = UDim2.new(1,-30,0,30)
-utilTitle.Position = UDim2.fromOffset(15,15)
-utilTitle.BackgroundTransparency = 1
-utilTitle.Text = "UTILITY"
-utilTitle.TextColor3 = WHITE
-utilTitle.TextSize = 20
-utilTitle.Font = BOLD
-utilTitle.TextXAlignment = Enum.TextXAlignment.Left
-utilTitle.Parent = UtilityPage
-
-afkBtn = FeatureButton("ANTI-AFK", 55, ToggleAntiAFK, UtilityPage)
-
--- Settings Page
-local settingsTitle = Instance.new("TextLabel")
-settingsTitle.Size = UDim2.new(1,-30,0,30)
-settingsTitle.Position = UDim2.fromOffset(15,15)
-settingsTitle.BackgroundTransparency = 1
-settingsTitle.Text = "SETTINGS"
-settingsTitle.TextColor3 = WHITE
-settingsTitle.TextSize = 20
-settingsTitle.Font = BOLD
-settingsTitle.TextXAlignment = Enum.TextXAlignment.Left
-settingsTitle.Parent = SettingsPage
-
-local settingsInfo = Instance.new("TextLabel")
-settingsInfo.Size = UDim2.new(1,-30,0,60)
-settingsInfo.Position = UDim2.fromOffset(15,55)
-settingsInfo.BackgroundTransparency = 1
-settingsInfo.Text = "Customize your Ivory experience.\nMore options can be added here."
-settingsInfo.TextColor3 = WHITE
-settingsInfo.TextSize = 11
-settingsInfo.Font = REGULAR
-settingsInfo.TextXAlignment = Enum.TextXAlignment.Left
-settingsInfo.TextYAlignment = Enum.TextYAlignment.Top
-settingsInfo.Parent = SettingsPage
-
--- Credits Page
-local creditsTitle = Instance.new("TextLabel")
-creditsTitle.Size = UDim2.new(1,-30,0,35)
-creditsTitle.Position = UDim2.fromOffset(15,15)
-creditsTitle.BackgroundTransparency = 1
-creditsTitle.Text = "CREDITS"
-creditsTitle.TextColor3 = WHITE
-creditsTitle.TextSize = 21
-creditsTitle.Font = BOLD
-creditsTitle.TextXAlignment = Enum.TextXAlignment.Left
-creditsTitle.Parent = Credits
-
-local creditsText = Instance.new("TextLabel")
-creditsText.Size = UDim2.new(1,-30,0,150)
-creditsText.Position = UDim2.fromOffset(15,60)
-creditsText.BackgroundTransparency = 1
-creditsText.Text = "IVORY\nCREATOR / DEVELOPER\n\nRAYO\nIDEAS / CONCEPTS\n\nIVORY HUB"
-creditsText.TextColor3 = WHITE
-creditsText.TextSize = 12
-creditsText.Font = REGULAR
-creditsText.TextXAlignment = Enum.TextXAlignment.Left
-creditsText.TextYAlignment = Enum.TextYAlignment.Top
-creditsText.Parent = Credits
-
---==================================================
--- SIDEBAR TABS (with white borders)
---==================================================
+--//=========================================================
+--// TABS
+--//=========================================================
+local Tabs = {
+    {"MAIN",    MainPage},
+    {"COMBAT",  CombatPage},
+    {"PLAYER",  PlayerPage},
+    {"VISUALS", VisualPage},
+    {"SETTINGS",SettingsPage},
+    {"CREDITS", CreditsPage}
+}
 
 local CurrentTab
 
-local function CreateTab(text, y, page)
-	local Button = Instance.new("TextButton")
-	Button.Size = UDim2.new(1,-18,0,34)
-	Button.Position = UDim2.fromOffset(9,y)
-	Button.BackgroundColor3 = BLACK
-	Button.BorderColor3 = WHITE
-	Button.BorderSizePixel = 1
-	Button.Text = text
-	Button.TextColor3 = WHITE
-	Button.TextSize = 10
-	Button.Font = BOLD
-	Button.AutoButtonColor = false
-	Button.Parent = Sidebar
-
-	local Corner = Instance.new("UICorner")
-	Corner.CornerRadius = UDim.new(0,7)
-	Corner.Parent = Button
-
-	local Indicator = Instance.new("Frame")
-	Indicator.Size = UDim2.fromOffset(3,20)
-	Indicator.Position = UDim2.new(1,-7,0.5,-10)
-	Indicator.BackgroundColor3 = WHITE
-	Indicator.BorderSizePixel = 0
-	Indicator.Visible = false
-	Indicator.Parent = Button
-
-	local function Select()
-		if CurrentTab then
-			CurrentTab.Button.BackgroundColor3 = BLACK
-			CurrentTab.Button.TextColor3 = WHITE
-			CurrentTab.Indicator.Visible = false
-			CurrentTab.Page.Visible = false
-		end
-
-		CurrentTab = {
-			Button = Button,
-			Indicator = Indicator,
-			Page = page
-		}
-
-		Button.BackgroundColor3 = WHITE
-		Button.TextColor3 = BLACK
-		Indicator.BackgroundColor3 = BLACK
-		Indicator.Visible = true
-
-		page.Visible = true
-		page.Position = UDim2.new(0,15,0,0)
-
-		TweenService:Create(page, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-			Position = UDim2.new(0,0,0,0)
-		}):Play()
-	end
-
-	Button.MouseButton1Click:Connect(Select)
-
-	return {
-		Button = Button,
-		Indicator = Indicator,
-		Select = Select,
-		Page = page
-	}
+local function SelectTab(button,page)
+    for _,data in ipairs(Tabs) do
+        local otherButton = data[3]
+        if otherButton then
+            Tween(otherButton,.15,{BackgroundColor3 = DARKER})
+        end
+        data[2].Visible = false
+    end
+    Tween(button,.15,{BackgroundColor3 = WHITE})
+    button.TextColor3 = BLACK
+    page.Visible = true
+    CurrentTab = page
 end
 
--- Create all tabs (no labels on sidebar)
-local HomeTab = CreateTab("HOME", 20, Home)
-local AimbotTab = CreateTab("AIMBOT", 60, AimbotPage)
-local CombatTab = CreateTab("COMBAT", 100, CombatPage)
-local MacrosTab = CreateTab("MACROS", 140, MacrosPage)
-local UtilityTab = CreateTab("UTILITY", 180, UtilityPage)
-local SettingsTab = CreateTab("SETTINGS", 220, SettingsPage)
-local CreditsTab = CreateTab("CREDITS", 260, Credits)
+for _,data in ipairs(Tabs) do
+    local Name = data[1]
+    local Page = data[2]
+    local Tab = Instance.new("TextButton")
+    Tab.Size = UDim2.new(1,0,0,38)
+    Tab.BackgroundColor3 = DARKER
+    Tab.BorderSizePixel = 0
+    Tab.Text = Name
+    Tab.TextColor3 = GRAY
+    Tab.TextSize = 11
+    Tab.Font = Enum.Font.GothamBold
+    Tab.AutoButtonColor = false
+    Tab.Parent = Sidebar
+    Corner(Tab,8)
+    AddStroke(Tab)
+    data[3] = Tab
 
-HomeTab.Select()
-
---==================================================
--- DRAGGING
---==================================================
-
-local function MakeDraggable(object, handle)
-	local dragging = false
-	local dragStart
-	local startPosition
-
-	handle.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			dragging = true
-			dragStart = input.Position
-			startPosition = object.Position
-			input.Changed:Connect(function()
-				if input.UserInputState == Enum.UserInputState.End then
-					dragging = false
-				end
-			end)
-		end
-	end)
-
-	UIS.InputChanged:Connect(function(input)
-		if not dragging then return end
-		if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-			local delta = input.Position - dragStart
-			object.Position = UDim2.new(
-				startPosition.X.Scale,
-				startPosition.X.Offset + delta.X,
-				startPosition.Y.Scale,
-				startPosition.Y.Offset + delta.Y
-			)
-		end
-	end)
+    Tab.MouseEnter:Connect(function()
+        if CurrentTab ~= Page then
+            Tween(Tab,.15,{BackgroundColor3 = Color3.fromRGB(27,27,27)})
+        end
+    end)
+    Tab.MouseLeave:Connect(function()
+        if CurrentTab ~= Page then
+            Tween(Tab,.15,{BackgroundColor3 = DARKER})
+        end
+    end)
+    Tab.MouseButton1Click:Connect(function()
+        SelectTab(Tab,Page)
+    end)
 end
 
-MakeDraggable(Main, Header)
-MakeDraggable(Toggle, Toggle)
+-- Default: Combat
+SelectTab(Tabs[2][3], Tabs[2][2])
 
---==================================================
--- TOGGLE VISIBILITY
---==================================================
+--//=========================================================
+--// DRAGGING (touch friendly)
+--//=========================================================
+local Dragging = false
+local DragStart, StartPosition
 
-local Open = true
-Toggle.MouseButton1Click:Connect(function()
-	Open = not Open
-	if Open then
-		Main.Visible = true
-		Main.Size = UDim2.fromOffset(435,270)
-		TweenService:Create(Main, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-			Size = UDim2.fromOffset(455,285)
-		}):Play()
-	else
-		TweenService:Create(Main, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
-			Size = UDim2.fromOffset(435,270)
-		}):Play()
-		task.wait(0.15)
-		Main.Visible = false
-	end
+local function UpdateDrag(input)
+    local Delta = input.Position - DragStart
+    Main.Position = UDim2.new(
+        StartPosition.X.Scale,
+        StartPosition.X.Offset + Delta.X,
+        StartPosition.Y.Scale,
+        StartPosition.Y.Offset + Delta.Y
+    )
+end
+
+Top.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        Dragging = true
+        DragStart = input.Position
+        StartPosition = Main.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                Dragging = false
+            end
+        end)
+    end
 end)
 
--- Hover effects on toggle
-Toggle.MouseEnter:Connect(function()
-	TweenService:Create(Toggle, TweenInfo.new(0.15), {
-		BackgroundColor3 = WHITE,
-		TextColor3 = BLACK
-	}):Play()
-end)
-Toggle.MouseLeave:Connect(function()
-	TweenService:Create(Toggle, TweenInfo.new(0.15), {
-		BackgroundColor3 = BLACK,
-		TextColor3 = WHITE
-	}):Play()
+UIS.InputChanged:Connect(function(input)
+    if Dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        UpdateDrag(input)
+    end
 end)
 
---==================================================
--- INIT
---==================================================
-UpdateStatus()
-print("IVORY HUB // LOADED – Enhanced PVP Edition")
+--//=========================================================
+--// MINIMIZE / CLOSE
+--//=========================================================
+local Minimized = false
+Minimize.MouseButton1Click:Connect(function()
+    Minimized = not Minimized
+    if Minimized then
+        Sidebar.Visible = false
+        Content.Visible = false
+        Tween(Main,.25,{Size = UDim2.new(0,520,0,58)})
+        Minimize.Text = "+"
+    else
+        Tween(Main,.25,{Size = UDim2.new(0,520,0,340)})
+        task.wait(.15)
+        Sidebar.Visible = true
+        Content.Visible = true
+        Minimize.Text = "—"
+    end
+end)
+
+Close.MouseButton1Click:Connect(function()
+    Tween(Main,.25,{Size = UDim2.new(0,0,0,0)})
+    task.wait(.3)
+    Gui:Destroy()
+end)
+
+--//=========================================================
+--// OPEN/CLOSE KEY (optional – works on external keyboards)
+--//=========================================================
+UIS.InputBegan:Connect(function(input,gpe)
+    if gpe then return end
+    if input.KeyCode == Enum.KeyCode.RightShift then
+        Main.Visible = not Main.Visible
+    end
+end)
+
+--//=========================================================
+--// START
+--//=========================================================
+CheckLoopState()
+
+print("================================")
+print("        IVORY HUB LOADED")
+print("================================")
+print("Mobile – Silent Aim, Soru Aimbot, Walkspeed, Gun M1")
+print("Creators: Ivory & Rayo")
+print("================================")
