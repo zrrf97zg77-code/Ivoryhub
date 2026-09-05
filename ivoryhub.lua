@@ -2,10 +2,13 @@
 --// FULL BLACK / WHITE TEXT
 --// Creator: Ivory
 --// Ideas / Concepts: Rayo
+--// Modified for Blox Fruits PVP (with features)
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local VIM = pcall(function() return game:GetService("VirtualInputManager") end) and game:GetService("VirtualInputManager") or nil
 
 local Player = Players.LocalPlayer
 
@@ -14,6 +17,20 @@ local WHITE = Color3.fromRGB(255,255,255)
 
 local BOLD = Enum.Font.GothamBold
 local REGULAR = Enum.Font.Gotham
+
+--==================================================
+-- FEATURE STATES
+--==================================================
+local AimbotEnabled = false
+local AutoDodgeEnabled = false
+local AutoComboEnabled = false
+local KillAuraEnabled = false
+
+local TargetPlayer = nil
+local FeatureButtons = {}
+local RunningLoop = nil
+local ComboStep = 0
+local ComboTimer = 0
 
 --==================================================
 -- GUI
@@ -317,7 +334,7 @@ FeatureTitle.Font = BOLD
 FeatureTitle.TextXAlignment = Enum.TextXAlignment.Left
 FeatureTitle.Parent = Features
 
-local function FeatureButton(text,y)
+local function FeatureButton(text,y, callback)
 
 	local Button = Instance.new("TextButton")
 	Button.Size = UDim2.new(1,-30,0,38)
@@ -337,7 +354,6 @@ local function FeatureButton(text,y)
 	Corner.Parent = Button
 
 	Button.MouseEnter:Connect(function()
-
 		TweenService:Create(
 			Button,
 			TweenInfo.new(0.15),
@@ -346,11 +362,9 @@ local function FeatureButton(text,y)
 				TextColor3 = BLACK
 			}
 		):Play()
-
 	end)
 
 	Button.MouseLeave:Connect(function()
-
 		TweenService:Create(
 			Button,
 			TweenInfo.new(0.15),
@@ -359,16 +373,14 @@ local function FeatureButton(text,y)
 				TextColor3 = WHITE
 			}
 		):Play()
-
 	end)
+
+	if callback then
+		Button.MouseButton1Click:Connect(callback)
+	end
 
 	return Button
 end
-
-FeatureButton("FEATURE 01",55)
-FeatureButton("FEATURE 02",100)
-FeatureButton("FEATURE 03",145)
-FeatureButton("FEATURE 04",190)
 
 --==================================================
 -- SETTINGS
@@ -653,3 +665,264 @@ Toggle.MouseLeave:Connect(function()
 end)
 
 print("IVORY HUB // LOADED")
+
+--==================================================
+-- PVP FEATURES IMPLEMENTATION
+--==================================================
+
+-- Helper function to update button appearance
+local function UpdateFeatureButton(button, enabled)
+	if enabled then
+		TweenService:Create(button, TweenInfo.new(0.15), {
+			BackgroundColor3 = WHITE,
+			TextColor3 = BLACK
+		}):Play()
+	else
+		TweenService:Create(button, TweenInfo.new(0.15), {
+			BackgroundColor3 = BLACK,
+			TextColor3 = WHITE
+		}):Play()
+	end
+end
+
+-- Update status text on Home page
+local function UpdateStatus()
+	local statusText = "IVORY HUB  //  "
+	local active = {}
+	if AimbotEnabled then table.insert(active, "AIM") end
+	if AutoDodgeEnabled then table.insert(active, "DODGE") end
+	if AutoComboEnabled then table.insert(active, "COMBO") end
+	if KillAuraEnabled then table.insert(active, "AURA") end
+	if #active == 0 then
+		statusText = statusText .. "READY"
+	else
+		statusText = statusText .. table.concat(active, " | ")
+	end
+	Status.Text = statusText
+end
+
+-- Get nearest enemy player
+local function GetNearestPlayer()
+	local nearest = nil
+	local dist = math.huge
+	local myChar = Player.Character
+	if not myChar then return nil end
+	local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+	if not myRoot then return nil end
+	local myPos = myRoot.Position
+
+	for _, plr in pairs(Players:GetPlayers()) do
+		if plr ~= Player then
+			local char = plr.Character
+			if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
+				local pos = char.HumanoidRootPart.Position
+				local d = (pos - myPos).magnitude
+				if d < dist then
+					dist = d
+					nearest = plr
+				end
+			end
+		end
+	end
+	return nearest
+end
+
+-- Aimbot: face nearest player
+local function AimbotUpdate()
+	if not AimbotEnabled then return end
+	local target = GetNearestPlayer()
+	if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+		local targetPart = target.Character:FindFirstChild("Head") or target.Character:FindFirstChild("HumanoidRootPart")
+		if targetPart then
+			local myChar = Player.Character
+			if myChar and myChar:FindFirstChild("HumanoidRootPart") then
+				local myRoot = myChar.HumanoidRootPart
+				local lookVec = (targetPart.Position - myRoot.Position).Unit
+				myRoot.CFrame = CFrame.lookAt(myRoot.Position, myRoot.Position + Vector3.new(lookVec.X, 0, lookVec.Z))
+			end
+		end
+	end
+end
+
+-- Auto Dodge: simulate Flash Step (key 'F') when enemy is near and attacking
+local function AutoDodgeUpdate()
+	if not AutoDodgeEnabled then return end
+	if not VIM then return end -- VirtualInputManager not available
+
+	local myChar = Player.Character
+	if not myChar then return end
+	local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+	if not myRoot then return end
+
+	local nearest = GetNearestPlayer()
+	if nearest and nearest.Character then
+		local enemyRoot = nearest.Character:FindFirstChild("HumanoidRootPart")
+		if enemyRoot then
+			local dist = (enemyRoot.Position - myRoot.Position).magnitude
+			if dist < 20 then -- dodge range
+				-- Check if enemy is facing us (rough detection)
+				local enemyLook = enemyRoot.CFrame.LookVector
+				local toUs = (myRoot.Position - enemyRoot.Position).Unit
+				local dot = enemyLook:Dot(toUs)
+				if dot > 0.5 then -- enemy looking at us
+					-- Simulate Flash Step (key F)
+					VIM:SendKeyEvent(true, Enum.KeyCode.F, false, game)
+					task.wait(0.05)
+					VIM:SendKeyEvent(false, Enum.KeyCode.F, false, game)
+				end
+			end
+		end
+	end
+end
+
+-- Auto Combo: perform sequence (mouse1, 1, 2, 3) with delays
+local function AutoComboUpdate()
+	if not AutoComboEnabled then return end
+	if not VIM then return end
+
+	local nearest = GetNearestPlayer()
+	if nearest and nearest.Character then
+		local enemyRoot = nearest.Character:FindFirstChild("HumanoidRootPart")
+		if enemyRoot then
+			local myChar = Player.Character
+			if myChar and myChar:FindFirstChild("HumanoidRootPart") then
+				local dist = (enemyRoot.Position - myChar.HumanoidRootPart.Position).magnitude
+				if dist < 25 then
+					-- Execute combo steps with timing
+					local step = ComboStep
+					if step == 0 then
+						-- Attack (mouse1)
+						VIM:SendMouseButtonEvent(1, true, game, 0, 0)
+						task.wait(0.05)
+						VIM:SendMouseButtonEvent(1, false, game, 0, 0)
+						ComboStep = 1
+						ComboTimer = tick() + 0.3
+					elseif step == 1 and tick() > ComboTimer then
+						-- Skill 1 (key 1)
+						VIM:SendKeyEvent(true, Enum.KeyCode.One, false, game)
+						task.wait(0.05)
+						VIM:SendKeyEvent(false, Enum.KeyCode.One, false, game)
+						ComboStep = 2
+						ComboTimer = tick() + 0.4
+					elseif step == 2 and tick() > ComboTimer then
+						-- Skill 2 (key 2)
+						VIM:SendKeyEvent(true, Enum.KeyCode.Two, false, game)
+						task.wait(0.05)
+						VIM:SendKeyEvent(false, Enum.KeyCode.Two, false, game)
+						ComboStep = 3
+						ComboTimer = tick() + 0.4
+					elseif step == 3 and tick() > ComboTimer then
+						-- Skill 3 (key 3)
+						VIM:SendKeyEvent(true, Enum.KeyCode.Three, false, game)
+						task.wait(0.05)
+						VIM:SendKeyEvent(false, Enum.KeyCode.Three, false, game)
+						ComboStep = 0
+						ComboTimer = tick() + 0.8
+					end
+				else
+					ComboStep = 0 -- reset if out of range
+				end
+			end
+		end
+	end
+end
+
+-- Kill Aura: auto attack (mouse1) when enemy in range
+local function KillAuraUpdate()
+	if not KillAuraEnabled then return end
+	if not VIM then return end
+
+	local nearest = GetNearestPlayer()
+	if nearest and nearest.Character then
+		local enemyRoot = nearest.Character:FindFirstChild("HumanoidRootPart")
+		if enemyRoot then
+			local myChar = Player.Character
+			if myChar and myChar:FindFirstChild("HumanoidRootPart") then
+				local dist = (enemyRoot.Position - myChar.HumanoidRootPart.Position).magnitude
+				if dist < 20 then
+					-- Hold mouse1 (attack)
+					VIM:SendMouseButtonEvent(1, true, game, 0, 0)
+					-- Release after a short delay to avoid spamming too fast
+					task.wait(0.1)
+					VIM:SendMouseButtonEvent(1, false, game, 0, 0)
+				end
+			end
+		end
+	end
+end
+
+-- Main loop
+local function StartPVPLoop()
+	if RunningLoop then return end
+	RunningLoop = RunService.Heartbeat:Connect(function()
+		-- Update features
+		AimbotUpdate()
+		AutoDodgeUpdate()
+		AutoComboUpdate()
+		KillAuraUpdate()
+	end)
+end
+
+-- Stop loop
+local function StopPVPLoop()
+	if RunningLoop then
+		RunningLoop:Disconnect()
+		RunningLoop = nil
+	end
+end
+
+-- Toggle functions for each feature
+local function ToggleAimbot()
+	AimbotEnabled = not AimbotEnabled
+	UpdateFeatureButton(FeatureButtons[1], AimbotEnabled)
+	UpdateStatus()
+	if AimbotEnabled or AutoDodgeEnabled or AutoComboEnabled or KillAuraEnabled then
+		StartPVPLoop()
+	else
+		StopPVPLoop()
+	end
+end
+
+local function ToggleAutoDodge()
+	AutoDodgeEnabled = not AutoDodgeEnabled
+	UpdateFeatureButton(FeatureButtons[2], AutoDodgeEnabled)
+	UpdateStatus()
+	if AimbotEnabled or AutoDodgeEnabled or AutoComboEnabled or KillAuraEnabled then
+		StartPVPLoop()
+	else
+		StopPVPLoop()
+	end
+end
+
+local function ToggleAutoCombo()
+	AutoComboEnabled = not AutoComboEnabled
+	UpdateFeatureButton(FeatureButtons[3], AutoComboEnabled)
+	UpdateStatus()
+	if AimbotEnabled or AutoDodgeEnabled or AutoComboEnabled or KillAuraEnabled then
+		StartPVPLoop()
+	else
+		StopPVPLoop()
+	end
+end
+
+local function ToggleKillAura()
+	KillAuraEnabled = not KillAuraEnabled
+	UpdateFeatureButton(FeatureButtons[4], KillAuraEnabled)
+	UpdateStatus()
+	if AimbotEnabled or AutoDodgeEnabled or AutoComboEnabled or KillAuraEnabled then
+		StartPVPLoop()
+	else
+		StopPVPLoop()
+	end
+end
+
+-- Create feature buttons with toggles
+FeatureButtons[1] = FeatureButton("AIMBOT", 55, ToggleAimbot)
+FeatureButtons[2] = FeatureButton("AUTO DODGE", 100, ToggleAutoDodge)
+FeatureButtons[3] = FeatureButton("AUTO COMBO", 145, ToggleAutoCombo)
+FeatureButtons[4] = FeatureButton("KILL AURA", 190, ToggleKillAura)
+
+-- Initially none are active, so loop not started
+UpdateStatus()
+
+print("IVORY HUB PVP FEATURES // LOADED")
