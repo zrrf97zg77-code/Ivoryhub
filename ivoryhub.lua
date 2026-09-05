@@ -1,5 +1,5 @@
-  --// ============================================================
---// IVORY HUB – OBSIDIAN SILENT AIM + FOV
+--// ============================================================
+--// IVORY HUB – COMPACT + HOLD INFINITE JUMP
 --// ============================================================
 print("Ivory Hub: starting...")
 
@@ -44,8 +44,6 @@ local DARKER = Color3.fromRGB(19,19,19)
 local WHITE = Color3.fromRGB(245,245,245)
 local GRAY = Color3.fromRGB(145,145,145)
 local BORDER = Color3.fromRGB(40,40,40)
-local RED = Color3.fromRGB(255,50,50)
-local GREEN = Color3.fromRGB(50,255,50)
 
 local function Corner(obj, radius)
     local c = Instance.new("UICorner")
@@ -81,14 +79,14 @@ end
 --//===========================================================
 local ToggleBtn = Instance.new("TextButton")
 ToggleBtn.Name = "IvoryToggle"
-ToggleBtn.Size = UDim2.fromOffset(48,48)
-ToggleBtn.Position = UDim2.new(0, 30, 0.5, -24)
+ToggleBtn.Size = UDim2.fromOffset(42,42)
+ToggleBtn.Position = UDim2.new(0, 20, 0.5, -21)
 ToggleBtn.BackgroundColor3 = BLACK
 ToggleBtn.BorderColor3 = WHITE
 ToggleBtn.BorderSizePixel = 2
 ToggleBtn.Text = "I"
 ToggleBtn.TextColor3 = WHITE
-ToggleBtn.TextSize = 22
+ToggleBtn.TextSize = 20
 ToggleBtn.Font = Enum.Font.GothamBold
 ToggleBtn.AutoButtonColor = false
 ToggleBtn.Parent = Gui
@@ -105,12 +103,12 @@ ToggleBtn.MouseLeave:Connect(function()
 end)
 
 --//===========================================================
---// MAIN WINDOW
+--// MAIN WINDOW (COMPACT)
 --//===========================================================
 local Main = Instance.new("Frame")
 Main.Name = "MainWindow"
-Main.Size = UDim2.new(0,560,0,550) -- wider for more settings
-Main.Position = UDim2.new(0.5,-280,0.5,-275)
+Main.Size = UDim2.new(0,480,0,420)   -- compact
+Main.Position = UDim2.new(0.5,-240,0.5,-210)
 Main.BackgroundColor3 = BLACK
 Main.BorderSizePixel = 0
 Main.Visible = true
@@ -120,40 +118,40 @@ AddStroke(Main)
 
 -- Top bar
 local Top = Instance.new("Frame")
-Top.Size = UDim2.new(1,0,0,58)
+Top.Size = UDim2.new(1,0,0,48)
 Top.BackgroundColor3 = DARK
 Top.BorderSizePixel = 0
 Top.Parent = Main
 Corner(Top,12)
 
-local Title = Text(Top,"IVORY",19,true)
-Title.Position = UDim2.new(0,18,0,7)
-Title.Size = UDim2.new(0,150,0,27)
+local Title = Text(Top,"IVORY",17,true)
+Title.Position = UDim2.new(0,14,0,4)
+Title.Size = UDim2.new(0,120,0,24)
 
-local SubTitle = Text(Top,"H U B",10,false)
+local SubTitle = Text(Top,"H U B",9,false)
 SubTitle.TextColor3 = GRAY
-SubTitle.Position = UDim2.new(0,19,0,34)
-SubTitle.Size = UDim2.new(0,100,0,15)
+SubTitle.Position = UDim2.new(0,15,0,26)
+SubTitle.Size = UDim2.new(0,80,0,14)
 
 local Close = Instance.new("TextButton")
-Close.Size = UDim2.new(0,32,0,32)
-Close.Position = UDim2.new(1,-42,0,13)
+Close.Size = UDim2.new(0,28,0,28)
+Close.Position = UDim2.new(1,-36,0,10)
 Close.BackgroundColor3 = DARKER
 Close.Text = "×"
 Close.TextColor3 = WHITE
-Close.TextSize = 21
+Close.TextSize = 18
 Close.Font = Enum.Font.GothamBold
 Close.BorderSizePixel = 0
 Close.Parent = Top
 Corner(Close,8)
 
 local Minimize = Instance.new("TextButton")
-Minimize.Size = UDim2.new(0,32,0,32)
-Minimize.Position = UDim2.new(1,-80,0,13)
+Minimize.Size = UDim2.new(0,28,0,28)
+Minimize.Position = UDim2.new(1,-68,0,10)
 Minimize.BackgroundColor3 = DARKER
 Minimize.Text = "—"
 Minimize.TextColor3 = WHITE
-Minimize.TextSize = 18
+Minimize.TextSize = 16
 Minimize.Font = Enum.Font.GothamBold
 Minimize.BorderSizePixel = 0
 Minimize.Parent = Top
@@ -166,11 +164,11 @@ ToggleBtn.MouseButton1Click:Connect(function()
 end)
 
 --//===========================================================
---// SIDEBAR & CONTENT
+--// SIDEBAR & CONTENT (COMPACT)
 --//===========================================================
 local Sidebar = Instance.new("Frame")
-Sidebar.Size = UDim2.new(0,135,1,-70)
-Sidebar.Position = UDim2.new(0,10,0,65)
+Sidebar.Size = UDim2.new(0,110,1,-58)
+Sidebar.Position = UDim2.new(0,8,0,54)
 Sidebar.BackgroundColor3 = DARK
 Sidebar.BorderSizePixel = 0
 Sidebar.Parent = Main
@@ -178,19 +176,19 @@ Corner(Sidebar,10)
 AddStroke(Sidebar)
 
 local TabLayout = Instance.new("UIListLayout")
-TabLayout.Padding = UDim.new(0,6)
+TabLayout.Padding = UDim.new(0,4)
 TabLayout.SortOrder = Enum.SortOrder.LayoutOrder
 TabLayout.Parent = Sidebar
 
 local Padding = Instance.new("UIPadding")
-Padding.PaddingTop = UDim.new(0,10)
-Padding.PaddingLeft = UDim.new(0,8)
-Padding.PaddingRight = UDim.new(0,8)
+Padding.PaddingTop = UDim.new(0,8)
+Padding.PaddingLeft = UDim.new(0,6)
+Padding.PaddingRight = UDim.new(0,6)
 Padding.Parent = Sidebar
 
 local Content = Instance.new("Frame")
-Content.Size = UDim2.new(1,-155,1,-70)
-Content.Position = UDim2.new(0,145,0,65)
+Content.Size = UDim2.new(1,-126,1,-58)
+Content.Position = UDim2.new(0,118,0,54)
 Content.BackgroundColor3 = DARK
 Content.BorderSizePixel = 0
 Content.Parent = Main
@@ -202,41 +200,41 @@ local Pages = {}
 local function CreatePage(name)
     local Page = Instance.new("ScrollingFrame")
     Page.Name = name
-    Page.Size = UDim2.new(1,-20,1,-20)
-    Page.Position = UDim2.new(0,10,0,10)
+    Page.Size = UDim2.new(1,-16,1,-16)
+    Page.Position = UDim2.new(0,8,0,8)
     Page.BackgroundTransparency = 1
     Page.BorderSizePixel = 0
-    Page.ScrollBarThickness = 3
+    Page.ScrollBarThickness = 2
     Page.ScrollBarImageColor3 = WHITE
     Page.Visible = false
     Page.CanvasSize = UDim2.new(0,0,0,0)
     Page.Parent = Content
     local Layout = Instance.new("UIListLayout")
-    Layout.Padding = UDim.new(0,8)
+    Layout.Padding = UDim.new(0,6)
     Layout.SortOrder = Enum.SortOrder.LayoutOrder
     Layout.Parent = Page
     Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        Page.CanvasSize = UDim2.new(0,0,0,Layout.AbsoluteContentSize.Y + 15)
+        Page.CanvasSize = UDim2.new(0,0,0,Layout.AbsoluteContentSize.Y + 10)
     end)
     Pages[name] = Page
     return Page
 end
 
 local function Section(parent,text)
-    local Label = Text(parent,text,10,true)
+    local Label = Text(parent,text,9,true)
     Label.TextColor3 = GRAY
-    Label.Size = UDim2.new(1,0,0,24)
+    Label.Size = UDim2.new(1,0,0,20)
     return Label
 end
 
 local function Button(parent,text,callback)
     local Btn = Instance.new("TextButton")
-    Btn.Size = UDim2.new(1,0,0,40)
+    Btn.Size = UDim2.new(1,0,0,32)
     Btn.BackgroundColor3 = DARKER
     Btn.BorderSizePixel = 0
     Btn.Text = text
     Btn.TextColor3 = WHITE
-    Btn.TextSize = 13
+    Btn.TextSize = 11
     Btn.Font = Enum.Font.GothamMedium
     Btn.AutoButtonColor = false
     Btn.Parent = parent
@@ -251,20 +249,20 @@ end
 local function Toggle(parent, text, default, callback)
     local State = default or false
     local Holder = Instance.new("Frame")
-    Holder.Size = UDim2.new(1,0,0,38)
+    Holder.Size = UDim2.new(1,0,0,32)
     Holder.BackgroundColor3 = DARKER
     Holder.BorderSizePixel = 0
     Holder.Parent = parent
     Corner(Holder,8)
     AddStroke(Holder)
 
-    local Label = Text(Holder, text .. ": OFF", 12, false)
-    Label.Position = UDim2.new(0,13,0,0)
-    Label.Size = UDim2.new(1,-70,1,0)
+    local Label = Text(Holder, text .. ": OFF", 10, false)
+    Label.Position = UDim2.new(0,10,0,0)
+    Label.Size = UDim2.new(1,-60,1,0)
 
     local Switch = Instance.new("TextButton")
-    Switch.Size = UDim2.new(0,36,0,20)
-    Switch.Position = UDim2.new(1,-46,.5,-10)
+    Switch.Size = UDim2.new(0,30,0,16)
+    Switch.Position = UDim2.new(1,-38,0.5,-8)
     Switch.BackgroundColor3 = Color3.fromRGB(35,35,35)
     Switch.Text = ""
     Switch.BorderSizePixel = 0
@@ -272,8 +270,8 @@ local function Toggle(parent, text, default, callback)
     Corner(Switch,20)
 
     local Circle = Instance.new("Frame")
-    Circle.Size = UDim2.new(0,14,0,14)
-    Circle.Position = UDim2.new(0,3,.5,-7)
+    Circle.Size = UDim2.new(0,12,0,12)
+    Circle.Position = UDim2.new(0,2,0.5,-6)
     Circle.BackgroundColor3 = GRAY
     Circle.BorderSizePixel = 0
     Circle.Parent = Switch
@@ -282,11 +280,11 @@ local function Toggle(parent, text, default, callback)
     local function Update()
         if State then
             Tween(Switch,.2,{BackgroundColor3 = WHITE})
-            Tween(Circle,.2,{Position = UDim2.new(1,-17,.5,-7), BackgroundColor3 = BLACK})
+            Tween(Circle,.2,{Position = UDim2.new(1,-14,0.5,-6), BackgroundColor3 = BLACK})
             Label.Text = text .. ": ON"
         else
             Tween(Switch,.2,{BackgroundColor3 = Color3.fromRGB(35,35,35)})
-            Tween(Circle,.2,{Position = UDim2.new(0,3,.5,-7), BackgroundColor3 = GRAY})
+            Tween(Circle,.2,{Position = UDim2.new(0,2,0.5,-6), BackgroundColor3 = GRAY})
             Label.Text = text .. ": OFF"
         end
         if callback then callback(State) end
@@ -300,163 +298,23 @@ local function Toggle(parent, text, default, callback)
     return Holder
 end
 
-local function SliderToggle(parent, text, default, minVal, maxVal, defaultSpeed, callback)
-    local State = default or false
-    local Speed = defaultSpeed or 50
-    local Holder = Instance.new("Frame")
-    Holder.Size = UDim2.new(1,0,0,58)
-    Holder.BackgroundColor3 = DARKER
-    Holder.BorderSizePixel = 0
-    Holder.Parent = parent
-    Corner(Holder,8)
-    AddStroke(Holder)
-
-    local Label = Text(Holder, text .. ": OFF", 12, false)
-    Label.Position = UDim2.new(0,13,0,4)
-    Label.Size = UDim2.new(0,100,1,0)
-
-    local Switch = Instance.new("TextButton")
-    Switch.Size = UDim2.new(0,36,0,20)
-    Switch.Position = UDim2.new(0,13,.5,-6)
-    Switch.BackgroundColor3 = Color3.fromRGB(35,35,35)
-    Switch.Text = ""
-    Switch.BorderSizePixel = 0
-    Switch.Parent = Holder
-    Corner(Switch,20)
-
-    local Circle = Instance.new("Frame")
-    Circle.Size = UDim2.new(0,14,0,14)
-    Circle.Position = UDim2.new(0,3,.5,-7)
-    Circle.BackgroundColor3 = GRAY
-    Circle.BorderSizePixel = 0
-    Circle.Parent = Switch
-    Corner(Circle,20)
-
-    local SliderBg = Instance.new("Frame")
-    SliderBg.Size = UDim2.new(0,160,0,4)
-    SliderBg.Position = UDim2.new(0,140,.5,8)
-    SliderBg.BackgroundColor3 = Color3.fromRGB(45,45,45)
-    SliderBg.BorderSizePixel = 0
-    SliderBg.Parent = Holder
-    Corner(SliderBg,2)
-
-    local SliderFill = Instance.new("Frame")
-    SliderFill.Size = UDim2.new(0.5,0,1,0)
-    SliderFill.BackgroundColor3 = WHITE
-    SliderFill.BorderSizePixel = 0
-    SliderFill.Parent = SliderBg
-    Corner(SliderFill,2)
-
-    local Knob = Instance.new("TextButton")
-    Knob.Size = UDim2.new(0,16,0,16)
-    Knob.Position = UDim2.new(0.5,-8,0.5,-8)
-    Knob.BackgroundColor3 = WHITE
-    Knob.Text = ""
-    Knob.BorderSizePixel = 0
-    Knob.Parent = SliderBg
-    Corner(Knob,20)
-
-    local ValueLabel = Text(Holder, tostring(Speed), 12, false)
-    ValueLabel.TextColor3 = GRAY
-    ValueLabel.Position = UDim2.new(1,-50,0,0)
-    ValueLabel.Size = UDim2.new(0,40,1,0)
-    ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
-
-    local function UpdateToggle()
-        if State then
-            Tween(Switch,.2,{BackgroundColor3 = WHITE})
-            Tween(Circle,.2,{Position = UDim2.new(1,-17,.5,-7), BackgroundColor3 = BLACK})
-            Label.Text = text .. ": ON"
-            SliderBg.Visible = true
-            ValueLabel.Visible = true
-        else
-            Tween(Switch,.2,{BackgroundColor3 = Color3.fromRGB(35,35,35)})
-            Tween(Circle,.2,{Position = UDim2.new(0,3,.5,-7), BackgroundColor3 = GRAY})
-            Label.Text = text .. ": OFF"
-            SliderBg.Visible = false
-            ValueLabel.Visible = false
-        end
-        if callback then callback(State, Speed) end
-    end
-
-    local function UpdateSlider(value)
-        local clamped = math.clamp(value, minVal, maxVal)
-        Speed = clamped
-        local ratio = (clamped - minVal) / (maxVal - minVal)
-        SliderFill.Size = UDim2.new(ratio,0,1,0)
-        Knob.Position = UDim2.new(ratio,-8,0.5,-8)
-        ValueLabel.Text = tostring(math.floor(clamped))
-        if State and callback then callback(State, Speed) end
-    end
-
-    local DraggingKnob = false
-    local function StartDrag(input) DraggingKnob = true end
-    local function EndDrag() DraggingKnob = false end
-    local function UpdateDrag(input)
-        if not DraggingKnob then return end
-        local pos = input.Position
-        local sliderAbsPos = SliderBg.AbsolutePosition
-        local sliderSize = SliderBg.AbsoluteSize.X
-        local relativeX = math.clamp(pos.X - sliderAbsPos.X, 0, sliderSize)
-        local ratio = relativeX / sliderSize
-        local value = minVal + ratio * (maxVal - minVal)
-        UpdateSlider(value)
-    end
-
-    Knob.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then StartDrag(input) end
-    end)
-    Knob.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then EndDrag() end
-    end)
-    UIS.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then UpdateDrag(input) end
-    end)
-    SliderBg.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            local pos = input.Position
-            local sliderAbsPos = SliderBg.AbsolutePosition
-            local sliderSize = SliderBg.AbsoluteSize.X
-            local relativeX = math.clamp(pos.X - sliderAbsPos.X, 0, sliderSize)
-            local ratio = relativeX / sliderSize
-            local value = minVal + ratio * (maxVal - minVal)
-            UpdateSlider(value)
-        end
-    end)
-
-    Switch.MouseButton1Click:Connect(function()
-        State = not State
-        UpdateToggle()
-    end)
-
-    UpdateSlider(Speed)
-    UpdateToggle()
-    return {
-        Holder = Holder,
-        GetState = function() return State end,
-        GetSpeed = function() return Speed end,
-        SetSpeed = function(v) UpdateSlider(v) end,
-        Toggle = function() State = not State; UpdateToggle() end
-    }
-end
-
 local function Slider(parent, text, default, minVal, maxVal, callback, suffix)
     local Value = default or 50
     local Holder = Instance.new("Frame")
-    Holder.Size = UDim2.new(1,0,0,42)
+    Holder.Size = UDim2.new(1,0,0,36)
     Holder.BackgroundColor3 = DARKER
     Holder.BorderSizePixel = 0
     Holder.Parent = parent
     Corner(Holder,8)
     AddStroke(Holder)
 
-    local Label = Text(Holder, text .. ": " .. tostring(Value) .. (suffix or ""), 11, false)
-    Label.Position = UDim2.new(0,13,0,0)
+    local Label = Text(Holder, text .. ": " .. tostring(Value) .. (suffix or ""), 10, false)
+    Label.Position = UDim2.new(0,10,0,0)
     Label.Size = UDim2.new(1,-50,1,0)
 
     local SliderBg = Instance.new("Frame")
-    SliderBg.Size = UDim2.new(0,140,0,4)
-    SliderBg.Position = UDim2.new(0,13,.5,6)
+    SliderBg.Size = UDim2.new(0,120,0,3)
+    SliderBg.Position = UDim2.new(0,10,.5,6)
     SliderBg.BackgroundColor3 = Color3.fromRGB(45,45,45)
     SliderBg.BorderSizePixel = 0
     SliderBg.Parent = Holder
@@ -470,8 +328,8 @@ local function Slider(parent, text, default, minVal, maxVal, callback, suffix)
     Corner(SliderFill,2)
 
     local Knob = Instance.new("TextButton")
-    Knob.Size = UDim2.new(0,16,0,16)
-    Knob.Position = UDim2.new((Value - minVal) / (maxVal - minVal), -8, 0.5, -8)
+    Knob.Size = UDim2.new(0,14,0,14)
+    Knob.Position = UDim2.new((Value - minVal) / (maxVal - minVal), -7, 0.5, -7)
     Knob.BackgroundColor3 = WHITE
     Knob.Text = ""
     Knob.BorderSizePixel = 0
@@ -483,7 +341,7 @@ local function Slider(parent, text, default, minVal, maxVal, callback, suffix)
         Value = clamped
         local ratio = (clamped - minVal) / (maxVal - minVal)
         SliderFill.Size = UDim2.new(ratio,0,1,0)
-        Knob.Position = UDim2.new(ratio,-8,0.5,-8)
+        Knob.Position = UDim2.new(ratio,-7,0.5,-7)
         Label.Text = text .. ": " .. tostring(math.floor(clamped)) .. (suffix or "")
         if callback then callback(clamped) end
     end
@@ -534,15 +392,15 @@ end
 local function Dropdown(parent, text, options, default, callback)
     local State = default or options[1]
     local Holder = Instance.new("Frame")
-    Holder.Size = UDim2.new(1,0,0,38)
+    Holder.Size = UDim2.new(1,0,0,32)
     Holder.BackgroundColor3 = DARKER
     Holder.BorderSizePixel = 0
     Holder.Parent = parent
     Corner(Holder,8)
     AddStroke(Holder)
 
-    local Label = Text(Holder, text .. ": " .. State, 11, false)
-    Label.Position = UDim2.new(0,13,0,0)
+    local Label = Text(Holder, text .. ": " .. State, 10, false)
+    Label.Position = UDim2.new(0,10,0,0)
     Label.Size = UDim2.new(1,-50,1,0)
 
     local function UpdateDisplay()
@@ -551,12 +409,12 @@ local function Dropdown(parent, text, options, default, callback)
     end
 
     local Btn = Instance.new("TextButton")
-    Btn.Size = UDim2.new(0,30,0,22)
-    Btn.Position = UDim2.new(1,-40,.5,-11)
+    Btn.Size = UDim2.new(0,24,0,20)
+    Btn.Position = UDim2.new(1,-32,0.5,-10)
     Btn.BackgroundColor3 = Color3.fromRGB(45,45,45)
     Btn.Text = "▼"
     Btn.TextColor3 = WHITE
-    Btn.TextSize = 12
+    Btn.TextSize = 10
     Btn.Font = Enum.Font.GothamBold
     Btn.BorderSizePixel = 0
     Btn.Parent = Holder
@@ -573,7 +431,12 @@ local function Dropdown(parent, text, options, default, callback)
     return {
         Holder = Holder,
         GetValue = function() return State end,
-        SetValue = function(v) State = v; UpdateDisplay() end
+        SetValue = function(v) State = v; UpdateDisplay() end,
+        SetValues = function(newOptions)
+            options = newOptions
+            if not table.find(options, State) then State = options[1] end
+            UpdateDisplay()
+        end
     }
 end
 
@@ -582,6 +445,7 @@ end
 --//===========================================================
 local MainPage   = CreatePage("Main")
 local CombatPage = CreatePage("Combat")
+local BlacklistPage = CreatePage("Blacklist")
 local PlayerPage = CreatePage("Player")
 local VisualPage = CreatePage("Visuals")
 local SettingsPage = CreatePage("Settings")
@@ -629,7 +493,7 @@ local SilentAimModule = (function()
     ScreenGui.Name = "FOV_System_Ivory"
     ScreenGui.ResetOnSpawn = false
     ScreenGui.IgnoreGuiInset = true
-    ScreenGui.Parent = Gui  -- Use our main GUI
+    ScreenGui.Parent = Gui
     local FOVFrame = Instance.new("Frame")
     FOVFrame.Name = "FOVCircle"
     FOVFrame.AnchorPoint = Vector2.new(0.5,0.5)
@@ -873,7 +737,7 @@ local SilentAimModule = (function()
                 if currentTool and (string.find(string.lower(currentTool.Name),"portal") or string.find(string.lower(currentTool.Name),"lightning")) then return end
                 local targetPos = PlayersPosition or NPCPosition
                 if targetPos then
-                    -- Redirect mouse Hit/Target for skills (this is done by metatable hooks)
+                    -- Redirect mouse Hit/Target for skills (handled by metatable hooks)
                 end
             end)
         end
@@ -888,7 +752,6 @@ local SilentAimModule = (function()
 
     -- Metatable hooks for silent aim
     local function installHooks()
-        -- Hook __index for mouse.Hit and mouse.Target
         local oldIndex, oldNamecall = nil, nil
         if hookmetamethod then
             oldIndex = hookmetamethod(game, "__index", function(self, key)
@@ -912,14 +775,12 @@ local SilentAimModule = (function()
                     if SilentAimPlayersEnabled or SilentAimNPCsEnabled then
                         local targetPos = PlayersPosition or NPCPosition
                         if targetPos then
-                            -- Replace Vector3/CFrame arguments
                             for i, arg in ipairs(args) do
                                 if typeof(arg) == "Vector3" then args[i] = targetPos
                                 elseif typeof(arg) == "CFrame" then args[i] = CFrame.new(targetPos) end
                             end
-                            -- Handle RegisterHit
                             if self.Name == "RE/RegisterHit" or self.Name == "RegisterHit" then
-                                local targetPart = (PlayersPosition and PlayersPosition ~= NPCPosition) and targetPos or nil
+                                local targetPart = targetPos
                                 if targetPart then
                                     local targetChar = targetPart.Parent
                                     if targetChar then
@@ -1092,7 +953,7 @@ local SilentAimModule = (function()
 end)()
 
 --//===========================================================
---// EXTRA FEATURES (Soru, Walkspeed, Jump, Clip, AFK, ESP)
+--// EXTRA FEATURES
 --//===========================================================
 
 -- Soru Aimbot (auto-F)
@@ -1120,39 +981,38 @@ local function SoruUpdate()
     end
 end
 
--- Walkspeed
-local WalkspeedState = false
-local WalkspeedValue = 50
-local function WalkspeedUpdate()
-    local char = Player.Character
-    if not char then return end
-    local hum = char:FindFirstChild("Humanoid")
-    if not hum then return end
-    if WalkspeedState then hum.WalkSpeed = WalkspeedValue else if hum.WalkSpeed ~= 16 then hum.WalkSpeed = 16 end end
-end
-
--- Infinite Jump
+-- Infinite Jump (hold to rise)
 local InfiniteJump = false
-local function InfiniteJumpUpdate()
-    local char = Player.Character
-    if char and char:FindFirstChild("Humanoid") then char.Humanoid.JumpPower = InfiniteJump and 50 or 50 end
-end
-local function HandleJump()
-    if InfiniteJump then
-        local char = Player.Character
-        if char and char:FindFirstChild("Humanoid") and char:FindFirstChild("HumanoidRootPart") then
-            local hum = char.Humanoid
-            local root = char.HumanoidRootPart
-            if hum:GetState() ~= Enum.HumanoidStateType.Jumping and hum:GetState() ~= Enum.HumanoidStateType.Freefall then
-                root.Velocity = Vector3.new(root.Velocity.X, 50, root.Velocity.Z)
-            end
-        end
-    end
-end
+local spaceHeld = false
+
 UIS.InputBegan:Connect(function(input, gpe)
     if gpe then return end
-    if input.KeyCode == Enum.KeyCode.Space then HandleJump() end
+    if input.KeyCode == Enum.KeyCode.Space then
+        spaceHeld = true
+    end
 end)
+UIS.InputEnded:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == Enum.KeyCode.Space then
+        spaceHeld = false
+    end
+end)
+
+local function InfiniteJumpUpdate()
+    if not InfiniteJump then return end
+    if not spaceHeld then return end
+    local char = Player.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    -- Apply upward velocity
+    hrp.Velocity = Vector3.new(hrp.Velocity.X, 50, hrp.Velocity.Z)
+    -- Also set humanoid to jumping state to prevent fall animation
+    local hum = char:FindFirstChild("Humanoid")
+    if hum and hum:GetState() ~= Enum.HumanoidStateType.Jumping then
+        hum:ChangeState(Enum.HumanoidStateType.Jumping)
+    end
+end
 
 -- No Clip
 local NoClip = false
@@ -1208,16 +1068,16 @@ local function CreateESP()
         nameLabel.BackgroundTransparency = 1
         nameLabel.Text = plr and plr.Name or "NPC"
         nameLabel.TextColor3 = WHITE
-        nameLabel.TextSize = 12
+        nameLabel.TextSize = 11
         nameLabel.Font = Enum.Font.GothamBold
         nameLabel.TextXAlignment = Enum.TextXAlignment.Center
-        nameLabel.Size = UDim2.new(0,120,0,18)
+        nameLabel.Size = UDim2.new(0,120,0,16)
         nameLabel.Parent = container
 
         local healthBg = Instance.new("Frame")
         healthBg.BackgroundColor3 = Color3.fromRGB(20,20,20)
         healthBg.BorderSizePixel = 0
-        healthBg.Size = UDim2.new(0,0,0,4)
+        healthBg.Size = UDim2.new(0,0,0,3)
         healthBg.Parent = container
 
         local healthFill = Instance.new("Frame")
@@ -1230,10 +1090,10 @@ local function CreateESP()
         distLabel.BackgroundTransparency = 1
         distLabel.Text = ""
         distLabel.TextColor3 = GRAY
-        distLabel.TextSize = 10
+        distLabel.TextSize = 9
         distLabel.Font = Enum.Font.Gotham
         distLabel.TextXAlignment = Enum.TextXAlignment.Right
-        distLabel.Size = UDim2.new(0,60,0,16)
+        distLabel.Size = UDim2.new(0,60,0,14)
         distLabel.Parent = container
 
         local key = plr or rootPart
@@ -1305,15 +1165,15 @@ local function CreateESP()
                     if ESPName then
                         data.name.Visible = true
                         data.name.Text = plr and plr.Name or "NPC"
-                        data.name.Size = UDim2.new(0, width*1.2, 0, 18)
+                        data.name.Size = UDim2.new(0, width*1.2, 0, 16)
                         data.name.Position = UDim2.new(-0.1,0,-1.2,-2)
-                        data.name.TextSize = 12
+                        data.name.TextSize = 11
                     else data.name.Visible = false end
 
                     if ESPHealth then
                         data.healthBg.Visible = true
-                        data.healthBg.Size = UDim2.new(1,0,0,4)
-                        data.healthBg.Position = UDim2.new(0,0,1,4)
+                        data.healthBg.Size = UDim2.new(1,0,0,3)
+                        data.healthBg.Position = UDim2.new(0,0,1,3)
                         local hp = hum.Health / hum.MaxHealth
                         data.healthFill.Size = UDim2.new(hp,0,1,0)
                         if hp > 0.5 then data.healthFill.BackgroundColor3 = GREEN
@@ -1325,7 +1185,7 @@ local function CreateESP()
                         data.dist.Visible = true
                         local d = (root.Position - Camera.CFrame.Position).Magnitude
                         data.dist.Text = math.floor(d) .. "m"
-                        data.dist.Size = UDim2.new(0,60,0,16)
+                        data.dist.Size = UDim2.new(0,60,0,14)
                         data.dist.Position = UDim2.new(1, -5, -1.2, -2)
                     else data.dist.Visible = false end
                 else data.container.Visible = false end
@@ -1344,19 +1204,17 @@ local function StartLoop()
     if RunningLoop then return end
     RunningLoop = RunService.Heartbeat:Connect(function()
         SoruUpdate()
-        WalkspeedUpdate()
+        InfiniteJumpUpdate()
         NoClipUpdate()
         AntiAFKUpdate()
         ESPUpdate()
-        -- Infinite jump is handled by event
-        InfiniteJumpUpdate()
     end)
 end
 local function StopLoop()
     if RunningLoop then RunningLoop:Disconnect(); RunningLoop = nil end
 end
 local function CheckLoop()
-    if SoruEnabled or WalkspeedState or NoClip or AntiAFK or ESPEnabled or InfiniteJump then
+    if SoruEnabled or InfiniteJump or NoClip or AntiAFK or ESPEnabled then
         StartLoop()
     else
         StopLoop()
@@ -1367,8 +1225,17 @@ end
 --// BUILD UI PAGES
 --//===========================================================
 Section(MainPage, "MAIN")
-Toggle(MainPage, "Welcome Feature", false, function(s) print("[IVORY] Welcome:", s) end)
+local welcomeLabel = Text(MainPage, "Ivory Hub – Obsidian Silent Aim", 12, true)
+welcomeLabel.Size = UDim2.new(1,0,0,22)
+welcomeLabel.TextColor3 = WHITE
+welcomeLabel.TextXAlignment = Enum.TextXAlignment.Center
 
+local subLabel = Text(MainPage, "Compact • Mobile • Hold Jump", 10, false)
+subLabel.Size = UDim2.new(1,0,0,18)
+subLabel.TextColor3 = GRAY
+subLabel.TextXAlignment = Enum.TextXAlignment.Center
+
+-- Combat page
 Section(CombatPage, "SILENT AIM")
 Toggle(CombatPage, "Player Silent Aim", false, function(s)
     SilentAimModule:SetPlayerSilentAim(s)
@@ -1385,17 +1252,16 @@ end)
 -- Target Priority
 local priorityDropdown = Dropdown(CombatPage, "Target Priority", {"Nearest", "Low HP", "Looking At Me", "Lock Player"}, "Nearest", function(v)
     SilentAimModule:SetTargetPriority(v)
-    -- Show/hide player dropdown when Lock Player is selected
     local lockPlayerGroup = CombatPage:FindFirstChild("LockPlayerGroup")
     if lockPlayerGroup then
         lockPlayerGroup.Visible = (v == "Lock Player")
     end
 end)
 
--- Lock Player dropdown (dynamic)
+-- Lock Player dropdown
 local lockPlayerGroup = Instance.new("Frame")
 lockPlayerGroup.Name = "LockPlayerGroup"
-lockPlayerGroup.Size = UDim2.new(1, -20, 0, 38)
+lockPlayerGroup.Size = UDim2.new(1, -20, 0, 32)
 lockPlayerGroup.BackgroundTransparency = 1
 lockPlayerGroup.Visible = false
 lockPlayerGroup.Parent = CombatPage
@@ -1411,7 +1277,6 @@ end
 local lockPlayerDropdown = Dropdown(lockPlayerGroup, "Lock Player", refreshPlayerList(), "None", function(v)
     SilentAimModule:SetSelectedPlayer(v)
 end)
--- Update player list every few seconds
 task.spawn(function()
     while true do
         task.wait(3)
@@ -1444,15 +1309,8 @@ Toggle(CombatPage, "Soru Aimbot (F)", false, function(s)
     SoruEnabled = s
     CheckLoop()
 end)
-SliderToggle(CombatPage, "Walkspeed", false, 16, 100, 50, function(s, v)
-    WalkspeedState = s
-    WalkspeedValue = v
-    CheckLoop()
-end)
 
--- Blacklists (separate page for cleanliness)
-local BlacklistPage = CreatePage("Blacklist")
-Pages.Blacklist = BlacklistPage
+-- Blacklist page
 Section(BlacklistPage, "BLACKLIST KEYS")
 
 local function addBlacklistGroup(cat, keys)
@@ -1468,35 +1326,9 @@ addBlacklistGroup("Fruit", {"Z","X","C","V","F","TAP"})
 addBlacklistGroup("Sword", {"Z","X"})
 addBlacklistGroup("Gun", {"Z","X"})
 
--- Add Blacklist tab to sidebar
-local function addTab(name, page)
-    local Tab = Instance.new("TextButton")
-    Tab.Size = UDim2.new(1,0,0,38)
-    Tab.BackgroundColor3 = DARKER
-    Tab.BorderSizePixel = 0
-    Tab.Text = name
-    Tab.TextColor3 = GRAY
-    Tab.TextSize = 11
-    Tab.Font = Enum.Font.GothamBold
-    Tab.AutoButtonColor = false
-    Tab.Parent = Sidebar
-    Corner(Tab,8)
-    AddStroke(Tab)
-    Tab.MouseEnter:Connect(function()
-        if CurrentTab ~= page then Tween(Tab,.15,{BackgroundColor3 = Color3.fromRGB(27,27,27)}) end
-    end)
-    Tab.MouseLeave:Connect(function()
-        if CurrentTab ~= page then Tween(Tab,.15,{BackgroundColor3 = DARKER}) end
-    end)
-    Tab.MouseButton1Click:Connect(function()
-        SelectTab(Tab, page)
-    end)
-    return Tab
-end
-
 -- Player page
 Section(PlayerPage, "PLAYER EXTRAS")
-Toggle(PlayerPage, "Infinite Jump", false, function(s)
+Toggle(PlayerPage, "Infinite Jump (Hold)", false, function(s)
     InfiniteJump = s
     CheckLoop()
 end)
@@ -1524,69 +1356,107 @@ Toggle(VisualPage, "Show Distance", false, function(s) ESPDistance = s end)
 Section(SettingsPage, "SETTINGS")
 Button(SettingsPage, "Show Notification", function()
     local Notification = Instance.new("Frame")
-    Notification.Size = UDim2.new(0,280,0,65)
+    Notification.Size = UDim2.new(0,260,0,55)
     Notification.Position = UDim2.new(1,20,0,20)
     Notification.BackgroundColor3 = BLACK
     Notification.BorderSizePixel = 0
     Notification.Parent = Gui
     Corner(Notification,10)
     AddStroke(Notification)
-    local T = Text(Notification,"IVORY HUB",14,true)
-    T.Position = UDim2.new(0,14,0,8)
-    T.Size = UDim2.new(1,-20,0,20)
-    local M = Text(Notification,"Loaded! Tap 'I' to toggle.",11,false)
+    local T = Text(Notification,"IVORY HUB",13,true)
+    T.Position = UDim2.new(0,12,0,6)
+    T.Size = UDim2.new(1,-20,0,18)
+    local M = Text(Notification,"Loaded! Tap 'I' to toggle.",10,false)
     M.TextColor3 = GRAY
-    M.Position = UDim2.new(0,14,0,32)
-    M.Size = UDim2.new(1,-20,0,18)
-    Tween(Notification,.3,{Position = UDim2.new(1,-300,0,20)})
+    M.Position = UDim2.new(0,12,0,28)
+    M.Size = UDim2.new(1,-20,0,16)
+    Tween(Notification,.3,{Position = UDim2.new(1,-280,0,20)})
     task.delay(3,function()
         Tween(Notification,.3,{Position = UDim2.new(1,20,0,20)})
         task.wait(.3); Notification:Destroy()
     end)
 end)
-Button(SettingsPage, "Print GUI Info", function()
+
+Button(SettingsPage, "Reset All Toggles", function()
+    -- Reset all toggles to default (off)
+    -- We need to find all toggle holders and set them off
+    for _, page in pairs(Pages) do
+        for _, child in ipairs(page:GetChildren()) do
+            if child:IsA("Frame") and child:FindFirstChildOfClass("TextButton") then
+                local toggleBtn = child:FindFirstChildWhichIsA("TextButton")
+                if toggleBtn and toggleBtn.Size.X.Offset == 30 then -- approximate toggle switch
+                    toggleBtn.MouseButton1Click:Fire()
+                end
+            end
+        end
+    end
+    -- Also reset silent aim toggles
+    SilentAimModule:SetPlayerSilentAim(false)
+    SilentAimModule:SetNPCSilentAim(false)
+    SilentAimModule:SetShowFOVCircle(false)
+    SoruEnabled = false
+    InfiniteJump = false
+    NoClip = false
+    AntiAFK = false
+    ESPEnabled = false
+    CheckLoop()
+    -- Also reset any blacklists? We'll skip that, just reset toggles.
+    Library:Notify({ Title = "Reset", Description = "All toggles reset to default.", Time = 3 })
+end)
+
+Button(SettingsPage, "Unload UI", function()
+    Gui:Destroy()
+end)
+
+Button(SettingsPage, "Print Info", function()
     print("================================")
-    print("IVORY HUB - Obsidian Silent Aim")
-    print("Features: Silent Aim (Players/NPC), FOV, Soru, Walkspeed, ESP")
+    print("IVORY HUB - Compact Edition")
+    print("Features: Silent Aim (Players/NPC), FOV, Soru, Jump Hold, ESP")
     print("Creators: Ivory & Rayo")
+    print("Discord: Ivory999 / rayo06996")
     print("================================")
 end)
+
+-- Keybind info
+local keybindLabel = Text(SettingsPage, "Toggle key: RightShift", 10, false)
+keybindLabel.Size = UDim2.new(1,0,0,20)
+keybindLabel.TextColor3 = GRAY
 
 -- Credits page
 Section(CreditsPage, "CREATORS")
 local CreatorBox = Instance.new("Frame")
-CreatorBox.Size = UDim2.new(1,0,0,82)
+CreatorBox.Size = UDim2.new(1,0,0,70)
 CreatorBox.BackgroundColor3 = DARKER
 CreatorBox.BorderSizePixel = 0
 CreatorBox.Parent = CreditsPage
 Corner(CreatorBox,8)
 AddStroke(CreatorBox)
-local Creator1 = Text(CreatorBox,"IVORY",15,true)
-Creator1.Position = UDim2.new(0,14,0,10)
-Creator1.Size = UDim2.new(1,-28,0,22)
-local Discord1 = Text(CreatorBox,"Discord  •  Ivory999",11,false)
+local Creator1 = Text(CreatorBox,"IVORY",14,true)
+Creator1.Position = UDim2.new(0,12,0,8)
+Creator1.Size = UDim2.new(1,-24,0,20)
+local Discord1 = Text(CreatorBox,"Discord: Ivory999",10,false)
 Discord1.TextColor3 = GRAY
-Discord1.Position = UDim2.new(0,14,0,38)
-Discord1.Size = UDim2.new(1,-28,0,18)
+Discord1.Position = UDim2.new(0,12,0,34)
+Discord1.Size = UDim2.new(1,-24,0,16)
 
 local CreatorBox2 = Instance.new("Frame")
-CreatorBox2.Size = UDim2.new(1,0,0,82)
+CreatorBox2.Size = UDim2.new(1,0,0,70)
 CreatorBox2.BackgroundColor3 = DARKER
 CreatorBox2.BorderSizePixel = 0
 CreatorBox2.Parent = CreditsPage
 Corner(CreatorBox2,8)
 AddStroke(CreatorBox2)
-local Creator2 = Text(CreatorBox2,"RAYO",15,true)
-Creator2.Position = UDim2.new(0,14,0,10)
-Creator2.Size = UDim2.new(1,-28,0,22)
-local Discord2 = Text(CreatorBox2,"Discord  •  rayo06996",11,false)
+local Creator2 = Text(CreatorBox2,"RAYO",14,true)
+Creator2.Position = UDim2.new(0,12,0,8)
+Creator2.Size = UDim2.new(1,-24,0,20)
+local Discord2 = Text(CreatorBox2,"Discord: rayo06996",10,false)
 Discord2.TextColor3 = GRAY
-Discord2.Position = UDim2.new(0,14,0,38)
-Discord2.Size = UDim2.new(1,-28,0,18)
+Discord2.Position = UDim2.new(0,12,0,34)
+Discord2.Size = UDim2.new(1,-24,0,16)
 
-local Version = Text(CreditsPage,"Ivory Hub  •  Obsidian Aim",10,false)
+local Version = Text(CreditsPage,"Ivory Hub v2.0 • Compact • Obsidian Aim",9,false)
 Version.TextColor3 = GRAY
-Version.Size = UDim2.new(1,0,0,25)
+Version.Size = UDim2.new(1,0,0,18)
 
 --//===========================================================
 --// TABS
@@ -1614,12 +1484,12 @@ local function SelectTab(button,page)
 end
 for _, data in ipairs(Tabs) do
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1,0,0,38)
+    btn.Size = UDim2.new(1,0,0,30)
     btn.BackgroundColor3 = DARKER
     btn.BorderSizePixel = 0
     btn.Text = data.name
     btn.TextColor3 = GRAY
-    btn.TextSize = 11
+    btn.TextSize = 10
     btn.Font = Enum.Font.GothamBold
     btn.AutoButtonColor = false
     btn.Parent = Sidebar
@@ -1636,7 +1506,7 @@ for _, data in ipairs(Tabs) do
         SelectTab(btn, data.page)
     end)
 end
-SelectTab(Tabs[2].button, Tabs[2].page)  -- Combat as default
+SelectTab(Tabs[2].button, Tabs[2].page)  -- Combat
 
 --//===========================================================
 --// DRAGGING, MINIMIZE, CLOSE
@@ -1661,10 +1531,10 @@ Minimize.MouseButton1Click:Connect(function()
     Minimized = not Minimized
     if Minimized then
         Sidebar.Visible = false; Content.Visible = false
-        Tween(Main,.25,{Size = UDim2.new(0,560,0,58)})
+        Tween(Main,.25,{Size = UDim2.new(0,480,0,48)})
         Minimize.Text = "+"
     else
-        Tween(Main,.25,{Size = UDim2.new(0,560,0,550)})
+        Tween(Main,.25,{Size = UDim2.new(0,480,0,420)})
         task.wait(.15)
         Sidebar.Visible = true; Content.Visible = true
         Minimize.Text = "—"
@@ -1689,8 +1559,8 @@ end)
 --//===========================================================
 CheckLoop()
 print("================================")
-print("        IVORY HUB LOADED (Obsidian Aim)")
+print("        IVORY HUB LOADED (Compact)")
 print("================================")
-print("Features: Silent Aim (Players/NPC), FOV, Soru, Walkspeed, ESP")
+print("Features: Silent Aim, FOV, Soru, Infinite Jump (Hold), ESP")
 print("Creators: Ivory & Rayo")
 print("================================")
