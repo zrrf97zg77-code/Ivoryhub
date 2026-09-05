@@ -2,7 +2,7 @@
 --//                    IVORY HUB (FOV EDITION)
 --// ============================================================
 --// Original: Ivory & Rayo
---// Enhanced with FOV circle + slider for skill aimbot
+--// Enhanced with FOV circle + slider + floating toggle
 --// ============================================================
 
 local Players = game:GetService("Players")
@@ -77,10 +77,12 @@ Gui.Parent = PlayerGui
 --// MAIN
 --//===========================================================
 local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0,520,0,500)  -- taller for FOV settings
+Main.Name = "MainWindow"
+Main.Size = UDim2.new(0,520,0,500)
 Main.Position = UDim2.new(0.5,-260,0.5,-250)
 Main.BackgroundColor3 = BLACK
 Main.BorderSizePixel = 0
+Main.Visible = true  -- visible by default
 Main.Parent = Gui
 Corner(Main,12)
 AddStroke(Main)
@@ -127,6 +129,41 @@ Minimize.Font = Enum.Font.GothamBold
 Minimize.BorderSizePixel = 0
 Minimize.Parent = Top
 Corner(Minimize,8)
+
+--//===========================================================
+--// FLOATING TOGGLE BUTTON (opens/closes main window)
+--//===========================================================
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Name = "IvoryToggle"
+ToggleBtn.Size = UDim2.fromOffset(48,48)
+ToggleBtn.Position = UDim2.new(0,30,0.5,-24)
+ToggleBtn.BackgroundColor3 = BLACK
+ToggleBtn.BorderColor3 = WHITE
+ToggleBtn.BorderSizePixel = 2
+ToggleBtn.Text = "I"
+ToggleBtn.TextColor3 = WHITE
+ToggleBtn.TextSize = 22
+ToggleBtn.Font = Enum.Font.GothamBold
+ToggleBtn.AutoButtonColor = false
+ToggleBtn.Parent = Gui
+
+local ToggleCorner = Instance.new("UICorner")
+ToggleCorner.CornerRadius = UDim.new(0,10)
+ToggleCorner.Parent = ToggleBtn
+
+local Open = true
+ToggleBtn.MouseButton1Click:Connect(function()
+    Open = not Open
+    Main.Visible = Open
+end)
+
+-- Hover effects
+ToggleBtn.MouseEnter:Connect(function()
+    TweenService:Create(ToggleBtn, TweenInfo.new(0.15), { BackgroundColor3 = WHITE, TextColor3 = BLACK }):Play()
+end)
+ToggleBtn.MouseLeave:Connect(function()
+    TweenService:Create(ToggleBtn, TweenInfo.new(0.15), { BackgroundColor3 = BLACK, TextColor3 = WHITE }):Play()
+end)
 
 --//===========================================================
 --// SIDEBAR
@@ -614,9 +651,8 @@ local CreditsPage = CreatePage("Credits")
 --//===========================================================
 --// FEATURE STATES
 --//===========================================================
--- Combat
-local SilentAimEnabled   = false      -- 180° character-facing
-local AimbotSkills       = false      -- redirect skills to target (with FOV)
+local SilentAimEnabled   = false
+local AimbotSkills       = false
 local TargetPlayers      = true
 local TargetNPCs         = true
 local SoruAimbot         = false
@@ -626,14 +662,12 @@ local WalkspeedValue     = 50
 -- FOV settings
 local ShowFOVCircle      = false
 local FOVRadius          = 150
-local FOVMode            = "Screen Center"   -- "Screen Center" or "Mouse Position"
+local FOVMode            = "Screen Center"
 
--- Player Extras
 local InfiniteJump   = false
 local NoClip         = false
 local AntiAFK        = false
 
--- Visuals (ESP)
 local ESPEnabled     = false
 local ESPBox         = false
 local ESPName        = false
@@ -641,11 +675,11 @@ local ESPHealth      = false
 local ESPDistance    = false
 
 local RunningLoop = nil
-local FOVCircle = nil  -- Drawing object or Frame
-local FOVCircleFrame = nil  -- fallback
+local FOVCircle = nil
+local FOVCircleFrame = nil
 
 --//===========================================================
---// TARGET FINDER (Players + NPCs) with FOV filtering
+--// TARGET FINDER with FOV
 --//===========================================================
 local function GetNearestTarget(useFOV)
     local myChar = Player.Character
@@ -657,7 +691,7 @@ local function GetNearestTarget(useFOV)
     if useFOV and ShowFOVCircle then
         if FOVMode == "Screen Center" then
             center = Camera.ViewportSize / 2
-        else -- Mouse Position
+        else
             center = UIS:GetMouseLocation()
         end
     end
@@ -704,11 +738,11 @@ local function GetNearestTarget(useFOV)
 end
 
 --//===========================================================
---// 180° SILENT AIM (Character-facing)
+--// 180° SILENT AIM
 --//===========================================================
 local function SilentAimUpdate()
     if not SilentAimEnabled then return end
-    local targetRoot, dist = GetNearestTarget(false) -- no FOV for 180° aim
+    local targetRoot, dist = GetNearestTarget(false)
     if not targetRoot or dist > 50 then return end
     local myChar = Player.Character
     if not myChar then return end
@@ -721,17 +755,16 @@ local function SilentAimUpdate()
 end
 
 --//===========================================================
---// SKILL AIMBOT (Redirect skills to target with FOV)
+--// SKILL AIMBOT (FOV)
 --//===========================================================
 local function GetCurrentTargetForAimbot()
-    local targetRoot, dist = GetNearestTarget(true) -- use FOV
+    local targetRoot, dist = GetNearestTarget(true)
     if not targetRoot or dist > 50 then return nil
     return targetRoot
 end
 
--- Hook metatable for skill redirection (same as before)
+-- Hook
 local oldIndex, oldNamecall = nil, nil
-
 if hookmetamethod then
     pcall(function()
         oldIndex = hookmetamethod(game, "__index", function(self, key)
@@ -747,7 +780,6 @@ if hookmetamethod then
             return oldIndex(self, key)
         end)
     end)
-
     pcall(function()
         oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
             local args = {...}
@@ -784,7 +816,6 @@ else
             oldIndex = mt.__index
             oldNamecall = mt.__namecall
             if setreadonly then pcall(setreadonly, mt, false) end
-
             mt.__index = function(self, key)
                 if not checkcaller() and self == Camera and (key == "Hit" or key == "Target") then
                     if AimbotSkills then
@@ -797,7 +828,6 @@ else
                 end
                 return oldIndex(self, key)
             end
-
             mt.__namecall = function(self, ...)
                 local args = {...}
                 local method = getnamecallmethod()
@@ -831,14 +861,13 @@ else
 end
 
 --//===========================================================
---// SORU AIMBOT (Teleport to target on F)
+--// SORU AIMBOT
 --//===========================================================
 local SoruCooldown = 0
-
 local function SoruAimbotUpdate()
     if not SoruAimbot or not VirtualInputManager then return end
     if tick() < SoruCooldown then return end
-    local targetRoot, dist = GetNearestTarget(false) -- no FOV for soru
+    local targetRoot, dist = GetNearestTarget(false)
     if not targetRoot or dist > 25 then return end
     local char = Player.Character
     if char and char:FindFirstChild("HumanoidRootPart") then
@@ -856,27 +885,19 @@ local function SoruAimbotUpdate()
 end
 
 --//===========================================================
---// FOV CIRCLE (Drawing or Frame fallback)
+--// FOV CIRCLE
 --//===========================================================
 local function CreateFOVCircle()
     if FOVCircle then
-        if FOVCircle:IsA("Drawing") then
-            FOVCircle:Remove()
-        elseif FOVCircle:IsA("Frame") then
-            FOVCircle:Destroy()
-        end
-        FOVCircle = nil
-        FOVCircleFrame = nil
+        if FOVCircle:IsA("Drawing") then FOVCircle:Remove() else FOVCircle:Destroy() end
+        FOVCircle = nil; FOVCircleFrame = nil
     end
-
     if not ShowFOVCircle then return end
-
-    -- Try Drawing (most performance)
     local success, drawing = pcall(function()
         if Drawing and Drawing.new then
             local circle = Drawing.new("Circle")
             circle.Visible = true
-            circle.Color = Color3.fromRGB(255, 0, 0)
+            circle.Color = Color3.fromRGB(255,0,0)
             circle.Radius = FOVRadius
             circle.Thickness = 2
             circle.Filled = false
@@ -887,34 +908,25 @@ local function CreateFOVCircle()
         end
         return nil
     end)
-
-    if success and drawing then
-        FOVCircle = drawing
-        return
-    end
-
-    -- Fallback: Frame in ScreenGui (mobile friendly)
-    if not Gui then return end
+    if success and drawing then FOVCircle = drawing; return end
+    -- fallback Frame
     local frame = Instance.new("Frame")
     frame.Name = "FOVCircleFrame"
     frame.AnchorPoint = Vector2.new(0.5, 0.5)
     frame.BackgroundTransparency = 1
     frame.Visible = true
     frame.ZIndex = 999
-    frame.Size = UDim2.new(0, FOVRadius * 2, 0, FOVRadius * 2)
+    frame.Size = UDim2.new(0, FOVRadius*2, 0, FOVRadius*2)
     local center = (FOVMode == "Screen Center") and Camera.ViewportSize / 2 or UIS:GetMouseLocation()
     frame.Position = UDim2.new(0, center.X, 0, center.Y)
     frame.Parent = Gui
-
     local stroke = Instance.new("UIStroke")
     stroke.Color = Color3.fromRGB(255,0,0)
     stroke.Thickness = 2
     stroke.Parent = frame
-
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(1, 0)
+    corner.CornerRadius = UDim.new(1,0)
     corner.Parent = frame
-
     FOVCircle = frame
     FOVCircleFrame = frame
 end
@@ -922,38 +934,24 @@ end
 local function UpdateFOVCircle()
     if not ShowFOVCircle then
         if FOVCircle then
-            if FOVCircle:IsA("Drawing") then
-                FOVCircle:Remove()
-            elseif FOVCircle:IsA("Frame") then
-                FOVCircle:Destroy()
-            end
-            FOVCircle = nil
-            FOVCircleFrame = nil
+            if FOVCircle:IsA("Drawing") then FOVCircle:Remove() else FOVCircle:Destroy() end
+            FOVCircle = nil; FOVCircleFrame = nil
         end
         return
     end
-
-    if not FOVCircle then
-        CreateFOVCircle()
-        return
-    end
-
-    -- Update position & radius
+    if not FOVCircle then CreateFOVCircle(); return end
     local center = (FOVMode == "Screen Center") and Camera.ViewportSize / 2 or UIS:GetMouseLocation()
     if FOVCircle:IsA("Drawing") then
         FOVCircle.Position = center
         FOVCircle.Radius = FOVRadius
-    elseif FOVCircle:IsA("Frame") and FOVCircleFrame then
+    elseif FOVCircleFrame then
         FOVCircleFrame.Position = UDim2.new(0, center.X, 0, center.Y)
-        FOVCircleFrame.Size = UDim2.new(0, FOVRadius * 2, 0, FOVRadius * 2)
+        FOVCircleFrame.Size = UDim2.new(0, FOVRadius*2, 0, FOVRadius*2)
     end
 end
 
--- Update FOV circle every frame when enabled
 RunService.RenderStepped:Connect(function()
-    if ShowFOVCircle then
-        UpdateFOVCircle()
-    end
+    if ShowFOVCircle then UpdateFOVCircle() end
 end)
 
 --//===========================================================
@@ -964,11 +962,7 @@ local function WalkspeedUpdate()
     if not char then return end
     local hum = char:FindFirstChild("Humanoid")
     if not hum then return end
-    if WalkspeedState then
-        hum.WalkSpeed = WalkspeedValue
-    else
-        if hum.WalkSpeed ~= 16 then hum.WalkSpeed = 16 end
-    end
+    if WalkspeedState then hum.WalkSpeed = WalkspeedValue else if hum.WalkSpeed ~= 16 then hum.WalkSpeed = 16 end end
 end
 
 --//===========================================================
@@ -976,38 +970,29 @@ end
 --//===========================================================
 local function InfiniteJumpUpdate()
     local char = Player.Character
-    if char and char:FindFirstChild("Humanoid") then
-        char.Humanoid.JumpPower = InfiniteJump and 50 or 50
-    end
+    if char and char:FindFirstChild("Humanoid") then char.Humanoid.JumpPower = InfiniteJump and 50 or 50 end
 end
-
 local function HandleJump()
     if InfiniteJump then
         local char = Player.Character
         if char and char:FindFirstChild("Humanoid") and char:FindFirstChild("HumanoidRootPart") then
-            local hum = char.Humanoid
-            local root = char.HumanoidRootPart
+            local hum = char.Humanoid; local root = char.HumanoidRootPart
             if hum:GetState() ~= Enum.HumanoidStateType.Jumping and hum:GetState() ~= Enum.HumanoidStateType.Freefall then
                 root.Velocity = Vector3.new(root.Velocity.X, 50, root.Velocity.Z)
             end
         end
     end
 end
-
 UIS.InputBegan:Connect(function(input, gpe)
     if gpe then return end
-    if input.KeyCode == Enum.KeyCode.Space then
-        HandleJump()
-    end
+    if input.KeyCode == Enum.KeyCode.Space then HandleJump() end
 end)
 
 local function NoClipUpdate()
     local char = Player.Character
     if not char then return end
     for _, part in pairs(char:GetDescendants()) do
-        if part:IsA("BasePart") then
-            part.CanCollide = not NoClip
-        end
+        if part:IsA("BasePart") then part.CanCollide = not NoClip end
     end
 end
 
@@ -1023,7 +1008,7 @@ local function AntiAFKUpdate()
 end
 
 --//===========================================================
---// ESP SYSTEM (Accurate)
+--// ESP
 --//===========================================================
 local ESPObjects = {}
 local function CreateESP()
@@ -1093,51 +1078,33 @@ local function CreateESP()
 
     local function UpdateESP()
         if not ESPEnabled then
-            for _, data in pairs(ESPObjects) do
-                data.container.Visible = false
-            end
+            for _, data in pairs(ESPObjects) do data.container.Visible = false end
             return
         end
-
         local currentTargets = {}
-
-        -- Players
         for _, plr in pairs(Players:GetPlayers()) do
             if plr ~= Player then
                 local char = plr.Character
                 if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
                     local root = char.HumanoidRootPart
-                    if not ESPObjects[plr] then
-                        AddESPForTarget(root, plr)
-                    end
+                    if not ESPObjects[plr] then AddESPForTarget(root, plr) end
                     currentTargets[plr] = true
                 end
             end
         end
-
-        -- NPCs
         for _, obj in pairs(workspace:GetChildren()) do
             if obj:IsA("Model") and obj ~= Player.Character then
                 local hum = obj:FindFirstChild("Humanoid")
                 local root = obj:FindFirstChild("HumanoidRootPart")
                 if hum and root and hum.Health > 0 then
-                    if not ESPObjects[obj] then
-                        AddESPForTarget(root, nil)
-                    end
+                    if not ESPObjects[obj] then AddESPForTarget(root, nil) end
                     currentTargets[obj] = true
                 end
             end
         end
-
-        -- Remove stale
         for key, data in pairs(ESPObjects) do
-            if not currentTargets[key] then
-                data.container:Destroy()
-                ESPObjects[key] = nil
-            end
+            if not currentTargets[key] then data.container:Destroy(); ESPObjects[key] = nil end
         end
-
-        -- Update each visible target
         for key, data in pairs(ESPObjects) do
             local root = data.root
             local plr = data.plr
@@ -1160,19 +1127,15 @@ local function CreateESP()
                         data.box.Visible = true
                         data.box.Size = UDim2.new(1,0,1,0)
                         data.box.Position = UDim2.new(0,0,0,0)
-                    else
-                        data.box.Visible = false
-                    end
+                    else data.box.Visible = false end
 
                     if ESPName then
                         data.name.Visible = true
                         data.name.Text = plr and plr.Name or "NPC"
-                        data.name.Size = UDim2.new(0, width * 1.2, 0, 18)
-                        data.name.Position = UDim2.new(-0.1, 0, -1.2, -2)
+                        data.name.Size = UDim2.new(0, width*1.2, 0, 18)
+                        data.name.Position = UDim2.new(-0.1,0,-1.2,-2)
                         data.name.TextSize = 12
-                    else
-                        data.name.Visible = false
-                    end
+                    else data.name.Visible = false end
 
                     if ESPHealth then
                         data.healthBg.Visible = true
@@ -1180,16 +1143,10 @@ local function CreateESP()
                         data.healthBg.Position = UDim2.new(0,0,1,4)
                         local hp = hum.Health / hum.MaxHealth
                         data.healthFill.Size = UDim2.new(hp,0,1,0)
-                        if hp > 0.5 then
-                            data.healthFill.BackgroundColor3 = GREEN
-                        elseif hp > 0.25 then
-                            data.healthFill.BackgroundColor3 = Color3.fromRGB(255,200,0)
-                        else
-                            data.healthFill.BackgroundColor3 = RED
-                        end
-                    else
-                        data.healthBg.Visible = false
-                    end
+                        if hp > 0.5 then data.healthFill.BackgroundColor3 = GREEN
+                        elseif hp > 0.25 then data.healthFill.BackgroundColor3 = Color3.fromRGB(255,200,0)
+                        else data.healthFill.BackgroundColor3 = RED end
+                    else data.healthBg.Visible = false end
 
                     if ESPDistance then
                         data.dist.Visible = true
@@ -1197,21 +1154,13 @@ local function CreateESP()
                         data.dist.Text = math.floor(d) .. "m"
                         data.dist.Size = UDim2.new(0,60,0,16)
                         data.dist.Position = UDim2.new(1, -5, -1.2, -2)
-                    else
-                        data.dist.Visible = false
-                    end
-                else
-                    data.container.Visible = false
-                end
-            else
-                data.container.Visible = false
-            end
+                    else data.dist.Visible = false end
+                else data.container.Visible = false end
+            else data.container.Visible = false end
         end
     end
-
     return UpdateESP
 end
-
 local ESPUpdate = CreateESP()
 
 --//===========================================================
@@ -1226,17 +1175,11 @@ local function StartPVPLoop()
         NoClipUpdate()
         AntiAFKUpdate()
         ESPUpdate()
-        -- FOV circle is updated via RenderStepped
     end)
 end
-
 local function StopPVPLoop()
-    if RunningLoop then
-        RunningLoop:Disconnect()
-        RunningLoop = nil
-    end
+    if RunningLoop then RunningLoop:Disconnect(); RunningLoop = nil end
 end
-
 local function CheckLoopState()
     if SilentAimEnabled or AimbotSkills or SoruAimbot or WalkspeedState or NoClip or AntiAFK or ESPEnabled or InfiniteJump then
         StartPVPLoop()
@@ -1248,125 +1191,54 @@ end
 --//===========================================================
 --// BUILD PAGES
 --//===========================================================
-
--- MAIN page
 Section(MainPage, "MAIN")
-Toggle(MainPage, "Welcome Feature", false, function(state)
-    print("[IVORY] Welcome:", state)
-end)
+Toggle(MainPage, "Welcome Feature", false, function(s) print("[IVORY] Welcome:", s) end)
 
--- COMBAT page
 Section(CombatPage, "COMBAT")
+Toggle(CombatPage, "180° Silent Aim", false, function(s) SilentAimEnabled = s; CheckLoopState() end)
+Toggle(CombatPage, "Target Players", true, function(s) TargetPlayers = s end)
+Toggle(CombatPage, "Target NPCs", true, function(s) TargetNPCs = s end)
+Toggle(CombatPage, "Aimbot Skills", false, function(s) AimbotSkills = s; CheckLoopState() end)
 
--- 180 Silent Aim (character facing)
-Toggle(CombatPage, "180° Silent Aim", false, function(state)
-    SilentAimEnabled = state
-    CheckLoopState()
-end)
-
--- Target Players / NPCs
-Toggle(CombatPage, "Target Players", true, function(state)
-    TargetPlayers = state
-end)
-Toggle(CombatPage, "Target NPCs", true, function(state)
-    TargetNPCs = state
-end)
-
--- Aimbot Skills (skill redirection with FOV)
-Toggle(CombatPage, "Aimbot Skills", false, function(state)
-    AimbotSkills = state
-    CheckLoopState()
-end)
-
--- FOV Settings (only visible when Aimbot Skills or ShowFOV is on)
+-- FOV group
 local fovGroup = Instance.new("Frame")
-fovGroup.Size = UDim2.new(1, -20, 0, 150)
+fovGroup.Size = UDim2.new(1, -20, 0, 130)
 fovGroup.BackgroundTransparency = 1
 fovGroup.Parent = CombatPage
 
-Toggle(fovGroup, "Show FOV Circle", false, function(state)
-    ShowFOVCircle = state
-    if state then CreateFOVCircle() else
+Toggle(fovGroup, "Show FOV Circle", false, function(s)
+    ShowFOVCircle = s
+    if s then CreateFOVCircle() else
         if FOVCircle then
             if FOVCircle:IsA("Drawing") then FOVCircle:Remove() else FOVCircle:Destroy() end
             FOVCircle = nil; FOVCircleFrame = nil
         end
     end
 end)
-
-local fovSlider = Slider(fovGroup, "FOV Radius", 150, 10, 500, function(v)
+Slider(fovGroup, "FOV Radius", 150, 10, 500, function(v)
     FOVRadius = v
     if ShowFOVCircle then
-        -- Update circle
-        if FOVCircle and FOVCircle:IsA("Drawing") then
-            FOVCircle.Radius = v
-        elseif FOVCircle and FOVCircle:IsA("Frame") then
-            FOVCircle.Size = UDim2.new(0, v * 2, 0, v * 2)
-        end
+        if FOVCircle and FOVCircle:IsA("Drawing") then FOVCircle.Radius = v
+        elseif FOVCircle and FOVCircle:IsA("Frame") then FOVCircle.Size = UDim2.new(0, v*2, 0, v*2) end
     end
 end)
+Dropdown(fovGroup, "FOV Mode", {"Screen Center", "Mouse Position"}, "Screen Center", function(v) FOVMode = v end)
 
-local fovModeDropdown = Dropdown(fovGroup, "FOV Mode", {"Screen Center", "Mouse Position"}, "Screen Center", function(v)
-    FOVMode = v
-    if ShowFOVCircle then
-        -- Update position on next render
-    end
-end)
+Toggle(CombatPage, "Soru Aimbot (F)", false, function(s) SoruAimbot = s; CheckLoopState() end)
+SliderToggle(CombatPage, "Walkspeed", false, 16, 100, 50, function(s, v) WalkspeedState = s; WalkspeedValue = v; CheckLoopState() end)
 
--- Adjust fovGroup position after toggles
--- We'll place fovGroup after previous toggles; we need to manually position it.
--- We'll use a UIListLayout inside CombatPage to auto arrange.
--- But we already have a Layout inside the page? Yes, we have a UIListLayout in CreatePage.
--- So we can simply put the toggles and sliders in order, and they'll stack.
-
--- Soru Aimbot
-Toggle(CombatPage, "Soru Aimbot (F)", false, function(state)
-    SoruAimbot = state
-    CheckLoopState()
-end)
-
--- Walkspeed slider
-local wsSlider = SliderToggle(CombatPage, "Walkspeed", false, 16, 100, 50, function(state, speed)
-    WalkspeedState = state
-    WalkspeedValue = speed
-    CheckLoopState()
-end)
-
--- PLAYER page
 Section(PlayerPage, "PLAYER EXTRAS")
-Toggle(PlayerPage, "Infinite Jump", false, function(state)
-    InfiniteJump = state
-    CheckLoopState()
-end)
-Toggle(PlayerPage, "No Clip", false, function(state)
-    NoClip = state
-    CheckLoopState()
-end)
-Toggle(PlayerPage, "Anti-AFK", false, function(state)
-    AntiAFK = state
-    CheckLoopState()
-end)
+Toggle(PlayerPage, "Infinite Jump", false, function(s) InfiniteJump = s; CheckLoopState() end)
+Toggle(PlayerPage, "No Clip", false, function(s) NoClip = s; CheckLoopState() end)
+Toggle(PlayerPage, "Anti-AFK", false, function(s) AntiAFK = s; CheckLoopState() end)
 
--- VISUALS page
 Section(VisualPage, "VISUALS (ESP)")
-Toggle(VisualPage, "Enable ESP", false, function(state)
-    ESPEnabled = state
-    CheckLoopState()
-end)
-Toggle(VisualPage, "Show Box", false, function(state)
-    ESPBox = state
-end)
-Toggle(VisualPage, "Show Name", false, function(state)
-    ESPName = state
-end)
-Toggle(VisualPage, "Show Health", false, function(state)
-    ESPHealth = state
-end)
-Toggle(VisualPage, "Show Distance", false, function(state)
-    ESPDistance = state
-end)
+Toggle(VisualPage, "Enable ESP", false, function(s) ESPEnabled = s; CheckLoopState() end)
+Toggle(VisualPage, "Show Box", false, function(s) ESPBox = s end)
+Toggle(VisualPage, "Show Name", false, function(s) ESPName = s end)
+Toggle(VisualPage, "Show Health", false, function(s) ESPHealth = s end)
+Toggle(VisualPage, "Show Distance", false, function(s) ESPDistance = s end)
 
--- SETTINGS page
 Section(SettingsPage, "SETTINGS")
 Button(SettingsPage, "Show Notification", function()
     local Notification = Instance.new("Frame")
@@ -1380,28 +1252,24 @@ Button(SettingsPage, "Show Notification", function()
     local T = Text(Notification,"IVORY HUB",14,true)
     T.Position = UDim2.new(0,14,0,8)
     T.Size = UDim2.new(1,-20,0,20)
-    local M = Text(Notification,"180° Silent Aim + Skill Aimbot (FOV) + Soru",11,false)
+    local M = Text(Notification,"Loaded! Tap 'I' to toggle.",11,false)
     M.TextColor3 = GRAY
     M.Position = UDim2.new(0,14,0,32)
     M.Size = UDim2.new(1,-20,0,18)
-
     Tween(Notification,.3,{Position = UDim2.new(1,-300,0,20)})
     task.delay(3,function()
         Tween(Notification,.3,{Position = UDim2.new(1,20,0,20)})
-        task.wait(.3)
-        Notification:Destroy()
+        task.wait(.3); Notification:Destroy()
     end)
 end)
-
 Button(SettingsPage, "Print GUI Info", function()
     print("================================")
     print("IVORY HUB - FOV Edition")
-    print("Features: 180 Silent Aim, Skill Aimbot (FOV), Soru Aimbot, Walkspeed, ESP")
+    print("Features: 180 Silent Aim, Skill Aimbot (FOV), Soru, Walkspeed, ESP")
     print("Creators: Ivory & Rayo")
     print("================================")
 end)
 
--- CREDITS page
 Section(CreditsPage, "CREATORS")
 local CreatorBox = Instance.new("Frame")
 CreatorBox.Size = UDim2.new(1,0,0,82)
@@ -1441,22 +1309,18 @@ Version.Size = UDim2.new(1,0,0,25)
 --// TABS
 --//===========================================================
 local Tabs = {
-    {"MAIN",    MainPage},
-    {"COMBAT",  CombatPage},
-    {"PLAYER",  PlayerPage},
+    {"MAIN", MainPage},
+    {"COMBAT", CombatPage},
+    {"PLAYER", PlayerPage},
     {"VISUALS", VisualPage},
-    {"SETTINGS",SettingsPage},
+    {"SETTINGS", SettingsPage},
     {"CREDITS", CreditsPage}
 }
-
 local CurrentTab
-
 local function SelectTab(button,page)
     for _,data in ipairs(Tabs) do
         local otherButton = data[3]
-        if otherButton then
-            Tween(otherButton,.15,{BackgroundColor3 = DARKER})
-        end
+        if otherButton then Tween(otherButton,.15,{BackgroundColor3 = DARKER}) end
         data[2].Visible = false
     end
     Tween(button,.15,{BackgroundColor3 = WHITE})
@@ -1464,10 +1328,8 @@ local function SelectTab(button,page)
     page.Visible = true
     CurrentTab = page
 end
-
 for _,data in ipairs(Tabs) do
-    local Name = data[1]
-    local Page = data[2]
+    local Name = data[1]; local Page = data[2]
     local Tab = Instance.new("TextButton")
     Tab.Size = UDim2.new(1,0,0,38)
     Tab.BackgroundColor3 = DARKER
@@ -1478,61 +1340,30 @@ for _,data in ipairs(Tabs) do
     Tab.Font = Enum.Font.GothamBold
     Tab.AutoButtonColor = false
     Tab.Parent = Sidebar
-    Corner(Tab,8)
-    AddStroke(Tab)
+    Corner(Tab,8); AddStroke(Tab)
     data[3] = Tab
-
-    Tab.MouseEnter:Connect(function()
-        if CurrentTab ~= Page then
-            Tween(Tab,.15,{BackgroundColor3 = Color3.fromRGB(27,27,27)})
-        end
-    end)
-    Tab.MouseLeave:Connect(function()
-        if CurrentTab ~= Page then
-            Tween(Tab,.15,{BackgroundColor3 = DARKER})
-        end
-    end)
-    Tab.MouseButton1Click:Connect(function()
-        SelectTab(Tab,Page)
-    end)
+    Tab.MouseEnter:Connect(function() if CurrentTab ~= Page then Tween(Tab,.15,{BackgroundColor3 = Color3.fromRGB(27,27,27)}) end end)
+    Tab.MouseLeave:Connect(function() if CurrentTab ~= Page then Tween(Tab,.15,{BackgroundColor3 = DARKER}) end end)
+    Tab.MouseButton1Click:Connect(function() SelectTab(Tab,Page) end)
 end
-
--- Default: Combat
-SelectTab(Tabs[2][3], Tabs[2][2])
+SelectTab(Tabs[2][3], Tabs[2][2])  -- Combat
 
 --//===========================================================
---// DRAGGING (touch friendly)
+--// DRAGGING
 --//===========================================================
-local Dragging = false
-local DragStart, StartPosition
-
+local Dragging = false; local DragStart, StartPosition
 local function UpdateDrag(input)
     local Delta = input.Position - DragStart
-    Main.Position = UDim2.new(
-        StartPosition.X.Scale,
-        StartPosition.X.Offset + Delta.X,
-        StartPosition.Y.Scale,
-        StartPosition.Y.Offset + Delta.Y
-    )
+    Main.Position = UDim2.new(StartPosition.X.Scale, StartPosition.X.Offset + Delta.X, StartPosition.Y.Scale, StartPosition.Y.Offset + Delta.Y)
 end
-
 Top.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        Dragging = true
-        DragStart = input.Position
-        StartPosition = Main.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                Dragging = false
-            end
-        end)
+        Dragging = true; DragStart = input.Position; StartPosition = Main.Position
+        input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then Dragging = false end end)
     end
 end)
-
 UIS.InputChanged:Connect(function(input)
-    if Dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        UpdateDrag(input)
-    end
+    if Dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then UpdateDrag(input) end
 end)
 
 --//===========================================================
@@ -1542,19 +1373,16 @@ local Minimized = false
 Minimize.MouseButton1Click:Connect(function()
     Minimized = not Minimized
     if Minimized then
-        Sidebar.Visible = false
-        Content.Visible = false
+        Sidebar.Visible = false; Content.Visible = false
         Tween(Main,.25,{Size = UDim2.new(0,520,0,58)})
         Minimize.Text = "+"
     else
         Tween(Main,.25,{Size = UDim2.new(0,520,0,500)})
         task.wait(.15)
-        Sidebar.Visible = true
-        Content.Visible = true
+        Sidebar.Visible = true; Content.Visible = true
         Minimize.Text = "—"
     end
 end)
-
 Close.MouseButton1Click:Connect(function()
     Tween(Main,.25,{Size = UDim2.new(0,0,0,0)})
     task.wait(.3)
@@ -1562,23 +1390,38 @@ Close.MouseButton1Click:Connect(function()
 end)
 
 --//===========================================================
---// OPEN/CLOSE KEY (optional)
+--// OPEN/CLOSE KEY (RightShift)
 --//===========================================================
 UIS.InputBegan:Connect(function(input,gpe)
     if gpe then return end
-    if input.KeyCode == Enum.KeyCode.RightShift then
-        Main.Visible = not Main.Visible
-    end
+    if input.KeyCode == Enum.KeyCode.RightShift then Main.Visible = not Main.Visible end
 end)
 
 --//===========================================================
 --// START
 --//===========================================================
 CheckLoopState()
-
 print("================================")
 print("        IVORY HUB LOADED (FOV Edition)")
 print("================================")
-print("Features: 180 Silent Aim, Skill Aimbot (FOV), Soru Aimbot, Walkspeed, ESP")
+print("Features: 180 Silent Aim, Skill Aimbot (FOV), Soru, Walkspeed, ESP")
 print("Creators: Ivory & Rayo")
 print("================================")
+
+-- Show a quick notification
+task.spawn(function()
+    task.wait(0.5)
+    local notif = Instance.new("Frame")
+    notif.Size = UDim2.new(0, 260, 0, 50)
+    notif.Position = UDim2.new(0.5, -130, 0.4, 0)
+    notif.BackgroundColor3 = BLACK
+    notif.BorderColor3 = WHITE
+    notif.BorderSizePixel = 1
+    notif.Parent = Gui
+    Corner(notif, 10)
+    local lbl = Text(notif, "Ivory Hub Loaded! Tap 'I' to toggle.", 13, true)
+    lbl.Size = UDim2.new(1, -20, 1, 0)
+    lbl.Position = UDim2.new(0, 10, 0, 0)
+    lbl.TextXAlignment = Enum.TextXAlignment.Center
+    task.delay(3, function() notif:Destroy() end)
+end)
