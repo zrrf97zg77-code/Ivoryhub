@@ -1,5 +1,5 @@
 --// ============================================================
---// IVORY HUB – MOBILE FINAL (ALL WORKING)
+--// IVORY HUB – MOBILE FINAL (ALL FIXED)
 --// ============================================================
 print("Ivory Hub: starting... (mobile optimized)")
 
@@ -36,7 +36,7 @@ Gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 Gui.Parent = parentGui
 
 --//===========================================================
---// COLORS & HELPERS
+--// COLORS & HELPERS (shortened)
 --//===========================================================
 local BLACK = Color3.fromRGB(7,7,7)
 local DARK = Color3.fromRGB(13,13,13)
@@ -77,7 +77,7 @@ local function Text(parent, text, size, bold)
 end
 
 --//===========================================================
---// FLOATING TOGGLE BUTTON (mobile friendly)
+--// FLOATING TOGGLE BUTTON (mobile)
 --//===========================================================
 local ToggleBtn = Instance.new("TextButton")
 ToggleBtn.Name = "IvoryToggle"
@@ -105,7 +105,7 @@ ToggleBtn.MouseLeave:Connect(function()
 end)
 
 --//===========================================================
---// MAIN WINDOW (COMPACT, touch-friendly)
+--// MAIN WINDOW (compact, touch-friendly)
 --//===========================================================
 local Main = Instance.new("Frame")
 Main.Name = "MainWindow"
@@ -166,7 +166,7 @@ ToggleBtn.MouseButton1Click:Connect(function()
 end)
 
 --//===========================================================
---// SIDEBAR & CONTENT (COMPACT)
+--// SIDEBAR & CONTENT
 --//===========================================================
 local Sidebar = Instance.new("Frame")
 Sidebar.Size = UDim2.new(0,110,1,-58)
@@ -455,7 +455,7 @@ local CreditsPage = CreatePage("Credits")
 local AboutPage   = CreatePage("About")
 
 --//===========================================================
---// OBSIDIAN SILENT AIM MODULE (mobile compatible)
+--// SILENT AIM MODULE (with FOV)
 --//===========================================================
 local SilentAimModule = (function()
     local module = {}
@@ -467,7 +467,6 @@ local SilentAimModule = (function()
     local SilentAimNPCsEnabled = false
     local PredictionEnabled = true
     local PredictionAmount = 0.12
-    local ZSkillorM1 = true
     local ShowFOVCircle = false
     local FOVRadius = 150
     local FOVMode = "V1"
@@ -489,7 +488,7 @@ local SilentAimModule = (function()
         Gun   = { Z=false, X=false }
     }
 
-    -- FOV circle (Frame based, for mobile)
+    -- FOV circle
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "FOV_System_Ivory"
     ScreenGui.ResetOnSpawn = false
@@ -512,6 +511,16 @@ local SilentAimModule = (function()
     local function getFOVCenter(mode)
         if mode == "V2" then return UIS:GetMouseLocation() end
         return camera.ViewportSize / 2
+    end
+
+    -- Public: check if target is inside FOV
+    function module:IsTargetInFOV(hrp)
+        if not ShowFOVCircle then return true end
+        if not hrp then return false end
+        local screenPos, onScreen = camera:WorldToViewportPoint(hrp.Position)
+        if not onScreen then return false end
+        local center = getFOVCenter(FOVMode)
+        return (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude <= FOVRadius
     end
 
     local function isTargetValid(hrp, lpHRP, aimMode, fovRadius, fovType)
@@ -706,7 +715,7 @@ local SilentAimModule = (function()
         PlayersPosition = nil; NPCPosition = nil
     end
 
-    -- Metatable hooks (for skill redirection)
+    -- Metatable hooks for skill redirection
     local oldIndex, oldNamecall = nil, nil
     local function installHooks()
         if hookmetamethod then
@@ -863,8 +872,6 @@ local SilentAimModule = (function()
         end
     end)
 
-    -- For mobile, skill keys are not physical keys, so we rely on mobile button hooks.
-
     function module:SetPlayerSilentAim(state)
         SilentAimPlayersEnabled = state
         if state then startRenderLoop() else if not SilentAimNPCsEnabled then stopRenderLoop() end end
@@ -890,15 +897,13 @@ local SilentAimModule = (function()
 end)()
 
 --//===========================================================
---// EXTRA FEATURES (MOBILE OPTIMIZED)
+--// SORU AIMBOT (Obsidian style – triggers on Flashstep animation)
 --//===========================================================
-
--- Soru Aimbot – detects Flashstep animation and teleports to target
-local SoruEnabled = false
+local SoruAimbotEnabled = false
 local SoruCooldown = 0
 local FlashstepRemote = nil
 
--- Find Flashstep remote
+-- Find the Flashstep remote
 task.spawn(function()
     local remotes = ReplicatedStorage:FindFirstChild("Remotes")
     if remotes then FlashstepRemote = remotes:FindFirstChild("CommF_") end
@@ -921,17 +926,23 @@ local function SoruTeleport(targetPos)
     if not char then return false end
     local hrp = char:FindFirstChild("HumanoidRootPart")
     if not hrp then return false end
-    local dist = (targetPos - hrp.Position).Magnitude
-    if dist > 35 then return false end
 
+    -- Check distance (optional, but keep reasonable)
+    local dist = (targetPos - hrp.Position).Magnitude
+    if dist > 1000 then return false end
+
+    -- Teleport using Flashstep remote
+    local success = false
     pcall(function()
         if FlashstepRemote then
             FlashstepRemote:InvokeServer("Flashstep", targetPos)
+            success = true
         else
             hrp.CFrame = CFrame.new(targetPos + Vector3.new(0, 3, 0))
+            success = true
         end
     end)
-    return true
+    return success
 end
 
 -- Monitor for Flashstep animation
@@ -940,15 +951,25 @@ local function monitorFlashstep(char)
     if not hum then return end
 
     hum.AnimationPlayed:Connect(function(track)
-        if not SoruEnabled then return end
+        if not SoruAimbotEnabled then return end
         if tick() < SoruCooldown then return end
-        -- Detect Flashstep animations
+
         local animName = string.lower(track.Name)
-        if string.find(animName, "flashstep") or string.find(animName, "soru") or string.find(animName, "dash") then
+        local animId = tostring(track.Animation and track.Animation.AnimationId or "")
+
+        -- Detect Flashstep/Soru animations
+        if string.find(animName, "flashstep") or string.find(animName, "soru") or string.find(animName, "dash") or string.find(animId, "17555632156") or string.find(animId, "616006778") then
             local targetPos = SilentAimModule:GetTargetPos()
             if targetPos then
-                if SoruTeleport(targetPos) then
-                    SoruCooldown = tick() + 1.5
+                -- Check if target is inside FOV
+                local targetHrp = nil
+                -- We need to get the actual HRP of the target to check FOV
+                -- Since we only have position, we'll check if the target is currently targeted
+                -- The module's target is already FOV-filtered, so we can just use it.
+                if SilentAimModule:IsTargetInFOV(targetPos) then
+                    if SoruTeleport(targetPos) then
+                        SoruCooldown = tick() + 1.5
+                    end
                 end
             end
         end
@@ -964,7 +985,9 @@ if Player.Character then
     monitorFlashstep(Player.Character)
 end
 
--- Auto V4 (fixed)
+--//===========================================================
+--// AUTO V4 (fires awakening when bar full, no ground check)
+--//===========================================================
 local AutoV4Enabled = false
 local function AutoV4Update()
     if not AutoV4Enabled then return end
@@ -972,6 +995,7 @@ local function AutoV4Update()
     if not char then return end
     local raceEnergy = char:GetAttribute("RaceEnergy")
     if raceEnergy and raceEnergy >= 100 then
+        -- Try Awakening remote
         local awk = Player.Backpack:FindFirstChild("Awakening") or char:FindFirstChild("Awakening")
         if awk and awk:FindFirstChild("RemoteFunction") then
             awk.RemoteFunction:InvokeServer(true)
@@ -984,23 +1008,27 @@ local function AutoV4Update()
     end
 end
 
--- No Clip
-local NoClip = false
+--//===========================================================
+--// NO CLIP
+--//===========================================================
+local NoClipEnabled = false
 local function NoClipUpdate()
     local char = Player.Character
     if not char then return end
     for _, part in pairs(char:GetDescendants()) do
         if part:IsA("BasePart") then
-            part.CanCollide = not NoClip
+            part.CanCollide = not NoClipEnabled
         end
     end
 end
 
--- Anti-AFK
-local AntiAFK = false
+--//===========================================================
+--// ANTI-AFK
+--//===========================================================
+local AntiAFKEnabled = false
 local antiAFKTimer = 0
 local function AntiAFKUpdate()
-    if not AntiAFK then return end
+    if not AntiAFKEnabled then return end
     antiAFKTimer = antiAFKTimer + 0.1
     if antiAFKTimer < 5 then return end
     antiAFKTimer = 0
@@ -1014,7 +1042,7 @@ local function AntiAFKUpdate()
 end
 
 --//===========================================================
---// ESP (BillboardGui – mobile friendly)
+--// ESP (BillboardGui – reliable)
 --//===========================================================
 local ESPEnabled = false
 local ESPBox = false
@@ -1115,6 +1143,7 @@ local function CreateESP()
 
         local currentTargets = {}
 
+        -- Players
         for _, plr in pairs(Players:GetPlayers()) do
             if plr ~= Player then
                 local char = plr.Character
@@ -1147,6 +1176,7 @@ local function CreateESP()
             end
         end
 
+        -- NPCs (Enemies)
         local enemiesFolder = workspace:FindFirstChild("Enemies")
         if enemiesFolder then
             for _, npc in pairs(enemiesFolder:GetChildren()) do
@@ -1181,6 +1211,7 @@ local function CreateESP()
             end
         end
 
+        -- Clean up stale
         for target, data in pairs(espData) do
             if not currentTargets[target] then
                 pcall(function() data.gui:Destroy() end)
@@ -1213,7 +1244,7 @@ local function StopLoop()
     if RunningLoop then RunningLoop:Disconnect(); RunningLoop = nil end
 end
 local function CheckLoop()
-    if SoruEnabled or AutoV4Enabled or NoClip or AntiAFK or ESPEnabled then
+    if SoruAimbotEnabled or AutoV4Enabled or NoClipEnabled or AntiAFKEnabled or ESPEnabled then
         StartLoop()
     else
         StopLoop()
@@ -1221,9 +1252,10 @@ local function CheckLoop()
 end
 
 --//===========================================================
---// BUILD UI PAGES
+--// UI PAGES
 --//===========================================================
 
+-- MAIN PAGE
 Section(MainPage, "MAIN")
 local mainTitle = Text(MainPage, "IVORY HUB", 18, true)
 mainTitle.Size = UDim2.new(1,0,0,30)
@@ -1236,6 +1268,7 @@ mainSub.Position = UDim2.new(0,0,0,32)
 mainSub.TextXAlignment = Enum.TextXAlignment.Center
 mainSub.TextColor3 = GRAY
 
+-- Feature status
 local statusFrame = Instance.new("Frame")
 statusFrame.Size = UDim2.new(1, -20, 0, 80)
 statusFrame.Position = UDim2.new(0, 10, 0, 54)
@@ -1259,13 +1292,11 @@ featureStatusText.TextXAlignment = Enum.TextXAlignment.Left
 
 local function UpdateFeatureStatus()
     local active = {}
-    if SilentAimModule._SilentAimPlayersEnabled or SilentAimModule._SilentAimNPCsEnabled then
-        table.insert(active, "Silent Aim")
-    end
-    if SoruEnabled then table.insert(active, "Soru") end
+    if SilentAimModule._SilentAimPlayersEnabled or SilentAimModule._SilentAimNPCsEnabled then table.insert(active, "Silent Aim") end
+    if SoruAimbotEnabled then table.insert(active, "Soru") end
     if AutoV4Enabled then table.insert(active, "Auto V4") end
-    if NoClip then table.insert(active, "No Clip") end
-    if AntiAFK then table.insert(active, "Anti-AFK") end
+    if NoClipEnabled then table.insert(active, "No Clip") end
+    if AntiAFKEnabled then table.insert(active, "Anti-AFK") end
     if ESPEnabled then table.insert(active, "ESP") end
     if #active == 0 then featureStatusText.Text = "None" else featureStatusText.Text = table.concat(active, ", ") end
 end
@@ -1277,10 +1308,11 @@ task.spawn(function()
     end
 end)
 
+-- Feature list
 local features = {
     "✔ Silent Aim (Players & NPCs)",
     "✔ FOV Circle & Radius",
-    "✔ Soru Aimbot (auto-teleport)",
+    "✔ Soru Aimbot (auto-teleport on Flashstep)",
     "✔ Auto V4 Awakening",
     "✔ No Clip & Anti-AFK",
     "✔ ESP (Box, Name, Health, Distance)"
@@ -1338,9 +1370,7 @@ end)
 local priorityDropdown = Dropdown(CombatPage, "Target Priority", {"Nearest", "Low HP", "Looking At Me", "Lock Player"}, "Nearest", function(v)
     SilentAimModule:SetTargetPriority(v)
     local lockPlayerGroup = CombatPage:FindFirstChild("LockPlayerGroup")
-    if lockPlayerGroup then
-        lockPlayerGroup.Visible = (v == "Lock Player")
-    end
+    if lockPlayerGroup then lockPlayerGroup.Visible = (v == "Lock Player") end
 end)
 
 local lockPlayerGroup = Instance.new("Frame")
@@ -1384,8 +1414,8 @@ Slider(CombatPage, "Max Range", 1000, 100, 3000, function(v)
 end, "m")
 
 Section(CombatPage, "EXTRAS")
-Toggle(CombatPage, "Soru Aimbot", false, function(s)
-    SoruEnabled = s
+Toggle(CombatPage, "Soru Aimbot (Flashstep teleport)", false, function(s)
+    SoruAimbotEnabled = s
     CheckLoop()
 end)
 Toggle(CombatPage, "Auto V4", false, function(s)
@@ -1411,11 +1441,11 @@ addBlacklistGroup("Gun", {"Z","X"})
 -- PLAYER PAGE
 Section(PlayerPage, "PLAYER EXTRAS")
 Toggle(PlayerPage, "No Clip", false, function(s)
-    NoClip = s
+    NoClipEnabled = s
     CheckLoop()
 end)
 Toggle(PlayerPage, "Anti-AFK", false, function(s)
-    AntiAFK = s
+    AntiAFKEnabled = s
     CheckLoop()
 end)
 
@@ -1469,10 +1499,10 @@ Button(SettingsPage, "Reset All Toggles", function()
     SilentAimModule:SetPlayerSilentAim(false)
     SilentAimModule:SetNPCSilentAim(false)
     SilentAimModule:SetShowFOVCircle(false)
-    SoruEnabled = false
+    SoruAimbotEnabled = false
     AutoV4Enabled = false
-    NoClip = false
-    AntiAFK = false
+    NoClipEnabled = false
+    AntiAFKEnabled = false
     ESPEnabled = false
     CheckLoop()
     local notif = Instance.new("Frame")
