@@ -1,9 +1,9 @@
 -- =============================================
--- IVORY HUB v5.3 - PURE SORU (Flashstep)
--- Everything works: Silent Aim, Soru, ESP, Auto V4, Macro, Walk on Water
+-- IVORY HUB v4.6 - WITH SORU SILENT AIM
+-- Everything works: Silent Aim, Soru Aim, ESP, Auto V4, Macro
 -- =============================================
 
-print("🦷 Ivory Hub v5.3 loading...")
+print("🦷 Ivory Hub v4.6 loading...")
 
 -- Services
 local Players = game:GetService("Players")
@@ -18,6 +18,7 @@ local VIM = VirtualInputManager
 
 local player = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
+local mouse = player:GetMouse()
 
 -- =============================================
 -- COLORS
@@ -91,11 +92,10 @@ local Features = {
     SilentAimPlayers = false,
     SilentAimNPCs = false,
     SilentAimMode = "360",
-    SoruAimbot = false,
+    SoruAim = false,
     AutoV4 = false,
     NoClip = false,
     AntiAFK = false,
-    WalkWater = false,
     ESP = false,
     ESPBox = false,
     ESPName = false,
@@ -122,12 +122,14 @@ local Macro = {
 }
 
 -- =============================================
--- SILENT AIM - WORKING
+-- TARGET CACHING (for Soru Aim)
 -- =============================================
-local TargetPosition = nil
-local NearestTarget = nil
-local NearestTargetPlr = nil
+local CachedTarget = nil
+local CachedTargetPosition = nil
 
+-- =============================================
+-- GET CLOSEST TARGET
+-- =============================================
 local function GetClosestTarget()
     local char = player.Character
     if not char then return nil end
@@ -145,8 +147,7 @@ local function GetClosestTarget()
                 local dist = (hrp.Position - root.Position).Magnitude
                 if dist < closestDist and dist <= maxRange then
                     closestDist = dist
-                    closest = hrp
-                    NearestTargetPlr = plr
+                    closest = plr
                 end
             end
         end
@@ -162,8 +163,7 @@ local function GetClosestTarget()
                     local dist = (hrp.Position - root.Position).Magnitude
                     if dist < closestDist and dist <= maxRange then
                         closestDist = dist
-                        closest = hrp
-                        NearestTargetPlr = npc
+                        closest = npc
                     end
                 end
             end
@@ -172,6 +172,11 @@ local function GetClosestTarget()
     
     return closest
 end
+
+-- =============================================
+-- SILENT AIM HOOK (for skills/remotes)
+-- =============================================
+local TargetPosition = nil
 
 local function SetupSilentAim()
     local mt = getrawmetatable(game)
@@ -186,9 +191,15 @@ local function SetupSilentAim()
             if Features.SilentAimPlayers or Features.SilentAimNPCs then
                 local target = GetClosestTarget()
                 if target then
-                    TargetPosition = target.Position
-                    if key == "Hit" then return CFrame.new(TargetPosition) end
-                    if key == "Target" then return nil end
+                    local char = target.Character
+                    if char then
+                        local hrp = char:FindFirstChild("HumanoidRootPart")
+                        if hrp then
+                            TargetPosition = hrp.Position
+                            if key == "Hit" then return CFrame.new(TargetPosition) end
+                            if key == "Target" then return nil end
+                        end
+                    end
                 end
             end
         end
@@ -221,106 +232,41 @@ end
 SetupSilentAim()
 
 -- =============================================
--- PURE SORU (Flashstep) - NO PORTAL
+-- SORU AIM HOOK (mouse.Hit and mouse.Target)
 -- =============================================
-local SoruAimbot = (function()
-    local module = {}
-    local COOLDOWN = 1.0
-    local lastAttack = -999
-    local flashstepRemote = nil
+local function SetupSoruAim()
+    local mt = getrawmetatable(game)
+    if not mt then return end
+    local oldIndex = mt.__index
     
-    -- Find Flashstep remote
-    task.spawn(function()
-        local remotes = ReplicatedStorage:FindFirstChild("Remotes")
-        if remotes then
-            flashstepRemote = remotes:FindFirstChild("CommF_")
-        end
-        if not flashstepRemote then
-            for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
-                if obj.Name == "CommF_" or string.find(string.lower(obj.Name or ""), "flash") then
-                    flashstepRemote = obj
-                    break
-                end
-            end
-        end
-        print("[Ivory] Soru remote:", flashstepRemote and "yes" or "no")
-    end)
+    setreadonly(mt, false)
     
-    local function getNearest()
-        local nearest, minDist = nil, math.huge
-        local myChar = player.Character
-        if not myChar then return nil end
-        local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-        if not myRoot then return nil end
-        
-        for _, plr in pairs(Players:GetPlayers()) do
-            if plr ~= player and plr.Character then
-                local targetRoot = plr.Character:FindFirstChild("HumanoidRootPart")
-                if targetRoot then
-                    local dist = (targetRoot.Position - myRoot.Position).Magnitude
-                    if dist < minDist then
-                        minDist = dist
-                        nearest = plr
+    mt.__index = newcclosure(function(self, key)
+        if Features.SoruAim and (key == "Hit" or key == "Target") and self == mouse then
+            local target = GetClosestTarget()
+            if target then
+                local char = target.Character
+                if char then
+                    local hrp = char:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        CachedTarget = target
+                        CachedTargetPosition = hrp.Position
+                        if key == "Hit" then 
+                            return CFrame.new(hrp.Position)
+                        elseif key == "Target" then 
+                            return hrp
+                        end
                     end
                 end
             end
         end
-        return nearest
-    end
+        return oldIndex(self, key)
+    end)
     
-    local function doSoru()
-        if not Features.SoruAimbot then return end
-        if tick() - lastAttack < COOLDOWN then return end
-        
-        local target = getNearest()
-        if not target then return end
-        
-        local targetChar = target.Character
-        if not targetChar then return end
-        local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
-        if not targetRoot then return end
-        
-        local myChar = player.Character
-        if not myChar then return end
-        local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-        if not myRoot then return end
-        
-        -- Teleport to enemy position using Soru
-        local success = false
-        
-        -- Method 1: Use Flashstep remote if available
-        pcall(function()
-            if flashstepRemote then
-                if flashstepRemote:IsA("RemoteFunction") then
-                    flashstepRemote:InvokeServer("Flashstep", targetRoot.Position)
-                else
-                    flashstepRemote:FireServer("Flashstep", targetRoot.Position)
-                end
-                success = true
-            end
-        end)
-        
-        -- Method 2: Direct teleport (fallback)
-        if not success then
-            myRoot.CFrame = CFrame.new(targetRoot.Position + Vector3.new(0, 2, 0))
-            success = true
-        end
-        
-        if success then
-            lastAttack = tick()
-        end
-    end
-    
-    function module:Attack()
-        doSoru()
-    end
-    
-    function module:GetCooldown()
-        return math.max(0, COOLDOWN - (tick() - lastAttack))
-    end
-    
-    return module
-end)()
+    setreadonly(mt, true)
+end
+
+SetupSoruAim()
 
 -- =============================================
 -- AUTO V4 - WORKING
@@ -366,46 +312,6 @@ local function DoAutoV4()
     
     if success then
         pcall(function() char:SetAttribute("RaceEnergy", 0) end)
-    end
-end
-
--- =============================================
--- WALK ON WATER
--- =============================================
-local WaterPart = nil
-
-local function UpdateWalkWater()
-    if not Features.WalkWater then
-        if WaterPart then
-            WaterPart:Destroy()
-            WaterPart = nil
-        end
-        return
-    end
-    
-    local char = player.Character
-    if not char then return end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-    
-    local WATER_LEVEL = 9.5
-    
-    if hrp.Position.Y >= WATER_LEVEL and hrp.Velocity.Y <= 0 then
-        if not WaterPart or not WaterPart.Parent then
-            WaterPart = Instance.new("Part")
-            WaterPart.Name = "IvoryWater"
-            WaterPart.Anchored = true
-            WaterPart.CanCollide = true
-            WaterPart.Transparency = 1
-            WaterPart.Size = Vector3.new(20, 1, 20)
-            WaterPart.Parent = Workspace
-        end
-        WaterPart.CFrame = CFrame.new(hrp.Position.X, WATER_LEVEL, hrp.Position.Z)
-    else
-        if WaterPart then
-            WaterPart:Destroy()
-            WaterPart = nil
-        end
     end
 end
 
@@ -860,7 +766,6 @@ RunService.Heartbeat:Connect(function()
     UpdateNoClip()
     UpdateAntiAFK()
     UpdateESP()
-    UpdateWalkWater()
 end)
 
 -- =============================================
@@ -908,7 +813,7 @@ local Title = Text(Top, "IVORY", 15, true)
 Title.Position = UDim2.new(0, 12, 0, 2)
 Title.Size = UDim2.new(0, 100, 0, 20)
 
-local SubTitle = Text(Top, "HUB v5.3", 8, false)
+local SubTitle = Text(Top, "HUB v4.6", 8, false)
 SubTitle.TextColor3 = GRAY
 SubTitle.Position = UDim2.new(0, 13, 0, 22)
 SubTitle.Size = UDim2.new(0, 60, 0, 12)
@@ -1172,7 +1077,7 @@ local CreditsPage = CreatePage("Credits")
 -- MAIN PAGE
 -- =============================================
 Section(MainPage, "IVORY HUB")
-local mainTitle = Text(MainPage, "IVORY HUB v5.3", 16, true)
+local mainTitle = Text(MainPage, "IVORY HUB v4.6", 16, true)
 mainTitle.Size = UDim2.new(1, 0, 0, 24)
 mainTitle.TextXAlignment = Enum.TextXAlignment.Center
 mainTitle.TextColor3 = WHITE
@@ -1185,8 +1090,7 @@ mainSub.TextColor3 = GRAY
 
 local features = {
     "• Silent Aim (360 / FOV)",
-    "• Soru Aimbot (Flashstep)",
-    "• Walk on Water",
+    "• Soru Aim (mouse.Hit redirect)",
     "• Auto V4 Awakening",
     "• ESP (Box/Name/Health/Dist)",
     "• No Clip & Anti-AFK",
@@ -1236,9 +1140,8 @@ Slider(CombatPage, "Max Range", 1000, 100, 3000, function(v)
 end, "m")
 
 Section(CombatPage, "EXTRAS")
-Toggle(CombatPage, "Soru Aimbot (Flashstep)", false, function(s)
-    Features.SoruAimbot = s
-    if SoruBtn then SoruBtn.Visible = s end
+Toggle(CombatPage, "Soru Aim", false, function(s)
+    Features.SoruAim = s
 end)
 
 Toggle(CombatPage, "Auto V4", false, function(s)
@@ -1386,78 +1289,6 @@ MacroBtn.MouseButton1Click:Connect(function()
 end)
 
 -- =============================================
--- SORU BUTTON (Pure Flashstep)
--- =============================================
-local SoruBtn = Instance.new("TextButton")
-SoruBtn.Size = UDim2.fromOffset(70, 70)
-SoruBtn.Position = UDim2.new(0.85, -35, 0.8, -35)
-SoruBtn.BackgroundColor3 = BLACK
-SoruBtn.BackgroundTransparency = 0.2
-SoruBtn.Text = "SORU"
-SoruBtn.TextColor3 = WHITE
-SoruBtn.TextSize = 16
-SoruBtn.Font = Enum.Font.GothamBold
-SoruBtn.BorderSizePixel = 0
-SoruBtn.Visible = false
-SoruBtn.Parent = Gui
-Corner(SoruBtn, 50)
-AddStroke(SoruBtn, Color3.fromRGB(255,255,255), 1.5)
-
-local soruDrag = {dragging = false, startPos = nil, startMouse = nil}
-
-SoruBtn.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        soruDrag.dragging = true
-        soruDrag.startMouse = input.Position
-        soruDrag.startPos = SoruBtn.Position
-    end
-end)
-
-SoruBtn.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        soruDrag.dragging = false
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if soruDrag.dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local delta = input.Position - soruDrag.startMouse
-        SoruBtn.Position = UDim2.new(
-            soruDrag.startPos.X.Scale,
-            soruDrag.startPos.X.Offset + delta.X,
-            soruDrag.startPos.Y.Scale,
-            soruDrag.startPos.Y.Offset + delta.Y
-        )
-    end
-end)
-
-SoruBtn.MouseButton1Click:Connect(function()
-    if Features.SoruAimbot then
-        SoruAimbot:Attack()
-        SoruBtn.BackgroundColor3 = GREEN
-        SoruBtn.BackgroundTransparency = 0
-        task.delay(0.3, function()
-            SoruBtn.BackgroundColor3 = BLACK
-            SoruBtn.BackgroundTransparency = 0.2
-        end)
-    end
-end)
-
--- Update Soru cooldown
-RunService.RenderStepped:Connect(function()
-    if Features.SoruAimbot and SoruBtn then
-        local cooldown = SoruAimbot:GetCooldown()
-        if cooldown > 0 then
-            SoruBtn.BackgroundTransparency = 0.6
-            SoruBtn.Text = string.format("%.1f", cooldown)
-        else
-            SoruBtn.BackgroundTransparency = 0.2
-            SoruBtn.Text = "SORU"
-        end
-    end
-end)
-
--- =============================================
 -- VISUALS PAGE
 -- =============================================
 Section(VisualPage, "VISUALS")
@@ -1493,10 +1324,6 @@ Toggle(MiscPage, "Anti-AFK", false, function(s)
     Features.AntiAFK = s
 end)
 
-Toggle(MiscPage, "Walk on Water", false, function(s)
-    Features.WalkWater = s
-end)
-
 -- =============================================
 -- SETTINGS PAGE
 -- =============================================
@@ -1513,13 +1340,10 @@ Button(SettingsPage, "Reset All", function()
     Features.MaxRange = 1000
     Macro.IsRunning = false
     if MacroBtn then MacroBtn.Visible = false end
-    if SoruBtn then SoruBtn.Visible = false end
-    if WaterPart then WaterPart:Destroy(); WaterPart = nil end
     print("[Ivory] All reset!")
 end)
 
 Button(SettingsPage, "Unload", function()
-    if WaterPart then WaterPart:Destroy(); WaterPart = nil end
     Gui:Destroy()
 end)
 
@@ -1544,7 +1368,7 @@ Discord1.TextColor3 = GRAY
 Discord1.Position = UDim2.new(0, 12, 0, 30)
 Discord1.Size = UDim2.new(1, -24, 0, 16)
 
-local Version = Text(CreditsPage, "Ivory Hub v5.3 • PURE SORU", 8, false)
+local Version = Text(CreditsPage, "Ivory Hub v4.6 • With Soru Aim", 8, false)
 Version.TextColor3 = GRAY
 Version.Size = UDim2.new(1, 0, 0, 16)
 
@@ -1689,16 +1513,15 @@ RunService.RenderStepped:Connect(function()
 end)
 
 print("========================================")
-print("        IVORY HUB v5.3 LOADED")
+print("        IVORY HUB v4.6 LOADED")
 print("========================================")
 print("✅ Silent Aim (360 / FOV)")
-print("✅ Soru Aimbot (Pure Flashstep)")
-print("✅ Walk on Water")
+print("✅ Soru Aim (mouse.Hit redirect)")
 print("✅ Auto V4 Awakening")
 print("✅ ESP (Box/Name/Health/Dist)")
 print("✅ No Clip & Anti-AFK")
 print("✅ Macro System (Melee/Fruit/Sword/Gun)")
 print("========================================")
-print("💡 Enable Soru in COMBAT tab for SORU button")
-print("💡 Enable Macro in MACRO tab for MACRO button")
+print("💡 Enable Soru Aim in COMBAT tab")
+print("💡 Enable Macro in MACRO tab")
 print("========================================")
