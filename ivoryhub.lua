@@ -1,11 +1,10 @@
 -- =============================================
--- IVORY HUB v4.6 - WITH SORU SILENT AIM
--- Everything works: Silent Aim, Soru Aim, ESP, Auto V4, Macro
+-- IVORY HUB v5.5 - WITH NAMELESS SILENT AIM & SORU
+-- Silent Aim + Soru Auto Aim from Nameless Ware
 -- =============================================
 
-print("🦷 Ivory Hub v4.6 loading...")
+print("🦷 Ivory Hub v5.5 loading...")
 
--- Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -17,47 +16,54 @@ local VirtualInputManager = game:GetService("VirtualInputManager")
 local VIM = VirtualInputManager
 
 local player = Players.LocalPlayer
-local Camera = Workspace.CurrentCamera
+local Camera = workspace.CurrentCamera
 local mouse = player:GetMouse()
 
--- =============================================
--- COLORS
--- =============================================
-local BLACK = Color3.fromRGB(7,7,7)
-local DARK = Color3.fromRGB(13,13,13)
-local DARKER = Color3.fromRGB(19,19,19)
-local WHITE = Color3.fromRGB(245,245,245)
-local GRAY = Color3.fromRGB(145,145,145)
-local BORDER = Color3.fromRGB(40,40,40)
-local RED = Color3.fromRGB(255,50,50)
-local GREEN = Color3.fromRGB(50,255,50)
-local BLUE = Color3.fromRGB(50,150,255)
+local function getParent()
+    local ok, gui = pcall(gethui)
+    if ok and gui then return gui end
+    return CoreGui or player:WaitForChild("PlayerGui")
+end
 
--- =============================================
--- GUI HELPERS
--- =============================================
-local function Corner(obj, radius)
+local Gui = Instance.new("ScreenGui")
+Gui.Name = "IvoryHub"
+Gui.ResetOnSpawn = false
+Gui.IgnoreGuiInset = true
+Gui.Parent = getParent()
+
+local COLORS = {
+    BLACK = Color3.fromRGB(7,7,7),
+    DARK = Color3.fromRGB(13,13,13),
+    DARKER = Color3.fromRGB(19,19,19),
+    WHITE = Color3.fromRGB(245,245,245),
+    GRAY = Color3.fromRGB(145,145,145),
+    RED = Color3.fromRGB(255,50,50),
+    GREEN = Color3.fromRGB(50,255,50),
+    BLUE = Color3.fromRGB(50,150,255),
+}
+
+local function Corner(obj, r)
     local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, radius)
+    c.CornerRadius = UDim.new(0, r)
     c.Parent = obj
 end
 
-local function AddStroke(obj, color, thickness)
+local function Stroke(obj)
     local s = Instance.new("UIStroke")
-    s.Color = color or BORDER
-    s.Thickness = thickness or 1
+    s.Color = Color3.fromRGB(40,40,40)
+    s.Thickness = 1
     s.Parent = obj
 end
 
-local function Tween(obj, time, properties)
-    TweenService:Create(obj, TweenInfo.new(time, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), properties):Play()
+local function TweenIt(obj, props)
+    TweenService:Create(obj, TweenInfo.new(0.15), props):Play()
 end
 
 local function Text(parent, text, size, bold)
     local t = Instance.new("TextLabel")
     t.BackgroundTransparency = 1
     t.Text = text
-    t.TextColor3 = WHITE
+    t.TextColor3 = COLORS.WHITE
     t.TextSize = size
     t.Font = bold and Enum.Font.GothamBold or Enum.Font.Gotham
     t.TextXAlignment = Enum.TextXAlignment.Left
@@ -65,264 +71,609 @@ local function Text(parent, text, size, bold)
     return t
 end
 
-local function getSafeParent()
-    local ok, gui = pcall(gethui)
-    if ok and gui and gui.Parent then return gui end
-    local core = CoreGui
-    if core then return core end
-    return player:WaitForChild("PlayerGui")
-end
-
-local parentGui = getSafeParent()
-
-local Old = parentGui:FindFirstChild("IvoryHub")
-if Old then Old:Destroy() end
-
-local Gui = Instance.new("ScreenGui")
-Gui.Name = "IvoryHub"
-Gui.ResetOnSpawn = false
-Gui.IgnoreGuiInset = true
-Gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-Gui.Parent = parentGui
-
 -- =============================================
--- FEATURES STATE
+-- FEATURES
 -- =============================================
 local Features = {
-    SilentAimPlayers = false,
-    SilentAimNPCs = false,
-    SilentAimMode = "360",
+    SilentAim = false,
     SoruAim = false,
-    AutoV4 = false,
-    NoClip = false,
-    AntiAFK = false,
     ESP = false,
-    ESPBox = false,
-    ESPName = false,
-    ESPHealth = false,
-    ESPDistance = false,
-    FOVCircle = false,
-    FOVRadius = 150,
-    MaxRange = 1000,
-    MacroEnabled = false,
+    Macro = false,
 }
 
 -- =============================================
--- WEAPON OPTIONS
+-- SILENT AIM FROM NAMELESS WARE
 -- =============================================
-local WEAPON_OPTIONS = {"Melee", "Fruit", "Sword", "Gun"}
-local SKILL_OPTIONS = {"Z", "X", "C", "V", "F", "Tap", "M1"}
-
--- =============================================
--- MACRO SYSTEM
--- =============================================
-local Macro = {
-    Blocks = {},
-    IsRunning = false,
-}
-
--- =============================================
--- TARGET CACHING (for Soru Aim)
--- =============================================
-local CachedTarget = nil
-local CachedTargetPosition = nil
-
--- =============================================
--- GET CLOSEST TARGET
--- =============================================
-local function GetClosestTarget()
-    local char = player.Character
-    if not char then return nil end
-    local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then return nil end
+local SilentAim = (function()
+    local module = {}
     
-    local closest, closestDist = nil, math.huge
-    local maxRange = Features.MaxRange or 1000
+    local SilentAimPlayersEnabled = false
+    local SilentAimNPCsEnabled = false
+    local PredictionEnabled = true
+    local PredictionAmount = 0.12
+    local maxRange = 1000
+    local PlayersPosition = nil
+    local NPCPosition = nil
+    local currentTool = nil
+    local currentToolCategory = "Melee"
+    local currentSkillKey = nil
+    local lastSkillTime = 0
+    local SKILL_KEYS = {"Z","X","C","V","F","TAP"}
+    local BlacklistedKeys = {
+        Melee = { Z=false, X=false, C=false },
+        Sword = { Z=false, X=false },
+        Fruit = { Z=false, X=false, C=false, V=false, F=false, TAP=false },
+        Gun   = { Z=false, X=false }
+    }
     
-    for _, plr in pairs(Players:GetPlayers()) do
-        if plr ~= player and plr.Character then
-            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
-            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
-            if hum and hum.Health > 0 and hrp then
-                local dist = (hrp.Position - root.Position).Magnitude
-                if dist < closestDist and dist <= maxRange then
-                    closestDist = dist
-                    closest = plr
-                end
-            end
-        end
-    end
-    
-    local enemies = Workspace:FindFirstChild("Enemies")
-    if enemies then
-        for _, npc in pairs(enemies:GetChildren()) do
-            if npc:IsA("Model") then
-                local hum = npc:FindFirstChildOfClass("Humanoid")
-                local hrp = npc:FindFirstChild("HumanoidRootPart")
+    -- Get nearest target
+    local function GetNearestTarget()
+        local char = player.Character
+        if not char then return nil end
+        local root = char:FindFirstChild("HumanoidRootPart")
+        if not root then return nil end
+        
+        local best, bestDist = nil, math.huge
+        
+        for _, plr in pairs(Players:GetPlayers()) do
+            if plr ~= player and plr.Character then
+                local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+                local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
                 if hum and hum.Health > 0 and hrp then
                     local dist = (hrp.Position - root.Position).Magnitude
-                    if dist < closestDist and dist <= maxRange then
-                        closestDist = dist
-                        closest = npc
+                    if dist < bestDist and dist <= maxRange then
+                        bestDist = dist
+                        best = hrp
                     end
                 end
             end
         end
-    end
-    
-    return closest
-end
-
--- =============================================
--- SILENT AIM HOOK (for skills/remotes)
--- =============================================
-local TargetPosition = nil
-
-local function SetupSilentAim()
-    local mt = getrawmetatable(game)
-    if not mt then return end
-    local oldIndex = mt.__index
-    local oldNamecall = mt.__namecall
-    
-    setreadonly(mt, false)
-    
-    mt.__index = function(self, key)
-        if not checkcaller() and self == Camera and (key == "Hit" or key == "Target") then
-            if Features.SilentAimPlayers or Features.SilentAimNPCs then
-                local target = GetClosestTarget()
-                if target then
-                    local char = target.Character
-                    if char then
-                        local hrp = char:FindFirstChild("HumanoidRootPart")
-                        if hrp then
-                            TargetPosition = hrp.Position
-                            if key == "Hit" then return CFrame.new(TargetPosition) end
-                            if key == "Target" then return nil end
-                        end
-                    end
-                end
-            end
-        end
-        return oldIndex(self, key)
-    end
-    
-    mt.__namecall = function(self, ...)
-        local args = {...}
-        local method = getnamecallmethod()
-        local methodStr = method and tostring(method):lower() or ""
         
-        if not checkcaller() and (methodStr == "fireserver" or methodStr == "invokeserver") then
-            if (Features.SilentAimPlayers or Features.SilentAimNPCs) and TargetPosition then
-                for i, arg in ipairs(args) do
-                    if typeof(arg) == "Vector3" then
-                        args[i] = TargetPosition
-                    elseif typeof(arg) == "CFrame" then
-                        args[i] = CFrame.new(TargetPosition)
-                    end
-                end
-                return oldNamecall(self, unpack(args))
-            end
-        end
-        return oldNamecall(self, ...)
-    end
-    
-    setreadonly(mt, true)
-end
-
-SetupSilentAim()
-
--- =============================================
--- SORU AIM HOOK (mouse.Hit and mouse.Target)
--- =============================================
-local function SetupSoruAim()
-    local mt = getrawmetatable(game)
-    if not mt then return end
-    local oldIndex = mt.__index
-    
-    setreadonly(mt, false)
-    
-    mt.__index = newcclosure(function(self, key)
-        if Features.SoruAim and (key == "Hit" or key == "Target") and self == mouse then
-            local target = GetClosestTarget()
-            if target then
-                local char = target.Character
-                if char then
-                    local hrp = char:FindFirstChild("HumanoidRootPart")
-                    if hrp then
-                        CachedTarget = target
-                        CachedTargetPosition = hrp.Position
-                        if key == "Hit" then 
-                            return CFrame.new(hrp.Position)
-                        elseif key == "Target" then 
-                            return hrp
+        local enemies = Workspace:FindFirstChild("Enemies")
+        if enemies then
+            for _, npc in pairs(enemies:GetChildren()) do
+                if npc:IsA("Model") then
+                    local hum = npc:FindFirstChildOfClass("Humanoid")
+                    local hrp = npc:FindFirstChild("HumanoidRootPart")
+                    if hum and hum.Health > 0 and hrp then
+                        local dist = (hrp.Position - root.Position).Magnitude
+                        if dist < bestDist and dist <= maxRange then
+                            bestDist = dist
+                            best = hrp
                         end
                     end
                 end
             end
         end
-        return oldIndex(self, key)
-    end)
+        
+        return best
+    end
     
-    setreadonly(mt, true)
-end
-
-SetupSoruAim()
-
--- =============================================
--- AUTO V4 - WORKING
--- =============================================
-local function DoAutoV4()
-    if not Features.AutoV4 then return end
+    -- Prediction
+    local function predicted(hrp)
+        if not hrp then return nil end
+        local hum = hrp.Parent:FindFirstChildOfClass("Humanoid")
+        if not hum or hum.Health <= 0 then return hrp.Position end
+        if not PredictionEnabled then return hrp.Position end
+        
+        local vel = hrp.Velocity
+        local speed = vel.Magnitude
+        if speed < 5 then return hrp.Position end
+        
+        local ping = 0
+        pcall(function()
+            local PingService = game:GetService("Stats").Network.ServerStatsItem
+            ping = PingService:GetValue() / 1000
+        end)
+        ping = math.clamp(ping, 0, 0.35)
+        local predictionFactor = PredictionAmount + ping
+        if speed > 100 then predictionFactor = math.min(predictionFactor, 0.15) end
+        
+        return hrp.Position + (vel * predictionFactor)
+    end
     
-    local char = player.Character
-    if not char then return end
+    -- Get tool category
+    local function getToolCategory(tool)
+        if not tool then return "Melee" end
+        local name = string.lower(tool.Name)
+        local gunNames = {"guitar","rifle","cannon","gun","slingshot","kabucha","serpent bow","bow"}
+        for _,g in ipairs(gunNames) do if string.find(name,g) then return "Gun" end end
+        local meleeNames = {"claw","godhuman","superhuman","talon","step","karate","breath","kung fu","combat","fist","sanguine"}
+        for _,m in ipairs(meleeNames) do if string.find(name,m) then return "Melee" end end
+        if string.find(name,"fruit") or string.find(name,"-") then return "Fruit" end
+        return "Sword"
+    end
     
-    local raceEnergy = char:GetAttribute("RaceEnergy")
-    if not raceEnergy or raceEnergy < 100 then return end
+    local function isKeyBlacklisted(key)
+        if not key then return false end
+        local cat = currentToolCategory
+        if BlacklistedKeys[cat] and BlacklistedKeys[cat][key] ~= nil then return BlacklistedKeys[cat][key] end
+        return false
+    end
     
-    local success = false
-    
-    local awk = player.Backpack:FindFirstChild("Awakening") or char:FindFirstChild("Awakening")
-    if awk then
-        for _, child in pairs(awk:GetDescendants()) do
-            if child:IsA("RemoteFunction") then
-                pcall(function() child:InvokeServer(true) success = true end)
-            elseif child:IsA("RemoteEvent") then
-                pcall(function() child:FireServer(true) success = true end)
+    -- Set current skill key
+    local function setCurrentSkillKey(key)
+        currentSkillKey = key
+        lastSkillTime = os.clock()
+        
+        if SilentAimPlayersEnabled or SilentAimNPCsEnabled then
+            local targetPos = PlayersPosition or NPCPosition
+            if targetPos then
+                local char = player.Character
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local look = (Vector3.new(targetPos.X, hrp.Position.Y, targetPos.Z) - hrp.Position).Unit
+                    if look.Magnitude > 0.001 then
+                        hrp.CFrame = CFrame.lookAt(hrp.Position, hrp.Position + look)
+                    end
+                end
             end
+        end
+        
+        task.spawn(function()
+            local myTime = lastSkillTime
+            task.wait(1.5)
+            if lastSkillTime == myTime and currentSkillKey == key then
+                currentSkillKey = nil
+            end
+        end)
+    end
+    
+    -- Hook mobile buttons
+    local function hookMobileButton(btn)
+        if btn:GetAttribute("Hooked") then return end
+        btn:SetAttribute("Hooked", true)
+        local key = btn.Name
+        if table.find(SKILL_KEYS, key) then
+            btn.Activated:Connect(function() setCurrentSkillKey(key) end)
         end
     end
     
-    if not success then
-        local remotes = ReplicatedStorage:FindFirstChild("Remotes")
-        if remotes then
-            local commF = remotes:FindFirstChild("CommF_")
-            if commF then
-                pcall(function()
-                    if commF:IsA("RemoteFunction") then
-                        commF:InvokeServer("Awakening", true)
-                    else
-                        commF:FireServer("Awakening", true)
+    -- Find skill keys from args
+    local function getSkillKeyFromArgs(args)
+        for _,arg in ipairs(args) do
+            if type(arg)=="string" and table.find(SKILL_KEYS, arg) then
+                return arg
+            end
+        end
+        return nil
+    end
+    
+    -- Main render loop
+    local renderConnection = nil
+    local heartbeatConnection = nil
+    
+    local function startRenderLoop()
+        if renderConnection then return end
+        
+        renderConnection = RunService.RenderStepped:Connect(function()
+            local lpChar = player.Character
+            if not lpChar then return end
+            local lpHRP = lpChar:FindFirstChild("HumanoidRootPart")
+            if not lpHRP then return end
+            
+            if not SilentAimPlayersEnabled and not SilentAimNPCsEnabled then
+                PlayersPosition = nil
+                NPCPosition = nil
+                return
+            end
+            
+            if SilentAimPlayersEnabled then
+                local target = GetNearestTarget()
+                if target then
+                    PlayersPosition = predicted(target)
+                else
+                    PlayersPosition = nil
+                end
+            end
+            
+            if SilentAimNPCsEnabled then
+                local target = GetNearestTarget()
+                if target then
+                    NPCPosition = predicted(target)
+                else
+                    NPCPosition = nil
+                end
+            end
+        end)
+    end
+    
+    local function stopRenderLoop()
+        if renderConnection then
+            renderConnection:Disconnect()
+            renderConnection = nil
+        end
+        if heartbeatConnection then
+            heartbeatConnection:Disconnect()
+            heartbeatConnection = nil
+        end
+        PlayersPosition = nil
+        NPCPosition = nil
+    end
+    
+    -- =============================================
+    -- SILENT AIM HOOKS (from Nameless Ware)
+    -- =============================================
+    local function SetupHooks()
+        local mt = getrawmetatable(game)
+        if not mt then return end
+        local oldNamecall = mt.__namecall
+        local oldIndex = mt.__index
+        
+        setreadonly(mt, false)
+        
+        -- Hook FireServer / InvokeServer
+        mt.__namecall = newcclosure(function(self, ...)
+            local Method = getnamecallmethod()
+            local args = {...}
+            
+            local skillKey = getSkillKeyFromArgs(args)
+            if skillKey then
+                if SilentAimPlayersEnabled or SilentAimNPCsEnabled then
+                    local targetPos = PlayersPosition or NPCPosition
+                    if targetPos then
+                        local char = player.Character
+                        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                        if hrp then
+                            local look = (Vector3.new(targetPos.X, hrp.Position.Y, targetPos.Z) - hrp.Position).Unit
+                            if look.Magnitude > 0.001 then
+                                hrp.CFrame = CFrame.lookAt(hrp.Position, hrp.Position + look)
+                            end
+                        end
                     end
-                    success = true
+                end
+                setCurrentSkillKey(skillKey)
+            end
+            
+            local skip = false
+            if skillKey and isKeyBlacklisted(skillKey) then
+                skip = true
+            elseif not skillKey and currentSkillKey and isKeyBlacklisted(currentSkillKey) then
+                skip = true
+            end
+            
+            if not skip then
+                if Method == "FireServer" then
+                    if type(args[1]) == "Vector3" then
+                        if SilentAimPlayersEnabled and PlayersPosition then
+                            args[1] = PlayersPosition
+                        elseif SilentAimNPCsEnabled and NPCPosition then
+                            args[1] = NPCPosition
+                        end
+                    end
+                end
+            end
+            
+            return oldNamecall(self, unpack(args))
+        end)
+        
+        -- Hook mouse.Hit and mouse.Target
+        mt.__index = newcclosure(function(t, k)
+            if (SilentAimPlayersEnabled or SilentAimNPCsEnabled) and t == mouse then
+                local targetPos = PlayersPosition or NPCPosition
+                if targetPos then
+                    if k == "Hit" then
+                        return CFrame.new(targetPos)
+                    end
+                    if k == "Target" then
+                        return nil
+                    end
+                end
+            end
+            return oldIndex(t, k)
+        end)
+        
+        setreadonly(mt, true)
+    end
+    
+    SetupHooks()
+    
+    -- Character added handler
+    local function onCharacterAdded(char)
+        currentTool = nil
+        currentToolCategory = "Melee"
+        currentSkillKey = nil
+        
+        for _, child in pairs(char:GetChildren()) do
+            if child:IsA("Tool") then
+                currentTool = child
+                currentToolCategory = getToolCategory(child)
+                currentSkillKey = nil
+                child.AncestryChanged:Connect(function(_, parent)
+                    if not parent then currentTool = nil end
                 end)
             end
         end
+        
+        char.ChildAdded:Connect(function(child)
+            if child:IsA("Tool") then
+                currentTool = child
+                currentToolCategory = getToolCategory(child)
+                currentSkillKey = nil
+                child.AncestryChanged:Connect(function(_, parent)
+                    if not parent then currentTool = nil end
+                end)
+            end
+        end)
+        
+        char.ChildRemoved:Connect(function(child)
+            if child == currentTool then currentTool = nil end
+        end)
     end
     
-    if success then
-        pcall(function() char:SetAttribute("RaceEnergy", 0) end)
+    player.CharacterAdded:Connect(onCharacterAdded)
+    if player.Character then onCharacterAdded(player.Character) end
+    
+    -- Hook mobile UI buttons
+    task.spawn(function()
+        while not player.PlayerGui do task.wait(0.5) end
+        local pg = player.PlayerGui
+        local main = pg:FindFirstChild("Main")
+        if main then
+            local skills = main:FindFirstChild("Skills")
+            if skills then
+                for _, wf in ipairs(skills:GetChildren()) do
+                    if wf:IsA("GuiObject") then
+                        for _, b in ipairs(wf:GetChildren()) do
+                            if b:IsA("ImageButton") or b:IsA("TextButton") then
+                                hookMobileButton(b)
+                            end
+                        end
+                    end
+                end
+                skills.ChildAdded:Connect(function(wf)
+                    if wf:IsA("GuiObject") then
+                        for _, b in ipairs(wf:GetChildren()) do
+                            if b:IsA("ImageButton") or b:IsA("TextButton") then
+                                hookMobileButton(b)
+                            end
+                        end
+                    end
+                end)
+            end
+        end
+    end)
+    
+    -- Public API
+    function module:SetPlayerSilentAim(state)
+        SilentAimPlayersEnabled = state
+        if state then startRenderLoop() else if not SilentAimNPCsEnabled then stopRenderLoop() end end
     end
-end
+    
+    function module:SetNPCSilentAim(state)
+        SilentAimNPCsEnabled = state
+        if state then startRenderLoop() else if not SilentAimPlayersEnabled then stopRenderLoop() end end
+    end
+    
+    function module:SetPrediction(state) PredictionEnabled = state end
+    function module:SetPredictionAmount(amount) PredictionAmount = amount end
+    function module:SetDistanceLimit(dist) maxRange = dist end
+    function module:SetBlacklistKey(cat, key, state)
+        if BlacklistedKeys[cat] and BlacklistedKeys[cat][key] ~= nil then
+            BlacklistedKeys[cat][key] = state
+        end
+    end
+    function module:GetTargetPos() return PlayersPosition or NPCPosition end
+    
+    return module
+end)()
 
 -- =============================================
--- ESP - WORKING
+-- SORU AUTO AIM (from Nameless Ware)
+-- =============================================
+local SoruAutoAim = (function()
+    local module = {}
+    local enabled = false
+    local range = 300
+    local targetingMode = "360"
+    local fovType = "V1"
+    local fovRadius = 100
+    local targetPriority = "Nearest"
+    local showFOV = false
+    local currentTarget = nil
+    local targetPosition = nil
+    local lastAttack = 0
+    local cooldown = 1.0
+    local remote = nil
+    local FOVGui = nil
+    local FOVRing = nil
+    
+    -- Find remote
+    task.spawn(function()
+        local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+        if remotes then
+            remote = remotes:FindFirstChild("CommF_")
+        end
+        if not remote then
+            for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
+                if obj.Name == "CommF_" then
+                    remote = obj
+                    break
+                end
+            end
+        end
+        print("[Ivory] Soru remote:", remote and "yes" or "no")
+    end)
+    
+    local function getFOVCenter(mode)
+        if mode == "V2" then return UserInputService:GetMouseLocation() end
+        return Camera.ViewportSize / 2
+    end
+    
+    local function isTargetValid(hrp, lpHRP, aimMode, fovRadius, fovType)
+        if not hrp or not lpHRP then return false end
+        if aimMode == "180" then
+            local dir = (hrp.Position - lpHRP.Position).Unit
+            if lpHRP.CFrame.LookVector:Dot(dir) < 0 then return false end
+        elseif aimMode == "FOV" then
+            local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+            if not onScreen then return false end
+            local center = getFOVCenter(fovType)
+            if (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude > fovRadius then return false end
+        end
+        return true
+    end
+    
+    local function getSoruTarget(lpHRP)
+        if not lpHRP then return nil end
+        local valid = {}
+        
+        for _, plr in pairs(Players:GetPlayers()) do
+            if plr ~= player and plr.Character then
+                local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+                local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+                if hum and hum.Health > 0 and hrp then
+                    if isTargetValid(hrp, lpHRP, targetingMode, fovRadius, fovType) then
+                        local dist = (hrp.Position - lpHRP.Position).Magnitude
+                        if dist <= range then
+                            table.insert(valid, {HRP = hrp, Humanoid = hum, Distance = dist})
+                        end
+                    end
+                end
+            end
+        end
+        
+        if #valid == 0 then return nil end
+        
+        if targetingMode == "360" or targetingMode == "180" then
+            if targetPriority == "Nearest" then
+                table.sort(valid, function(a, b) return a.Distance < b.Distance end)
+            elseif targetPriority == "Low HP" then
+                table.sort(valid, function(a, b) return a.Humanoid.Health < b.Humanoid.Health end)
+            end
+        end
+        
+        return valid[1].HRP
+    end
+    
+    local function doSoruAttack()
+        if not enabled then return end
+        if tick() < lastAttack + cooldown then return end
+        
+        local char = player.Character
+        if not char then return end
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+        
+        local target = getSoruTarget(hrp)
+        if not target then return end
+        
+        local success = false
+        pcall(function()
+            if remote then
+                remote:InvokeServer("Flashstep", target.Position)
+                success = true
+            else
+                hrp.CFrame = CFrame.new(target.Position + Vector3.new(0, 2, 0))
+                success = true
+            end
+        end)
+        
+        if success then
+            lastAttack = tick()
+            currentTarget = target
+            targetPosition = target.Position
+        end
+    end
+    
+    -- Update FOV circle
+    local function updateFOV()
+        if showFOV then
+            if not FOVGui then
+                FOVGui = Instance.new("ScreenGui")
+                FOVGui.Name = "IvorySoruFOV"
+                FOVGui.ResetOnSpawn = false
+                FOVGui.IgnoreGuiInset = true
+                FOVGui.DisplayOrder = 1
+                FOVGui.Parent = Gui
+                FOVRing = Instance.new("Frame")
+                FOVRing.Name = "FOVRing"
+                FOVRing.AnchorPoint = Vector2.new(0.5, 0.5)
+                FOVRing.Position = UDim2.new(0.5, 0, 0.5, 0)
+                FOVRing.BackgroundTransparency = 1
+                FOVRing.BorderSizePixel = 0
+                FOVRing.ZIndex = 100
+                FOVRing.Parent = FOVGui
+                local corner = Instance.new("UICorner")
+                corner.CornerRadius = UDim.new(1, 0)
+                corner.Parent = FOVRing
+                local stroke = Instance.new("UIStroke")
+                stroke.Thickness = 2
+                stroke.Color = COLORS.GREEN
+                stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+                stroke.Parent = FOVRing
+            end
+            local center = getFOVCenter(fovType)
+            local diameter = math.floor(fovRadius * 2)
+            FOVRing.Position = UDim2.new(0, center.X, 0, center.Y)
+            FOVRing.Size = UDim2.fromOffset(diameter, diameter)
+            FOVRing.Visible = true
+        elseif FOVRing then
+            FOVRing.Visible = false
+        end
+    end
+    
+    RunService.RenderStepped:Connect(updateFOV)
+    
+    -- Monitor for Soru/Flashstep animation to auto-teleport
+    local function monitorFlashstep(char)
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if not hum then return end
+        
+        hum.AnimationPlayed:Connect(function(track)
+            if not enabled then return end
+            if tick() < lastAttack + cooldown then return end
+            
+            local animName = string.lower(track.Name)
+            local animId = tostring(track.Animation and track.Animation.AnimationId or "")
+            
+            if string.find(animName, "flashstep") or string.find(animName, "soru") or
+               string.find(animName, "dash") or string.find(animId, "17555632156") or
+               string.find(animId, "616006778") then
+                doSoruAttack()
+            end
+        end)
+    end
+    
+    player.CharacterAdded:Connect(function(char)
+        task.wait(0.5)
+        monitorFlashstep(char)
+    end)
+    
+    if player.Character then
+        task.wait(0.5)
+        monitorFlashstep(player.Character)
+    end
+    
+    -- Public API
+    function module:SetEnabled(state)
+        enabled = state
+        if not state then
+            currentTarget = nil
+            targetPosition = nil
+        end
+    end
+    
+    function module:SetRange(r) range = r end
+    function module:SetAimMode(mode) targetingMode = mode end
+    function module:SetFOVType(mode) fovType = mode end
+    function module:SetFOVRadius(r) fovRadius = r end
+    function module:SetPriority(p) targetPriority = p end
+    function module:SetShowFOV(state) showFOV = state end
+    function module:Attack() doSoruAttack() end
+    function module:GetTarget() return currentTarget end
+    function module:GetTargetPos() return targetPosition end
+    
+    return module
+end)()
+
+-- =============================================
+-- ESP
 -- =============================================
 local ESPData = {}
 
 local function CreateESP(target)
     if ESPData[target] then return end
-    
     local char = target.Character
     if not char then return end
     local head = char:FindFirstChild("Head")
@@ -331,82 +682,46 @@ local function CreateESP(target)
     local gui = Instance.new("BillboardGui")
     gui.Name = "IvoryESP"
     gui.Adornee = head
-    gui.Size = UDim2.new(0, 200, 0, 60)
-    gui.StudsOffset = Vector3.new(0, 2.5, 0)
+    gui.Size = UDim2.new(0, 200, 0, 50)
+    gui.StudsOffset = Vector3.new(0, 2, 0)
     gui.AlwaysOnTop = true
     gui.Parent = head
     
-    local main = Instance.new("Frame")
-    main.Size = UDim2.new(1, 0, 1, 0)
-    main.BackgroundTransparency = 1
-    main.Parent = gui
-    
-    local nameLabel = Instance.new("TextLabel")
-    nameLabel.Size = UDim2.new(1, 0, 0, 18)
-    nameLabel.BackgroundTransparency = 1
-    nameLabel.Text = target.Name or "NPC"
-    nameLabel.TextColor3 = WHITE
-    nameLabel.TextSize = 12
-    nameLabel.Font = Enum.Font.GothamBold
-    nameLabel.TextXAlignment = Enum.TextXAlignment.Center
-    nameLabel.Parent = main
-    
-    local distLabel = Instance.new("TextLabel")
-    distLabel.Size = UDim2.new(0, 60, 0, 14)
-    distLabel.Position = UDim2.new(1, -65, 0, 0)
-    distLabel.BackgroundTransparency = 1
-    distLabel.Text = ""
-    distLabel.TextColor3 = GRAY
-    distLabel.TextSize = 10
-    distLabel.Font = Enum.Font.Gotham
-    distLabel.TextXAlignment = Enum.TextXAlignment.Right
-    distLabel.Parent = main
+    local nameL = Instance.new("TextLabel")
+    nameL.Size = UDim2.new(1, 0, 0, 16)
+    nameL.BackgroundTransparency = 1
+    nameL.Text = target.Name
+    nameL.TextColor3 = COLORS.WHITE
+    nameL.TextSize = 11
+    nameL.Font = Enum.Font.GothamBold
+    nameL.TextXAlignment = Enum.TextXAlignment.Center
+    nameL.Parent = gui
     
     local healthBg = Instance.new("Frame")
-    healthBg.Size = UDim2.new(1, 0, 0, 4)
-    healthBg.Position = UDim2.new(0, 0, 1, -4)
+    healthBg.Size = UDim2.new(1, 0, 0, 3)
+    healthBg.Position = UDim2.new(0, 0, 1, -3)
     healthBg.BackgroundColor3 = Color3.fromRGB(20,20,20)
     healthBg.BorderSizePixel = 0
-    healthBg.Parent = main
+    healthBg.Parent = gui
     
     local healthFill = Instance.new("Frame")
     healthFill.Size = UDim2.new(1, 0, 1, 0)
-    healthFill.BackgroundColor3 = GREEN
+    healthFill.BackgroundColor3 = COLORS.GREEN
     healthFill.BorderSizePixel = 0
     healthFill.Parent = healthBg
     
-    local box = Instance.new("Frame")
-    box.Size = UDim2.new(0, 40, 0, 40)
-    box.Position = UDim2.new(0.5, -20, 0.5, -20)
-    box.BackgroundTransparency = 0.6
-    box.BackgroundColor3 = Color3.fromRGB(255,255,255)
-    box.BorderSizePixel = 1
-    box.BorderColor3 = Color3.fromRGB(255,255,255)
-    box.Visible = false
-    box.Parent = gui
-    
-    ESPData[target] = {
-        gui = gui,
-        name = nameLabel,
-        dist = distLabel,
-        healthBg = healthBg,
-        healthFill = healthFill,
-        box = box,
-    }
+    ESPData[target] = {gui = gui, name = nameL, healthFill = healthFill}
 end
 
 local function UpdateESP()
     if not Features.ESP then
-        for _, data in pairs(ESPData) do
-            pcall(function() data.gui.Visible = false end)
+        for _, d in pairs(ESPData) do
+            pcall(function() d.gui.Visible = false end)
         end
         return
     end
     
-    local currentTargets = {}
-    local cam = Camera
-    if not cam then return end
-    
+    local current = {}
     for _, plr in pairs(Players:GetPlayers()) do
         if plr ~= player then
             local char = plr.Character
@@ -415,651 +730,360 @@ local function UpdateESP()
                 local root = char:FindFirstChild("HumanoidRootPart")
                 if hum and hum.Health > 0 and root then
                     if not ESPData[plr] then CreateESP(plr) end
-                    currentTargets[plr] = true
-                    local data = ESPData[plr]
-                    if data then
-                        data.gui.Visible = true
-                        data.name.Text = plr.Name
-                        local dist = (root.Position - cam.CFrame.Position).Magnitude
-                        data.dist.Text = math.floor(dist / 3.5) .. "m"
+                    current[plr] = true
+                    local d = ESPData[plr]
+                    if d then
+                        d.gui.Visible = true
+                        d.name.Text = plr.Name
                         local hp = hum.Health / hum.MaxHealth
-                        data.healthFill.Size = UDim2.new(hp, 0, 1, 0)
-                        if hp > 0.5 then data.healthFill.BackgroundColor3 = GREEN
-                        elseif hp > 0.25 then data.healthFill.BackgroundColor3 = Color3.fromRGB(255,200,0)
-                        else data.healthFill.BackgroundColor3 = RED end
-                        data.name.Visible = Features.ESPName
-                        data.dist.Visible = Features.ESPDistance
-                        data.healthBg.Visible = Features.ESPHealth
-                        data.box.Visible = Features.ESPBox
+                        d.healthFill.Size = UDim2.new(hp, 0, 1, 0)
+                        if hp > 0.5 then d.healthFill.BackgroundColor3 = COLORS.GREEN
+                        elseif hp > 0.25 then d.healthFill.BackgroundColor3 = Color3.fromRGB(255,200,0)
+                        else d.healthFill.BackgroundColor3 = COLORS.RED end
                     end
                 end
             end
         end
     end
     
-    local enemies = Workspace:FindFirstChild("Enemies")
-    if enemies then
-        for _, npc in pairs(enemies:GetChildren()) do
-            if npc:IsA("Model") then
-                local hum = npc:FindFirstChildOfClass("Humanoid")
-                local root = npc:FindFirstChild("HumanoidRootPart")
-                if hum and hum.Health > 0 and root then
-                    if not ESPData[npc] then
-                        local fake = {Name = "NPC", Character = npc}
-                        CreateESP(fake)
-                        ESPData[npc] = ESPData[fake]
-                    end
-                    currentTargets[npc] = true
-                    local data = ESPData[npc]
-                    if data then
-                        data.gui.Visible = true
-                        data.name.Text = "NPC"
-                        local dist = (root.Position - cam.CFrame.Position).Magnitude
-                        data.dist.Text = math.floor(dist / 3.5) .. "m"
-                        local hp = hum.Health / hum.MaxHealth
-                        data.healthFill.Size = UDim2.new(hp, 0, 1, 0)
-                        if hp > 0.5 then data.healthFill.BackgroundColor3 = GREEN
-                        elseif hp > 0.25 then data.healthFill.BackgroundColor3 = Color3.fromRGB(255,200,0)
-                        else data.healthFill.BackgroundColor3 = RED end
-                        data.name.Visible = Features.ESPName
-                        data.dist.Visible = Features.ESPDistance
-                        data.healthBg.Visible = Features.ESPHealth
-                        data.box.Visible = Features.ESPBox
-                    end
-                end
-            end
-        end
-    end
-    
-    for target, data in pairs(ESPData) do
-        if not currentTargets[target] then
-            pcall(function() data.gui:Destroy() end)
+    for target, d in pairs(ESPData) do
+        if not current[target] then
+            pcall(function() d.gui:Destroy() end)
             ESPData[target] = nil
         end
     end
 end
 
--- =============================================
--- NO CLIP - WORKING
--- =============================================
-local function UpdateNoClip()
-    if not Features.NoClip then return end
-    local char = player.Character
-    if not char then return end
-    for _, part in pairs(char:GetDescendants()) do
-        if part:IsA("BasePart") then
-            part.CanCollide = false
-        end
-    end
-end
+RunService.Heartbeat:Connect(UpdateESP)
 
 -- =============================================
--- ANTI-AFK - WORKING
+-- MACRO
 -- =============================================
-local AntiAFKTimer = 0
+local MacroBlocks = {}
+local MacroRunning = false
 
-local function UpdateAntiAFK()
-    if not Features.AntiAFK then return end
-    AntiAFKTimer = AntiAFKTimer + 0.1
-    if AntiAFKTimer < 5 then return end
-    AntiAFKTimer = 0
-    local char = player.Character
-    if char then
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if hum then
-            hum:Move(Vector3.new(1,0,0), true)
-            task.wait(0.1)
-            hum:Move(Vector3.new(-1,0,0), true)
-        end
-    end
-end
-
--- =============================================
--- MACRO - WORKING
--- =============================================
 local function PressKey(key)
     if key == "M1" then
         VIM:SendMouseButtonEvent(Enum.UserInputType.MouseButton1, 0, 0, true)
         task.wait(0.05)
         VIM:SendMouseButtonEvent(Enum.UserInputType.MouseButton1, 0, 0, false)
     else
-        local keyCode = Enum.KeyCode[key]
-        if keyCode then
-            VIM:SendKeyEvent(true, keyCode, false)
+        local kc = Enum.KeyCode[key]
+        if kc then
+            VIM:SendKeyEvent(true, kc, false)
             task.wait(0.05)
-            VIM:SendKeyEvent(false, keyCode, false)
+            VIM:SendKeyEvent(false, kc, false)
         end
     end
 end
 
 local function ExecuteMacro()
-    if not Features.MacroEnabled then return end
-    if #Macro.Blocks == 0 then return end
-    if Macro.IsRunning then return end
-    
-    Macro.IsRunning = true
-    
+    if not Features.Macro or #MacroBlocks == 0 or MacroRunning then return end
+    MacroRunning = true
     task.spawn(function()
-        for _, block in pairs(Macro.Blocks) do
-            if not Features.MacroEnabled then break end
-            
-            local skill = block.Skill()
-            local hold = block.Hold() or 0
-            local delay = block.Delay() or 0
-            
-            PressKey(skill)
-            
-            if hold > 0 then
-                local keyCode = Enum.KeyCode[skill]
-                if keyCode then
-                    VIM:SendKeyEvent(true, keyCode, false)
-                    task.wait(hold)
-                    VIM:SendKeyEvent(false, keyCode, false)
+        for _, block in pairs(MacroBlocks) do
+            if not Features.Macro then break end
+            PressKey(block.Skill)
+            if block.Hold > 0 then
+                local kc = Enum.KeyCode[block.Skill]
+                if kc then
+                    VIM:SendKeyEvent(true, kc, false)
+                    task.wait(block.Hold)
+                    VIM:SendKeyEvent(false, kc, false)
                 end
             end
-            
-            if delay > 0 then
-                task.wait(delay)
-            end
+            if block.Delay > 0 then task.wait(block.Delay) end
         end
-        
-        Macro.IsRunning = false
+        MacroRunning = false
     end)
 end
 
 -- =============================================
--- MACRO BLOCK CREATION
--- =============================================
-local function CreateMacroBlock(parent, index)
-    local block = Instance.new("Frame")
-    block.Name = "MacroBlock_" .. index
-    block.Size = UDim2.new(1, -10, 0, 50)
-    block.BackgroundColor3 = DARKER
-    block.BorderSizePixel = 0
-    block.Parent = parent
-    Corner(block, 8)
-    AddStroke(block)
-    
-    local title = Text(block, "Block" .. index, 9, true)
-    title.Position = UDim2.new(0, 8, 0, 2)
-    title.Size = UDim2.new(0, 50, 0, 14)
-    title.TextColor3 = BLUE
-    
-    local weaponBtn = Instance.new("TextButton")
-    weaponBtn.Size = UDim2.new(0, 60, 0, 20)
-    weaponBtn.Position = UDim2.new(0, 55, 0, 2)
-    weaponBtn.BackgroundColor3 = Color3.fromRGB(35,35,35)
-    weaponBtn.Text = "Melee"
-    weaponBtn.TextColor3 = WHITE
-    weaponBtn.TextSize = 9
-    weaponBtn.Font = Enum.Font.GothamMedium
-    weaponBtn.BorderSizePixel = 0
-    weaponBtn.Parent = block
-    Corner(weaponBtn, 6)
-    AddStroke(weaponBtn, Color3.fromRGB(60,60,60))
-    
-    local skillBtn = Instance.new("TextButton")
-    skillBtn.Size = UDim2.new(0, 40, 0, 20)
-    skillBtn.Position = UDim2.new(0, 120, 0, 2)
-    skillBtn.BackgroundColor3 = Color3.fromRGB(35,35,35)
-    skillBtn.Text = "Z"
-    skillBtn.TextColor3 = WHITE
-    skillBtn.TextSize = 9
-    skillBtn.Font = Enum.Font.GothamMedium
-    skillBtn.BorderSizePixel = 0
-    skillBtn.Parent = block
-    Corner(skillBtn, 6)
-    AddStroke(skillBtn, Color3.fromRGB(60,60,60))
-    
-    local holdLabel = Text(block, "Hold:0s", 8, false)
-    holdLabel.Position = UDim2.new(0, 165, 0, 3)
-    holdLabel.Size = UDim2.new(0, 55, 0, 14)
-    holdLabel.TextColor3 = GRAY
-    
-    local holdSlider = Instance.new("Frame")
-    holdSlider.Size = UDim2.new(0, 55, 0, 3)
-    holdSlider.Position = UDim2.new(0, 165, 0, 18)
-    holdSlider.BackgroundColor3 = Color3.fromRGB(45,45,45)
-    holdSlider.BorderSizePixel = 0
-    holdSlider.Parent = block
-    Corner(holdSlider, 2)
-    
-    local holdFill = Instance.new("Frame")
-    holdFill.Size = UDim2.new(0, 0, 1, 0)
-    holdFill.BackgroundColor3 = WHITE
-    holdFill.BorderSizePixel = 0
-    holdFill.Parent = holdSlider
-    Corner(holdFill, 2)
-    
-    local holdKnob = Instance.new("TextButton")
-    holdKnob.Size = UDim2.new(0, 8, 0, 8)
-    holdKnob.Position = UDim2.new(0, -4, 0.5, -4)
-    holdKnob.BackgroundColor3 = WHITE
-    holdKnob.Text = ""
-    holdKnob.BorderSizePixel = 0
-    holdKnob.Parent = holdSlider
-    Corner(holdKnob, 8)
-    
-    local delayLabel = Text(block, "Delay:0s", 8, false)
-    delayLabel.Position = UDim2.new(0, 225, 0, 3)
-    delayLabel.Size = UDim2.new(0, 55, 0, 14)
-    delayLabel.TextColor3 = GRAY
-    
-    local delaySlider = Instance.new("Frame")
-    delaySlider.Size = UDim2.new(0, 55, 0, 3)
-    delaySlider.Position = UDim2.new(0, 225, 0, 18)
-    delaySlider.BackgroundColor3 = Color3.fromRGB(45,45,45)
-    delaySlider.BorderSizePixel = 0
-    delaySlider.Parent = block
-    Corner(delaySlider, 2)
-    
-    local delayFill = Instance.new("Frame")
-    delayFill.Size = UDim2.new(0, 0, 1, 0)
-    delayFill.BackgroundColor3 = WHITE
-    delayFill.BorderSizePixel = 0
-    delayFill.Parent = delaySlider
-    Corner(delayFill, 2)
-    
-    local delayKnob = Instance.new("TextButton")
-    delayKnob.Size = UDim2.new(0, 8, 0, 8)
-    delayKnob.Position = UDim2.new(0, -4, 0.5, -4)
-    delayKnob.BackgroundColor3 = WHITE
-    delayKnob.Text = ""
-    delayKnob.BorderSizePixel = 0
-    delayKnob.Parent = delaySlider
-    Corner(delayKnob, 8)
-    
-    local holdValue = 0
-    local delayValue = 0
-    local weaponIndex = 1
-    local skillIndex = 1
-    
-    local function UpdateHold(pos)
-        local sliderAbsPos = holdSlider.AbsolutePosition
-        local sliderSize = holdSlider.AbsoluteSize.X
-        local relativeX = math.clamp(pos.X - sliderAbsPos.X, 0, sliderSize)
-        local ratio = relativeX / sliderSize
-        holdValue = math.floor(ratio * 3)
-        holdFill.Size = UDim2.new(ratio, 0, 1, 0)
-        holdKnob.Position = UDim2.new(ratio, -4, 0.5, -4)
-        holdLabel.Text = "Hold:" .. holdValue .. "s"
-    end
-    
-    local function UpdateDelay(pos)
-        local sliderAbsPos = delaySlider.AbsolutePosition
-        local sliderSize = delaySlider.AbsoluteSize.X
-        local relativeX = math.clamp(pos.X - sliderAbsPos.X, 0, sliderSize)
-        local ratio = relativeX / sliderSize
-        delayValue = math.floor(ratio * 3)
-        delayFill.Size = UDim2.new(ratio, 0, 1, 0)
-        delayKnob.Position = UDim2.new(ratio, -4, 0.5, -4)
-        delayLabel.Text = "Delay:" .. delayValue .. "s"
-    end
-    
-    holdSlider.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            UpdateHold(input.Position)
-        end
-    end)
-    
-    holdKnob.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            local conn
-            conn = UserInputService.InputChanged:Connect(function(input2)
-                if input2.UserInputType == Enum.UserInputType.MouseMovement or input2.UserInputType == Enum.UserInputType.Touch then
-                    UpdateHold(input2.Position)
-                end
-            end)
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    conn:Disconnect()
-                end
-            end)
-        end
-    end)
-    
-    delaySlider.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            UpdateDelay(input.Position)
-        end
-    end)
-    
-    delayKnob.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            local conn
-            conn = UserInputService.InputChanged:Connect(function(input2)
-                if input2.UserInputType == Enum.UserInputType.MouseMovement or input2.UserInputType == Enum.UserInputType.Touch then
-                    UpdateDelay(input2.Position)
-                end
-            end)
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    conn:Disconnect()
-                end
-            end)
-        end
-    end)
-    
-    weaponBtn.MouseButton1Click:Connect(function()
-        weaponIndex = weaponIndex % #WEAPON_OPTIONS + 1
-        weaponBtn.Text = WEAPON_OPTIONS[weaponIndex]
-    end)
-    
-    skillBtn.MouseButton1Click:Connect(function()
-        skillIndex = skillIndex % #SKILL_OPTIONS + 1
-        skillBtn.Text = SKILL_OPTIONS[skillIndex]
-    end)
-    
-    return {
-        Weapon = function() return WEAPON_OPTIONS[weaponIndex] end,
-        Skill = function() return SKILL_OPTIONS[skillIndex] end,
-        Hold = function() return holdValue end,
-        Delay = function() return delayValue end,
-    }
-end
-
--- =============================================
--- MAIN LOOP
--- =============================================
-RunService.Heartbeat:Connect(function()
-    DoAutoV4()
-    UpdateNoClip()
-    UpdateAntiAFK()
-    UpdateESP()
-end)
-
--- =============================================
--- GUI
+-- BUILD UI
 -- =============================================
 local ToggleBtn = Instance.new("TextButton")
 ToggleBtn.Size = UDim2.fromOffset(42,42)
 ToggleBtn.Position = UDim2.new(0, 15, 0.5, -21)
-ToggleBtn.BackgroundColor3 = BLACK
-ToggleBtn.BorderColor3 = WHITE
+ToggleBtn.BackgroundColor3 = COLORS.BLACK
+ToggleBtn.BorderColor3 = COLORS.WHITE
 ToggleBtn.BorderSizePixel = 2
 ToggleBtn.Text = "I"
-ToggleBtn.TextColor3 = WHITE
+ToggleBtn.TextColor3 = COLORS.WHITE
 ToggleBtn.TextSize = 20
 ToggleBtn.Font = Enum.Font.GothamBold
 ToggleBtn.AutoButtonColor = false
 ToggleBtn.Parent = Gui
 Corner(ToggleBtn, 10)
 
-ToggleBtn.MouseEnter:Connect(function()
-    Tween(ToggleBtn, 0.15, {BackgroundColor3 = WHITE, TextColor3 = BLACK})
-end)
-ToggleBtn.MouseLeave:Connect(function()
-    Tween(ToggleBtn, 0.15, {BackgroundColor3 = BLACK, TextColor3 = WHITE})
-end)
+ToggleBtn.MouseEnter:Connect(function() TweenIt(ToggleBtn, {BackgroundColor3 = COLORS.WHITE, TextColor3 = COLORS.BLACK}) end)
+ToggleBtn.MouseLeave:Connect(function() TweenIt(ToggleBtn, {BackgroundColor3 = COLORS.BLACK, TextColor3 = COLORS.WHITE}) end)
 
 local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0, 400, 0, 420)
-Main.Position = UDim2.new(0.5, -200, 0.5, -210)
-Main.BackgroundColor3 = BLACK
+Main.Size = UDim2.new(0, 350, 0, 350)
+Main.Position = UDim2.new(0.5, -175, 0.5, -175)
+Main.BackgroundColor3 = COLORS.BLACK
 Main.BorderSizePixel = 0
 Main.Visible = true
 Main.Parent = Gui
 Corner(Main, 12)
-AddStroke(Main)
+Stroke(Main)
 
 local Top = Instance.new("Frame")
-Top.Size = UDim2.new(1, 0, 0, 38)
-Top.BackgroundColor3 = DARK
+Top.Size = UDim2.new(1, 0, 0, 34)
+Top.BackgroundColor3 = COLORS.DARK
 Top.BorderSizePixel = 0
 Top.Parent = Main
 Corner(Top, 12)
 
-local Title = Text(Top, "IVORY", 15, true)
-Title.Position = UDim2.new(0, 12, 0, 2)
-Title.Size = UDim2.new(0, 100, 0, 20)
+local Title = Text(Top, "IVORY", 14, true)
+Title.Position = UDim2.new(0, 12, 0, 1)
+Title.Size = UDim2.new(0, 100, 0, 18)
 
-local SubTitle = Text(Top, "HUB v4.6", 8, false)
-SubTitle.TextColor3 = GRAY
-SubTitle.Position = UDim2.new(0, 13, 0, 22)
+local SubTitle = Text(Top, "HUB v5.5", 7, false)
+SubTitle.TextColor3 = COLORS.GRAY
+SubTitle.Position = UDim2.new(0, 13, 0, 20)
 SubTitle.Size = UDim2.new(0, 60, 0, 12)
 
 local Close = Instance.new("TextButton")
-Close.Size = UDim2.new(0, 28, 0, 28)
-Close.Position = UDim2.new(1, -34, 0.5, -14)
-Close.BackgroundColor3 = DARKER
+Close.Size = UDim2.new(0, 26, 0, 26)
+Close.Position = UDim2.new(1, -32, 0.5, -13)
+Close.BackgroundColor3 = COLORS.DARKER
 Close.Text = "×"
-Close.TextColor3 = WHITE
-Close.TextSize = 18
+Close.TextColor3 = COLORS.WHITE
+Close.TextSize = 16
 Close.Font = Enum.Font.GothamBold
 Close.BorderSizePixel = 0
 Close.Parent = Top
 Corner(Close, 8)
 
 local Minimize = Instance.new("TextButton")
-Minimize.Size = UDim2.new(0, 28, 0, 28)
-Minimize.Position = UDim2.new(1, -66, 0.5, -14)
-Minimize.BackgroundColor3 = DARKER
+Minimize.Size = UDim2.new(0, 26, 0, 26)
+Minimize.Position = UDim2.new(1, -62, 0.5, -13)
+Minimize.BackgroundColor3 = COLORS.DARKER
 Minimize.Text = "—"
-Minimize.TextColor3 = WHITE
+Minimize.TextColor3 = COLORS.WHITE
 Minimize.TextSize = 16
 Minimize.Font = Enum.Font.GothamBold
 Minimize.BorderSizePixel = 0
 Minimize.Parent = Top
 Corner(Minimize, 8)
 
-local Open = true
+local open = true
 ToggleBtn.MouseButton1Click:Connect(function()
-    Open = not Open
-    Main.Visible = Open
+    open = not open
+    Main.Visible = open
 end)
 
 local Sidebar = Instance.new("Frame")
-Sidebar.Size = UDim2.new(0, 90, 1, -48)
-Sidebar.Position = UDim2.new(0, 6, 0, 44)
-Sidebar.BackgroundColor3 = DARK
+Sidebar.Size = UDim2.new(0, 80, 1, -42)
+Sidebar.Position = UDim2.new(0, 6, 0, 40)
+Sidebar.BackgroundColor3 = COLORS.DARK
 Sidebar.BorderSizePixel = 0
 Sidebar.Parent = Main
 Corner(Sidebar, 10)
-AddStroke(Sidebar)
+Stroke(Sidebar)
 
 local TabLayout = Instance.new("UIListLayout")
 TabLayout.Padding = UDim.new(0, 3)
 TabLayout.SortOrder = Enum.SortOrder.LayoutOrder
 TabLayout.Parent = Sidebar
 
-local Padding = Instance.new("UIPadding")
-Padding.PaddingTop = UDim.new(0, 6)
-Padding.PaddingLeft = UDim.new(0, 4)
-Padding.PaddingRight = UDim.new(0, 4)
-Padding.Parent = Sidebar
+local Pad = Instance.new("UIPadding")
+Pad.PaddingTop = UDim.new(0, 6)
+Pad.PaddingLeft = UDim.new(0, 4)
+Pad.PaddingRight = UDim.new(0, 4)
+Pad.Parent = Sidebar
 
 local Content = Instance.new("Frame")
-Content.Size = UDim2.new(1, -106, 1, -48)
-Content.Position = UDim2.new(0, 98, 0, 44)
-Content.BackgroundColor3 = DARK
+Content.Size = UDim2.new(1, -96, 1, -42)
+Content.Position = UDim2.new(0, 88, 0, 40)
+Content.BackgroundColor3 = COLORS.DARK
 Content.BorderSizePixel = 0
 Content.Parent = Main
 Corner(Content, 10)
-AddStroke(Content)
+Stroke(Content)
 
 local Pages = {}
 local function CreatePage(name)
-    local Page = Instance.new("ScrollingFrame")
-    Page.Name = name
-    Page.Size = UDim2.new(1, -12, 1, -12)
-    Page.Position = UDim2.new(0, 6, 0, 6)
-    Page.BackgroundTransparency = 1
-    Page.BorderSizePixel = 0
-    Page.ScrollBarThickness = 2
-    Page.Visible = false
-    Page.CanvasSize = UDim2.new(0, 0, 0, 0)
-    Page.Parent = Content
-    local Layout = Instance.new("UIListLayout")
-    Layout.Padding = UDim.new(0, 4)
-    Layout.SortOrder = Enum.SortOrder.LayoutOrder
-    Layout.Parent = Page
-    Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        Page.CanvasSize = UDim2.new(0, 0, 0, Layout.AbsoluteContentSize.Y + 10)
+    local page = Instance.new("ScrollingFrame")
+    page.Name = name
+    page.Size = UDim2.new(1, -10, 1, -10)
+    page.Position = UDim2.new(0, 5, 0, 5)
+    page.BackgroundTransparency = 1
+    page.BorderSizePixel = 0
+    page.ScrollBarThickness = 2
+    page.Visible = false
+    page.CanvasSize = UDim2.new(0, 0, 0, 0)
+    page.Parent = Content
+    local layout = Instance.new("UIListLayout")
+    layout.Padding = UDim.new(0, 4)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Parent = page
+    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        page.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
     end)
-    Pages[name] = Page
-    return Page
+    Pages[name] = page
+    return page
 end
 
 local function Section(parent, text)
-    local Label = Text(parent, text, 8, true)
-    Label.TextColor3 = GRAY
-    Label.Size = UDim2.new(1, 0, 0, 16)
-    return Label
+    local lbl = Text(parent, text, 8, true)
+    lbl.TextColor3 = COLORS.GRAY
+    lbl.Size = UDim2.new(1, 0, 0, 14)
+    return lbl
 end
 
-local function Button(parent, text, callback)
-    local Btn = Instance.new("TextButton")
-    Btn.Size = UDim2.new(1, 0, 0, 28)
-    Btn.BackgroundColor3 = DARKER
-    Btn.BorderSizePixel = 0
-    Btn.Text = text
-    Btn.TextColor3 = WHITE
-    Btn.TextSize = 10
-    Btn.Font = Enum.Font.GothamMedium
-    Btn.AutoButtonColor = false
-    Btn.Parent = parent
-    Corner(Btn, 8)
-    AddStroke(Btn)
-    Btn.MouseEnter:Connect(function() Tween(Btn, .15, {BackgroundColor3 = Color3.fromRGB(28,28,28)}) end)
-    Btn.MouseLeave:Connect(function() Tween(Btn, .15, {BackgroundColor3 = DARKER}) end)
-    Btn.MouseButton1Click:Connect(callback)
-    return Btn
+local function Button(parent, text, cb)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 0, 26)
+    btn.BackgroundColor3 = COLORS.DARKER
+    btn.BorderSizePixel = 0
+    btn.Text = text
+    btn.TextColor3 = COLORS.WHITE
+    btn.TextSize = 10
+    btn.Font = Enum.Font.GothamMedium
+    btn.AutoButtonColor = false
+    btn.Parent = parent
+    Corner(btn, 8)
+    Stroke(btn)
+    btn.MouseEnter:Connect(function() TweenIt(btn, {BackgroundColor3 = Color3.fromRGB(28,28,28)}) end)
+    btn.MouseLeave:Connect(function() TweenIt(btn, {BackgroundColor3 = COLORS.DARKER}) end)
+    btn.MouseButton1Click:Connect(cb)
+    return btn
 end
 
-local function Toggle(parent, text, default, callback)
-    local State = default or false
-    local Holder = Instance.new("Frame")
-    Holder.Size = UDim2.new(1, 0, 0, 26)
-    Holder.BackgroundColor3 = DARKER
-    Holder.BorderSizePixel = 0
-    Holder.Parent = parent
-    Corner(Holder, 8)
-    AddStroke(Holder)
+local function Toggle(parent, text, default, cb)
+    local state = default or false
+    local holder = Instance.new("Frame")
+    holder.Size = UDim2.new(1, 0, 0, 24)
+    holder.BackgroundColor3 = COLORS.DARKER
+    holder.BorderSizePixel = 0
+    holder.Parent = parent
+    Corner(holder, 8)
+    Stroke(holder)
 
-    local Label = Text(Holder, text .. ": OFF", 9, false)
-    Label.Position = UDim2.new(0, 8, 0, 0)
-    Label.Size = UDim2.new(1, -50, 1, 0)
+    local label = Text(holder, text .. ": OFF", 9, false)
+    label.Position = UDim2.new(0, 8, 0, 0)
+    label.Size = UDim2.new(1, -48, 1, 0)
 
-    local Switch = Instance.new("TextButton")
-    Switch.Size = UDim2.new(0, 26, 0, 14)
-    Switch.Position = UDim2.new(1, -34, 0.5, -7)
-    Switch.BackgroundColor3 = Color3.fromRGB(35,35,35)
-    Switch.Text = ""
-    Switch.BorderSizePixel = 0
-    Switch.Parent = Holder
-    Corner(Switch, 20)
+    local sw = Instance.new("TextButton")
+    sw.Size = UDim2.new(0, 24, 0, 12)
+    sw.Position = UDim2.new(1, -32, 0.5, -6)
+    sw.BackgroundColor3 = Color3.fromRGB(35,35,35)
+    sw.Text = ""
+    sw.BorderSizePixel = 0
+    sw.Parent = holder
+    Corner(sw, 20)
 
-    local Circle = Instance.new("Frame")
-    Circle.Size = UDim2.new(0, 10, 0, 10)
-    Circle.Position = UDim2.new(0, 2, 0.5, -5)
-    Circle.BackgroundColor3 = GRAY
-    Circle.BorderSizePixel = 0
-    Circle.Parent = Switch
-    Corner(Circle, 20)
+    local ball = Instance.new("Frame")
+    ball.Size = UDim2.new(0, 8, 0, 8)
+    ball.Position = UDim2.new(0, 2, 0.5, -4)
+    ball.BackgroundColor3 = COLORS.GRAY
+    ball.BorderSizePixel = 0
+    ball.Parent = sw
+    Corner(ball, 20)
 
     local function Update()
-        if State then
-            Tween(Switch, .2, {BackgroundColor3 = WHITE})
-            Tween(Circle, .2, {Position = UDim2.new(1, -12, 0.5, -5), BackgroundColor3 = BLACK})
-            Label.Text = text .. ": ON"
+        if state then
+            TweenIt(sw, {BackgroundColor3 = COLORS.WHITE})
+            TweenIt(ball, {Position = UDim2.new(1, -10, 0.5, -4), BackgroundColor3 = COLORS.BLACK})
+            label.Text = text .. ": ON"
         else
-            Tween(Switch, .2, {BackgroundColor3 = Color3.fromRGB(35,35,35)})
-            Tween(Circle, .2, {Position = UDim2.new(0, 2, 0.5, -5), BackgroundColor3 = GRAY})
-            Label.Text = text .. ": OFF"
+            TweenIt(sw, {BackgroundColor3 = Color3.fromRGB(35,35,35)})
+            TweenIt(ball, {Position = UDim2.new(0, 2, 0.5, -4), BackgroundColor3 = COLORS.GRAY})
+            label.Text = text .. ": OFF"
         end
-        if callback then callback(State) end
+        if cb then cb(state) end
     end
 
-    Switch.MouseButton1Click:Connect(function()
-        State = not State
+    sw.MouseButton1Click:Connect(function()
+        state = not state
         Update()
     end)
     Update()
-    return Holder
+    return holder
 end
 
-local function Slider(parent, text, default, minVal, maxVal, callback, suffix)
+local function Slider(parent, text, default, minVal, maxVal, cb, suffix)
     local Value = default or 50
-    local Holder = Instance.new("Frame")
-    Holder.Size = UDim2.new(1, 0, 0, 30)
-    Holder.BackgroundColor3 = DARKER
-    Holder.BorderSizePixel = 0
-    Holder.Parent = parent
-    Corner(Holder, 8)
-    AddStroke(Holder)
+    local holder = Instance.new("Frame")
+    holder.Size = UDim2.new(1, 0, 0, 28)
+    holder.BackgroundColor3 = COLORS.DARKER
+    holder.BorderSizePixel = 0
+    holder.Parent = parent
+    Corner(holder, 8)
+    Stroke(holder)
 
-    local Label = Text(Holder, text .. ": " .. tostring(Value) .. (suffix or ""), 9, false)
-    Label.Position = UDim2.new(0, 8, 0, 0)
-    Label.Size = UDim2.new(1, -50, 1, 0)
+    local label = Text(holder, text .. ": " .. tostring(Value) .. (suffix or ""), 9, false)
+    label.Position = UDim2.new(0, 8, 0, 0)
+    label.Size = UDim2.new(1, -48, 1, 0)
 
-    local SliderBg = Instance.new("Frame")
-    SliderBg.Size = UDim2.new(0, 100, 0, 3)
-    SliderBg.Position = UDim2.new(0, 8, .5, 5)
-    SliderBg.BackgroundColor3 = Color3.fromRGB(45,45,45)
-    SliderBg.BorderSizePixel = 0
-    SliderBg.Parent = Holder
-    Corner(SliderBg, 2)
+    local bg = Instance.new("Frame")
+    bg.Size = UDim2.new(0, 100, 0, 3)
+    bg.Position = UDim2.new(0, 8, .5, 4)
+    bg.BackgroundColor3 = Color3.fromRGB(45,45,45)
+    bg.BorderSizePixel = 0
+    bg.Parent = holder
+    Corner(bg, 2)
 
-    local SliderFill = Instance.new("Frame")
-    SliderFill.Size = UDim2.new((Value - minVal) / (maxVal - minVal), 0, 1, 0)
-    SliderFill.BackgroundColor3 = WHITE
-    SliderFill.BorderSizePixel = 0
-    SliderFill.Parent = SliderBg
-    Corner(SliderFill, 2)
+    local fill = Instance.new("Frame")
+    fill.Size = UDim2.new((Value - minVal) / (maxVal - minVal), 0, 1, 0)
+    fill.BackgroundColor3 = COLORS.WHITE
+    fill.BorderSizePixel = 0
+    fill.Parent = bg
+    Corner(fill, 2)
 
-    local Knob = Instance.new("TextButton")
-    Knob.Size = UDim2.new(0, 12, 0, 12)
-    Knob.Position = UDim2.new((Value - minVal) / (maxVal - minVal), -6, 0.5, -6)
-    Knob.BackgroundColor3 = WHITE
-    Knob.Text = ""
-    Knob.BorderSizePixel = 0
-    Knob.Parent = SliderBg
-    Corner(Knob, 20)
+    local knob = Instance.new("TextButton")
+    knob.Size = UDim2.new(0, 10, 0, 10)
+    knob.Position = UDim2.new((Value - minVal) / (maxVal - minVal), -5, 0.5, -5)
+    knob.BackgroundColor3 = COLORS.WHITE
+    knob.Text = ""
+    knob.BorderSizePixel = 0
+    knob.Parent = bg
+    Corner(knob, 10)
 
+    local dragging = false
+    
     local function UpdateSlider(value)
         local clamped = math.clamp(value, minVal, maxVal)
         Value = clamped
         local ratio = (clamped - minVal) / (maxVal - minVal)
-        SliderFill.Size = UDim2.new(ratio, 0, 1, 0)
-        Knob.Position = UDim2.new(ratio, -6, 0.5, -6)
-        Label.Text = text .. ": " .. tostring(math.floor(clamped)) .. (suffix or "")
-        if callback then callback(clamped) end
+        fill.Size = UDim2.new(ratio, 0, 1, 0)
+        knob.Position = UDim2.new(ratio, -5, 0.5, -5)
+        label.Text = text .. ": " .. tostring(math.floor(clamped)) .. (suffix or "")
+        if cb then cb(clamped) end
     end
 
-    local DraggingKnob = false
-    Knob.InputBegan:Connect(function(input)
+    knob.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            DraggingKnob = true
+            dragging = true
         end
     end)
-    Knob.InputEnded:Connect(function()
-        DraggingKnob = false
-    end)
-    SliderBg.InputBegan:Connect(function(input)
+    knob.InputEnded:Connect(function() dragging = false end)
+    
+    bg.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             local pos = input.Position
-            local sliderAbsPos = SliderBg.AbsolutePosition
-            local sliderSize = SliderBg.AbsoluteSize.X
-            local relativeX = math.clamp(pos.X - sliderAbsPos.X, 0, sliderSize)
-            local ratio = relativeX / sliderSize
-            local value = minVal + ratio * (maxVal - minVal)
-            UpdateSlider(value)
+            local ap = bg.AbsolutePosition
+            local sz = bg.AbsoluteSize.X
+            local rx = math.clamp(pos.X - ap.X, 0, sz)
+            local ratio = rx / sz
+            UpdateSlider(minVal + ratio * (maxVal - minVal))
         end
     end)
+    
     UserInputService.InputChanged:Connect(function(input)
-        if DraggingKnob and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
             local pos = input.Position
-            local sliderAbsPos = SliderBg.AbsolutePosition
-            local sliderSize = SliderBg.AbsoluteSize.X
-            local relativeX = math.clamp(pos.X - sliderAbsPos.X, 0, sliderSize)
-            local ratio = relativeX / sliderSize
-            local value = minVal + ratio * (maxVal - minVal)
-            UpdateSlider(value)
+            local ap = bg.AbsolutePosition
+            local sz = bg.AbsoluteSize.X
+            local rx = math.clamp(pos.X - ap.X, 0, sz)
+            local ratio = rx / sz
+            UpdateSlider(minVal + ratio * (maxVal - minVal))
         end
     end)
 
-    UpdateSlider(Value)
-    return Holder
+    return holder
 end
 
 -- =============================================
@@ -1069,94 +1093,76 @@ local MainPage = CreatePage("Main")
 local CombatPage = CreatePage("Combat")
 local MacroPage = CreatePage("Macro")
 local VisualPage = CreatePage("Visuals")
-local MiscPage = CreatePage("Misc")
 local SettingsPage = CreatePage("Settings")
-local CreditsPage = CreatePage("Credits")
 
--- =============================================
 -- MAIN PAGE
--- =============================================
 Section(MainPage, "IVORY HUB")
-local mainTitle = Text(MainPage, "IVORY HUB v4.6", 16, true)
-mainTitle.Size = UDim2.new(1, 0, 0, 24)
-mainTitle.TextXAlignment = Enum.TextXAlignment.Center
-mainTitle.TextColor3 = WHITE
+local mt = Text(MainPage, "IVORY HUB v5.5", 16, true)
+mt.Size = UDim2.new(1, 0, 0, 24)
+mt.TextXAlignment = Enum.TextXAlignment.Center
+mt.TextColor3 = COLORS.WHITE
 
-local mainSub = Text(MainPage, "Blox Fruits PVP + Macro", 9, false)
-mainSub.Size = UDim2.new(1, 0, 0, 16)
-mainSub.Position = UDim2.new(0, 0, 0, 26)
-mainSub.TextXAlignment = Enum.TextXAlignment.Center
-mainSub.TextColor3 = GRAY
+local ms = Text(MainPage, "Blox Fruits PVP Script", 9, false)
+ms.Size = UDim2.new(1, 0, 0, 16)
+ms.Position = UDim2.new(0, 0, 0, 26)
+ms.TextXAlignment = Enum.TextXAlignment.Center
+ms.TextColor3 = COLORS.GRAY
 
-local features = {
-    "• Silent Aim (360 / FOV)",
-    "• Soru Aim (mouse.Hit redirect)",
-    "• Auto V4 Awakening",
-    "• ESP (Box/Name/Health/Dist)",
-    "• No Clip & Anti-AFK",
-    "• Macro System (Melee/Fruit/Sword/Gun)",
-}
-for i, f in ipairs(features) do
+local list = {"• Silent Aim (Players + NPCs)", "• Soru Auto Aim", "• ESP", "• Macro System"}
+for i, f in ipairs(list) do
     local lbl = Text(MainPage, f, 9, false)
     lbl.Size = UDim2.new(1, -10, 0, 16)
     lbl.Position = UDim2.new(0, 5, 0, 50 + (i-1)*16)
-    lbl.TextColor3 = WHITE
+    lbl.TextColor3 = COLORS.WHITE
     lbl.TextXAlignment = Enum.TextXAlignment.Left
 end
 
--- =============================================
 -- COMBAT PAGE
--- =============================================
 Section(CombatPage, "SILENT AIM")
 Toggle(CombatPage, "Player Silent Aim", false, function(s)
-    Features.SilentAimPlayers = s
+    SilentAim:SetPlayerSilentAim(s)
 end)
 
 Toggle(CombatPage, "NPC Silent Aim", false, function(s)
-    Features.SilentAimNPCs = s
+    SilentAim:SetNPCSilentAim(s)
 end)
 
-Button(CombatPage, "Mode: 360", function()
-    local btn = CombatPage:FindFirstChild("AimModeButton")
-    if Features.SilentAimMode == "360" then
-        Features.SilentAimMode = "FOV"
-        if btn then btn.Text = "Mode: FOV" end
-    else
-        Features.SilentAimMode = "360"
-        if btn then btn.Text = "Mode: 360" end
-    end
+Toggle(CombatPage, "Prediction", true, function(s)
+    SilentAim:SetPrediction(s)
 end)
 
-Toggle(CombatPage, "Show FOV Circle", false, function(s)
-    Features.FOVCircle = s
-end)
-
-Slider(CombatPage, "FOV Radius", 150, 10, 500, function(v)
-    Features.FOVRadius = v
+Slider(CombatPage, "Prediction Amount", 12, 0, 50, function(v)
+    SilentAim:SetPredictionAmount(v / 100)
 end)
 
 Slider(CombatPage, "Max Range", 1000, 100, 3000, function(v)
-    Features.MaxRange = v
+    SilentAim:SetDistanceLimit(v)
 end, "m")
 
-Section(CombatPage, "EXTRAS")
-Toggle(CombatPage, "Soru Aim", false, function(s)
-    Features.SoruAim = s
+Section(CombatPage, "SORU AUTO AIM")
+Toggle(CombatPage, "Enable Soru", false, function(s)
+    SoruAutoAim:SetEnabled(s)
+    if SoruBtn then SoruBtn.Visible = s end
 end)
 
-Toggle(CombatPage, "Auto V4", false, function(s)
-    Features.AutoV4 = s
+Slider(CombatPage, "Soru Range", 300, 50, 500, function(v)
+    SoruAutoAim:SetRange(v)
+end, "m")
+
+Toggle(CombatPage, "Show FOV Circle", false, function(s)
+    SoruAutoAim:SetShowFOV(s)
 end)
 
--- =============================================
+Slider(CombatPage, "FOV Radius", 100, 10, 500, function(v)
+    SoruAutoAim:SetFOVRadius(v)
+end)
+
 -- MACRO PAGE
--- =============================================
-Section(MacroPage, "MACRO SYSTEM")
-
+Section(MacroPage, "MACRO")
 Toggle(MacroPage, "Enable Macro", false, function(s)
-    Features.MacroEnabled = s
+    Features.Macro = s
     if not s then
-        Macro.IsRunning = false
+        MacroRunning = false
         if MacroBtn then MacroBtn.Visible = false end
     else
         if MacroBtn then MacroBtn.Visible = true end
@@ -1164,38 +1170,38 @@ Toggle(MacroPage, "Enable Macro", false, function(s)
 end)
 
 local btnRow = Instance.new("Frame")
-btnRow.Size = UDim2.new(1, -10, 0, 30)
+btnRow.Size = UDim2.new(1, -10, 0, 28)
 btnRow.BackgroundTransparency = 1
 btnRow.Parent = MacroPage
 
 local addBtn = Instance.new("TextButton")
 addBtn.Size = UDim2.new(0.45, -5, 1, 0)
 addBtn.Position = UDim2.new(0, 0, 0, 0)
-addBtn.BackgroundColor3 = DARKER
-addBtn.Text = "+ Add Block"
-addBtn.TextColor3 = WHITE
+addBtn.BackgroundColor3 = COLORS.DARKER
+addBtn.Text = "+ Add"
+addBtn.TextColor3 = COLORS.WHITE
 addBtn.TextSize = 10
 addBtn.Font = Enum.Font.GothamMedium
 addBtn.BorderSizePixel = 0
 addBtn.Parent = btnRow
 Corner(addBtn, 8)
-AddStroke(addBtn)
+Stroke(addBtn)
 
 local clearBtn = Instance.new("TextButton")
 clearBtn.Size = UDim2.new(0.45, -5, 1, 0)
 clearBtn.Position = UDim2.new(0.55, 5, 0, 0)
-clearBtn.BackgroundColor3 = DARKER
-clearBtn.Text = "Clear All"
-clearBtn.TextColor3 = WHITE
+clearBtn.BackgroundColor3 = COLORS.DARKER
+clearBtn.Text = "Clear"
+clearBtn.TextColor3 = COLORS.WHITE
 clearBtn.TextSize = 10
 clearBtn.Font = Enum.Font.GothamMedium
 clearBtn.BorderSizePixel = 0
 clearBtn.Parent = btnRow
 Corner(clearBtn, 8)
-AddStroke(clearBtn)
+Stroke(clearBtn)
 
 local blockContainer = Instance.new("ScrollingFrame")
-blockContainer.Size = UDim2.new(1, -10, 0, 220)
+blockContainer.Size = UDim2.new(1, -10, 0, 180)
 blockContainer.BackgroundTransparency = 1
 blockContainer.BorderSizePixel = 0
 blockContainer.ScrollBarThickness = 3
@@ -1208,28 +1214,181 @@ blockLayout.Padding = UDim.new(0, 4)
 blockLayout.SortOrder = Enum.SortOrder.LayoutOrder
 blockLayout.Parent = blockContainer
 
-local function AddBlock()
-    local idx = #Macro.Blocks + 1
-    local block = CreateMacroBlock(blockContainer, idx)
-    table.insert(Macro.Blocks, block)
-end
+local SKILLS = {"Z", "X", "C", "V", "F", "Tap", "M1"}
 
-local function ClearBlocks()
-    for _, child in pairs(blockContainer:GetChildren()) do
-        if child:IsA("Frame") and string.find(child.Name, "MacroBlock_") then
-            child:Destroy()
-        end
+local function AddBlock()
+    local idx = #MacroBlocks + 1
+    local block = Instance.new("Frame")
+    block.Size = UDim2.new(1, 0, 0, 34)
+    block.BackgroundColor3 = COLORS.DARKER
+    block.BorderSizePixel = 0
+    block.Parent = blockContainer
+    Corner(block, 8)
+    Stroke(block)
+    
+    local num = Text(block, "#" .. idx, 9, true)
+    num.Position = UDim2.new(0, 8, 0, 2)
+    num.Size = UDim2.new(0, 30, 0, 14)
+    num.TextColor3 = COLORS.BLUE
+    
+    local skillBtn = Instance.new("TextButton")
+    skillBtn.Size = UDim2.new(0, 50, 0, 20)
+    skillBtn.Position = UDim2.new(0, 40, 0, 2)
+    skillBtn.BackgroundColor3 = Color3.fromRGB(35,35,35)
+    skillBtn.Text = "Z"
+    skillBtn.TextColor3 = COLORS.WHITE
+    skillBtn.TextSize = 10
+    skillBtn.Font = Enum.Font.GothamMedium
+    skillBtn.BorderSizePixel = 0
+    skillBtn.Parent = block
+    Corner(skillBtn, 6)
+    Stroke(skillBtn)
+    
+    local skillIdx = 1
+    skillBtn.MouseButton1Click:Connect(function()
+        skillIdx = skillIdx % #SKILLS + 1
+        skillBtn.Text = SKILLS[skillIdx]
+    end)
+    
+    local hLabel = Text(block, "Hold:0s", 8, false)
+    hLabel.Position = UDim2.new(0, 95, 0, 2)
+    hLabel.Size = UDim2.new(0, 50, 0, 14)
+    hLabel.TextColor3 = COLORS.GRAY
+    
+    local hSlider = Instance.new("Frame")
+    hSlider.Size = UDim2.new(0, 50, 0, 3)
+    hSlider.Position = UDim2.new(0, 95, 0, 17)
+    hSlider.BackgroundColor3 = Color3.fromRGB(45,45,45)
+    hSlider.BorderSizePixel = 0
+    hSlider.Parent = block
+    Corner(hSlider, 2)
+    
+    local hFill = Instance.new("Frame")
+    hFill.Size = UDim2.new(0,0,1,0)
+    hFill.BackgroundColor3 = COLORS.WHITE
+    hFill.BorderSizePixel = 0
+    hFill.Parent = hSlider
+    Corner(hFill, 2)
+    
+    local hKnob = Instance.new("TextButton")
+    hKnob.Size = UDim2.new(0,8,0,8)
+    hKnob.Position = UDim2.new(0,-4,0.5,-4)
+    hKnob.BackgroundColor3 = COLORS.WHITE
+    hKnob.Text = ""
+    hKnob.BorderSizePixel = 0
+    hKnob.Parent = hSlider
+    Corner(hKnob, 8)
+    
+    local dLabel = Text(block, "Delay:0s", 8, false)
+    dLabel.Position = UDim2.new(0, 150, 0, 2)
+    dLabel.Size = UDim2.new(0, 50, 0, 14)
+    dLabel.TextColor3 = COLORS.GRAY
+    
+    local dSlider = Instance.new("Frame")
+    dSlider.Size = UDim2.new(0, 50, 0, 3)
+    dSlider.Position = UDim2.new(0, 150, 0, 17)
+    dSlider.BackgroundColor3 = Color3.fromRGB(45,45,45)
+    dSlider.BorderSizePixel = 0
+    dSlider.Parent = block
+    Corner(dSlider, 2)
+    
+    local dFill = Instance.new("Frame")
+    dFill.Size = UDim2.new(0,0,1,0)
+    dFill.BackgroundColor3 = COLORS.WHITE
+    dFill.BorderSizePixel = 0
+    dFill.Parent = dSlider
+    Corner(dFill, 2)
+    
+    local dKnob = Instance.new("TextButton")
+    dKnob.Size = UDim2.new(0,8,0,8)
+    dKnob.Position = UDim2.new(0,-4,0.5,-4)
+    dKnob.BackgroundColor3 = COLORS.WHITE
+    dKnob.Text = ""
+    dKnob.BorderSizePixel = 0
+    dKnob.Parent = dSlider
+    Corner(dKnob, 8)
+    
+    local hVal = 0
+    local dVal = 0
+    
+    local function UpdateHold(pos)
+        local ap = hSlider.AbsolutePosition
+        local sz = hSlider.AbsoluteSize.X
+        local rx = math.clamp(pos.X - ap.X, 0, sz)
+        local ratio = rx / sz
+        hVal = math.floor(ratio * 3)
+        hFill.Size = UDim2.new(ratio,0,1,0)
+        hKnob.Position = UDim2.new(ratio,-4,0.5,-4)
+        hLabel.Text = "Hold:" .. hVal .. "s"
     end
-    Macro.Blocks = {}
+    
+    local function UpdateDelay(pos)
+        local ap = dSlider.AbsolutePosition
+        local sz = dSlider.AbsoluteSize.X
+        local rx = math.clamp(pos.X - ap.X, 0, sz)
+        local ratio = rx / sz
+        dVal = math.floor(ratio * 3)
+        dFill.Size = UDim2.new(ratio,0,1,0)
+        dKnob.Position = UDim2.new(ratio,-4,0.5,-4)
+        dLabel.Text = "Delay:" .. dVal .. "s"
+    end
+    
+    hSlider.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            UpdateHold(input.Position)
+        end
+    end)
+    
+    hKnob.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            local conn
+            conn = UserInputService.InputChanged:Connect(function(i2)
+                if i2.UserInputType == Enum.UserInputType.MouseMovement or i2.UserInputType == Enum.UserInputType.Touch then
+                    UpdateHold(i2.Position)
+                end
+            end)
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then conn:Disconnect() end
+            end)
+        end
+    end)
+    
+    dSlider.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            UpdateDelay(input.Position)
+        end
+    end)
+    
+    dKnob.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            local conn
+            conn = UserInputService.InputChanged:Connect(function(i2)
+                if i2.UserInputType == Enum.UserInputType.MouseMovement or i2.UserInputType == Enum.UserInputType.Touch then
+                    UpdateDelay(i2.Position)
+                end
+            end)
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then conn:Disconnect() end
+            end)
+        end
+    end)
+    
+    table.insert(MacroBlocks, {
+        Skill = function() return SKILLS[skillIdx] end,
+        Hold = function() return hVal end,
+        Delay = function() return dVal end,
+    })
 end
 
 addBtn.MouseButton1Click:Connect(AddBlock)
-clearBtn.MouseButton1Click:Connect(ClearBlocks)
+clearBtn.MouseButton1Click:Connect(function()
+    for _, child in pairs(blockContainer:GetChildren()) do
+        if child:IsA("Frame") then child:Destroy() end
+    end
+    MacroBlocks = {}
+end)
 
-for i = 1, 3 do
-    task.wait(0.05)
-    AddBlock()
-end
+for i = 1, 3 do AddBlock() end
 
 -- =============================================
 -- MACRO BUTTON
@@ -1237,16 +1396,16 @@ end
 local MacroBtn = Instance.new("TextButton")
 MacroBtn.Size = UDim2.fromOffset(60, 28)
 MacroBtn.Position = UDim2.new(0.5, -30, 0.85, 0)
-MacroBtn.BackgroundColor3 = RED
+MacroBtn.BackgroundColor3 = COLORS.RED
 MacroBtn.Text = "MACRO"
-MacroBtn.TextColor3 = WHITE
+MacroBtn.TextColor3 = COLORS.WHITE
 MacroBtn.TextSize = 12
 MacroBtn.Font = Enum.Font.GothamBold
 MacroBtn.BorderSizePixel = 0
 MacroBtn.Visible = false
 MacroBtn.Parent = Gui
 Corner(MacroBtn, 8)
-AddStroke(MacroBtn, Color3.fromRGB(200,50,50))
+Stroke(MacroBtn)
 
 local macroDrag = {dragging = false, startPos = nil, startMouse = nil}
 
@@ -1277,15 +1436,71 @@ UserInputService.InputChanged:Connect(function(input)
 end)
 
 MacroBtn.MouseButton1Click:Connect(function()
-    if Features.MacroEnabled then
+    if Features.Macro then
         ExecuteMacro()
-        MacroBtn.BackgroundColor3 = GREEN
+        MacroBtn.BackgroundColor3 = COLORS.GREEN
         MacroBtn.Text = "▶"
         task.delay(0.5, function()
-            MacroBtn.BackgroundColor3 = RED
+            MacroBtn.BackgroundColor3 = COLORS.RED
             MacroBtn.Text = "MACRO"
         end)
     end
+end)
+
+-- =============================================
+-- SORU BUTTON
+-- =============================================
+local SoruBtn = Instance.new("TextButton")
+SoruBtn.Size = UDim2.fromOffset(60, 60)
+SoruBtn.Position = UDim2.new(0.85, -30, 0.7, -30)
+SoruBtn.BackgroundColor3 = COLORS.BLACK
+SoruBtn.BackgroundTransparency = 0.2
+SoruBtn.Text = "SORU"
+SoruBtn.TextColor3 = COLORS.WHITE
+SoruBtn.TextSize = 14
+SoruBtn.Font = Enum.Font.GothamBold
+SoruBtn.BorderSizePixel = 0
+SoruBtn.Visible = false
+SoruBtn.Parent = Gui
+Corner(SoruBtn, 30)
+Stroke(SoruBtn)
+
+local soruDrag = {dragging = false, startPos = nil, startMouse = nil}
+
+SoruBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        soruDrag.dragging = true
+        soruDrag.startMouse = input.Position
+        soruDrag.startPos = SoruBtn.Position
+    end
+end)
+
+SoruBtn.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        soruDrag.dragging = false
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if soruDrag.dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - soruDrag.startMouse
+        SoruBtn.Position = UDim2.new(
+            soruDrag.startPos.X.Scale,
+            soruDrag.startPos.X.Offset + delta.X,
+            soruDrag.startPos.Y.Scale,
+            soruDrag.startPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+SoruBtn.MouseButton1Click:Connect(function()
+    SoruAutoAim:Attack()
+    SoruBtn.BackgroundColor3 = COLORS.GREEN
+    SoruBtn.BackgroundTransparency = 0
+    task.delay(0.3, function()
+        SoruBtn.BackgroundColor3 = COLORS.BLACK
+        SoruBtn.BackgroundTransparency = 0.2
+    end)
 end)
 
 -- =============================================
@@ -1296,34 +1511,6 @@ Toggle(VisualPage, "Enable ESP", false, function(s)
     Features.ESP = s
 end)
 
-Toggle(VisualPage, "Show Box", false, function(s)
-    Features.ESPBox = s
-end)
-
-Toggle(VisualPage, "Show Name", false, function(s)
-    Features.ESPName = s
-end)
-
-Toggle(VisualPage, "Show Health", false, function(s)
-    Features.ESPHealth = s
-end)
-
-Toggle(VisualPage, "Show Distance", false, function(s)
-    Features.ESPDistance = s
-end)
-
--- =============================================
--- MISC PAGE
--- =============================================
-Section(MiscPage, "MISC")
-Toggle(MiscPage, "No Clip", false, function(s)
-    Features.NoClip = s
-end)
-
-Toggle(MiscPage, "Anti-AFK", false, function(s)
-    Features.AntiAFK = s
-end)
-
 -- =============================================
 -- SETTINGS PAGE
 -- =============================================
@@ -1331,46 +1518,20 @@ Section(SettingsPage, "SETTINGS")
 
 Button(SettingsPage, "Reset All", function()
     for k, v in pairs(Features) do
-        if type(v) == "boolean" then
-            Features[k] = false
-        end
+        if type(v) == "boolean" then Features[k] = false end
     end
-    Features.SilentAimMode = "360"
-    Features.FOVRadius = 150
-    Features.MaxRange = 1000
-    Macro.IsRunning = false
+    SilentAim:SetPlayerSilentAim(false)
+    SilentAim:SetNPCSilentAim(false)
+    SoruAutoAim:SetEnabled(false)
+    MacroRunning = false
     if MacroBtn then MacroBtn.Visible = false end
+    if SoruBtn then SoruBtn.Visible = false end
     print("[Ivory] All reset!")
 end)
 
 Button(SettingsPage, "Unload", function()
     Gui:Destroy()
 end)
-
--- =============================================
--- CREDITS PAGE
--- =============================================
-Section(CreditsPage, "CREDITS")
-local CreatorBox = Instance.new("Frame")
-CreatorBox.Size = UDim2.new(1, 0, 0, 60)
-CreatorBox.BackgroundColor3 = DARKER
-CreatorBox.BorderSizePixel = 0
-CreatorBox.Parent = CreditsPage
-Corner(CreatorBox, 8)
-AddStroke(CreatorBox)
-
-local Creator1 = Text(CreatorBox, "IVORY", 14, true)
-Creator1.Position = UDim2.new(0, 12, 0, 6)
-Creator1.Size = UDim2.new(1, -24, 0, 20)
-
-local Discord1 = Text(CreatorBox, "Discord: Ivory999", 9, false)
-Discord1.TextColor3 = GRAY
-Discord1.Position = UDim2.new(0, 12, 0, 30)
-Discord1.Size = UDim2.new(1, -24, 0, 16)
-
-local Version = Text(CreditsPage, "Ivory Hub v4.6 • With Soru Aim", 8, false)
-Version.TextColor3 = GRAY
-Version.Size = UDim2.new(1, 0, 0, 16)
 
 -- =============================================
 -- TABS
@@ -1380,19 +1541,17 @@ local Tabs = {
     {name="COMBAT", page=CombatPage},
     {name="MACRO", page=MacroPage},
     {name="VISUAL", page=VisualPage},
-    {name="MISC", page=MiscPage},
-    {name="SETTINGS", page=SettingsPage},
-    {name="CREDITS", page=CreditsPage}
+    {name="SETTINGS", page=SettingsPage}
 }
 local CurrentTab
 
 local function SelectTab(button, page)
     for _, data in ipairs(Tabs) do
-        if data.button then Tween(data.button, .15, {BackgroundColor3 = DARKER}) end
+        if data.button then TweenIt(data.button, {BackgroundColor3 = COLORS.DARKER}) end
         data.page.Visible = false
     end
-    Tween(button, .15, {BackgroundColor3 = WHITE})
-    button.TextColor3 = BLACK
+    TweenIt(button, {BackgroundColor3 = COLORS.WHITE})
+    button.TextColor3 = COLORS.BLACK
     page.Visible = true
     CurrentTab = page
 end
@@ -1400,22 +1559,22 @@ end
 for _, data in ipairs(Tabs) do
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, 0, 0, 24)
-    btn.BackgroundColor3 = DARKER
+    btn.BackgroundColor3 = COLORS.DARKER
     btn.BorderSizePixel = 0
     btn.Text = data.name
-    btn.TextColor3 = GRAY
+    btn.TextColor3 = COLORS.GRAY
     btn.TextSize = 9
     btn.Font = Enum.Font.GothamBold
     btn.AutoButtonColor = false
     btn.Parent = Sidebar
     Corner(btn, 8)
-    AddStroke(btn)
+    Stroke(btn)
     data.button = btn
     btn.MouseEnter:Connect(function()
-        if CurrentTab ~= data.page then Tween(btn, .15, {BackgroundColor3 = Color3.fromRGB(27,27,27)}) end
+        if CurrentTab ~= data.page then TweenIt(btn, {BackgroundColor3 = Color3.fromRGB(27,27,27)}) end
     end)
     btn.MouseLeave:Connect(function()
-        if CurrentTab ~= data.page then Tween(btn, .15, {BackgroundColor3 = DARKER}) end
+        if CurrentTab ~= data.page then TweenIt(btn, {BackgroundColor3 = COLORS.DARKER}) end
     end)
     btn.MouseButton1Click:Connect(function()
         SelectTab(btn, data.page)
@@ -1454,10 +1613,10 @@ Minimize.MouseButton1Click:Connect(function()
     if Minimized then
         Sidebar.Visible = false
         Content.Visible = false
-        Tween(Main, .25, {Size = UDim2.new(0, 400, 0, 38)})
+        TweenIt(Main, {Size = UDim2.new(0, 350, 0, 34)})
         Minimize.Text = "+"
     else
-        Tween(Main, .25, {Size = UDim2.new(0, 400, 0, 420)})
+        TweenIt(Main, {Size = UDim2.new(0, 350, 0, 350)})
         task.wait(.15)
         Sidebar.Visible = true
         Content.Visible = true
@@ -1466,62 +1625,20 @@ Minimize.MouseButton1Click:Connect(function()
 end)
 
 Close.MouseButton1Click:Connect(function()
-    Tween(Main, .25, {Size = UDim2.new(0, 0, 0, 0)})
+    TweenIt(Main, {Size = UDim2.new(0, 0, 0, 0)})
     task.wait(.3)
     Gui:Destroy()
 end)
 
--- =============================================
--- FOV CIRCLE
--- =============================================
-local FOVGui = nil
-local FOVRing = nil
-
-RunService.RenderStepped:Connect(function()
-    if Features.FOVCircle then
-        if not FOVGui then
-            FOVGui = Instance.new("ScreenGui")
-            FOVGui.Name = "IvoryFOV"
-            FOVGui.ResetOnSpawn = false
-            FOVGui.IgnoreGuiInset = true
-            FOVGui.DisplayOrder = 1
-            FOVGui.Parent = Gui
-            FOVRing = Instance.new("Frame")
-            FOVRing.Name = "FOVRing"
-            FOVRing.AnchorPoint = Vector2.new(0.5, 0.5)
-            FOVRing.Position = UDim2.new(0.5, 0, 0.5, 0)
-            FOVRing.BackgroundTransparency = 1
-            FOVRing.BorderSizePixel = 0
-            FOVRing.ZIndex = 100
-            FOVRing.Parent = FOVGui
-            local corner = Instance.new("UICorner")
-            corner.CornerRadius = UDim.new(1, 0)
-            corner.Parent = FOVRing
-            local stroke = Instance.new("UIStroke")
-            stroke.Thickness = 2
-            stroke.Color = RED
-            stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-            stroke.Parent = FOVRing
-        end
-        local radius = Features.FOVRadius
-        local diameter = math.floor(radius * 2)
-        FOVRing.Size = UDim2.fromOffset(diameter, diameter)
-        FOVRing.Visible = true
-    elseif FOVRing then
-        FOVRing.Visible = false
-    end
-end)
-
 print("========================================")
-print("        IVORY HUB v4.6 LOADED")
+print("        IVORY HUB v5.5 LOADED")
 print("========================================")
-print("✅ Silent Aim (360 / FOV)")
-print("✅ Soru Aim (mouse.Hit redirect)")
-print("✅ Auto V4 Awakening")
-print("✅ ESP (Box/Name/Health/Dist)")
-print("✅ No Clip & Anti-AFK")
-print("✅ Macro System (Melee/Fruit/Sword/Gun)")
+print("✅ Silent Aim (Players + NPCs)")
+print("✅ Soru Auto Aim")
+print("✅ ESP")
+print("✅ Macro System")
 print("========================================")
-print("💡 Enable Soru Aim in COMBAT tab")
-print("💡 Enable Macro in MACRO tab")
+print("💡 Enable features in their tabs")
+print("💡 SORU button appears when enabled")
+print("💡 MACRO button appears when enabled")
 print("========================================")
