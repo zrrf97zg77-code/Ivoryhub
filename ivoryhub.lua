@@ -1,9 +1,9 @@
 -- =============================================
--- IVORY HUB v5.5 - WITH NAMELESS SILENT AIM & SORU
--- Silent Aim + Soru Auto Aim from Nameless Ware
+-- IVORY HUB v5.6 - WITH SHARED FOV
+-- Silent Aim + Soru share the same FOV circle
 -- =============================================
 
-print("🦷 Ivory Hub v5.5 loading...")
+print("🦷 Ivory Hub v5.6 loading...")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -76,13 +76,129 @@ end
 -- =============================================
 local Features = {
     SilentAim = false,
+    SilentAimNPC = false,
     SoruAim = false,
     ESP = false,
     Macro = false,
+    FOVCircle = false,
+    FOVRadius = 150,
+    FOVMode = "V1",
 }
 
 -- =============================================
--- SILENT AIM FROM NAMELESS WARE
+-- SHARED FOV SYSTEM
+-- =============================================
+local FOVGui = nil
+local FOVRing = nil
+
+local function getFOVCenter()
+    if Features.FOVMode == "V2" then
+        return UserInputService:GetMouseLocation()
+    end
+    return Camera.ViewportSize / 2
+end
+
+local function isInFOV(hrp)
+    if not Features.FOVCircle then return true end
+    if not hrp then return false end
+    local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+    if not onScreen then return false end
+    local center = getFOVCenter()
+    return (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude <= Features.FOVRadius
+end
+
+local function UpdateFOVCircle()
+    if Features.FOVCircle then
+        if not FOVGui then
+            FOVGui = Instance.new("ScreenGui")
+            FOVGui.Name = "IvoryFOV"
+            FOVGui.ResetOnSpawn = false
+            FOVGui.IgnoreGuiInset = true
+            FOVGui.DisplayOrder = 1
+            FOVGui.Parent = Gui
+            
+            FOVRing = Instance.new("Frame")
+            FOVRing.Name = "FOVRing"
+            FOVRing.AnchorPoint = Vector2.new(0.5, 0.5)
+            FOVRing.BackgroundTransparency = 1
+            FOVRing.BorderSizePixel = 0
+            FOVRing.ZIndex = 100
+            FOVRing.Parent = FOVGui
+            
+            local corner = Instance.new("UICorner")
+            corner.CornerRadius = UDim.new(1, 0)
+            corner.Parent = FOVRing
+            
+            local stroke = Instance.new("UIStroke")
+            stroke.Thickness = 2
+            stroke.Color = COLORS.RED
+            stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+            stroke.Parent = FOVRing
+        end
+        
+        local center = getFOVCenter()
+        local diameter = math.floor(Features.FOVRadius * 2)
+        FOVRing.Position = UDim2.new(0, center.X, 0, center.Y)
+        FOVRing.Size = UDim2.fromOffset(diameter, diameter)
+        FOVRing.Visible = true
+    elseif FOVRing then
+        FOVRing.Visible = false
+    end
+end
+
+RunService.RenderStepped:Connect(UpdateFOVCircle)
+
+-- =============================================
+-- GET NEAREST TARGET (with FOV support)
+-- =============================================
+local function GetNearestTarget()
+    local char = player.Character
+    if not char then return nil end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
+    
+    local best, bestDist = nil, math.huge
+    
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= player and plr.Character then
+            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+            if hum and hum.Health > 0 and hrp then
+                if isInFOV(hrp) then
+                    local dist = (hrp.Position - root.Position).Magnitude
+                    if dist < bestDist and dist <= 1000 then
+                        bestDist = dist
+                        best = hrp
+                    end
+                end
+            end
+        end
+    end
+    
+    local enemies = Workspace:FindFirstChild("Enemies")
+    if enemies then
+        for _, npc in pairs(enemies:GetChildren()) do
+            if npc:IsA("Model") then
+                local hum = npc:FindFirstChildOfClass("Humanoid")
+                local hrp = npc:FindFirstChild("HumanoidRootPart")
+                if hum and hum.Health > 0 and hrp then
+                    if isInFOV(hrp) then
+                        local dist = (hrp.Position - root.Position).Magnitude
+                        if dist < bestDist and dist <= 1000 then
+                            bestDist = dist
+                            best = hrp
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    return best
+end
+
+-- =============================================
+-- SILENT AIM (from Nameless Ware)
 -- =============================================
 local SilentAim = (function()
     local module = {}
@@ -106,8 +222,8 @@ local SilentAim = (function()
         Gun   = { Z=false, X=false }
     }
     
-    -- Get nearest target
-    local function GetNearestTarget()
+    -- Get target with FOV check
+    local function GetTarget()
         local char = player.Character
         if not char then return nil end
         local root = char:FindFirstChild("HumanoidRootPart")
@@ -120,10 +236,12 @@ local SilentAim = (function()
                 local hum = plr.Character:FindFirstChildOfClass("Humanoid")
                 local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
                 if hum and hum.Health > 0 and hrp then
-                    local dist = (hrp.Position - root.Position).Magnitude
-                    if dist < bestDist and dist <= maxRange then
-                        bestDist = dist
-                        best = hrp
+                    if isInFOV(hrp) then
+                        local dist = (hrp.Position - root.Position).Magnitude
+                        if dist < bestDist and dist <= maxRange then
+                            bestDist = dist
+                            best = hrp
+                        end
                     end
                 end
             end
@@ -136,10 +254,12 @@ local SilentAim = (function()
                     local hum = npc:FindFirstChildOfClass("Humanoid")
                     local hrp = npc:FindFirstChild("HumanoidRootPart")
                     if hum and hum.Health > 0 and hrp then
-                        local dist = (hrp.Position - root.Position).Magnitude
-                        if dist < bestDist and dist <= maxRange then
-                            bestDist = dist
-                            best = hrp
+                        if isInFOV(hrp) then
+                            local dist = (hrp.Position - root.Position).Magnitude
+                            if dist < bestDist and dist <= maxRange then
+                                bestDist = dist
+                                best = hrp
+                            end
                         end
                     end
                 end
@@ -241,7 +361,6 @@ local SilentAim = (function()
     
     -- Main render loop
     local renderConnection = nil
-    local heartbeatConnection = nil
     
     local function startRenderLoop()
         if renderConnection then return end
@@ -259,7 +378,7 @@ local SilentAim = (function()
             end
             
             if SilentAimPlayersEnabled then
-                local target = GetNearestTarget()
+                local target = GetTarget()
                 if target then
                     PlayersPosition = predicted(target)
                 else
@@ -268,7 +387,7 @@ local SilentAim = (function()
             end
             
             if SilentAimNPCsEnabled then
-                local target = GetNearestTarget()
+                local target = GetTarget()
                 if target then
                     NPCPosition = predicted(target)
                 else
@@ -283,16 +402,12 @@ local SilentAim = (function()
             renderConnection:Disconnect()
             renderConnection = nil
         end
-        if heartbeatConnection then
-            heartbeatConnection:Disconnect()
-            heartbeatConnection = nil
-        end
         PlayersPosition = nil
         NPCPosition = nil
     end
     
     -- =============================================
-    -- SILENT AIM HOOKS (from Nameless Ware)
+    -- SILENT AIM HOOKS
     -- =============================================
     local function SetupHooks()
         local mt = getrawmetatable(game)
@@ -302,7 +417,6 @@ local SilentAim = (function()
         
         setreadonly(mt, false)
         
-        -- Hook FireServer / InvokeServer
         mt.__namecall = newcclosure(function(self, ...)
             local Method = getnamecallmethod()
             local args = {...}
@@ -347,7 +461,6 @@ local SilentAim = (function()
             return oldNamecall(self, unpack(args))
         end)
         
-        -- Hook mouse.Hit and mouse.Target
         mt.__index = newcclosure(function(t, k)
             if (SilentAimPlayersEnabled or SilentAimNPCsEnabled) and t == mouse then
                 local targetPos = PlayersPosition or NPCPosition
@@ -459,17 +572,13 @@ local SilentAim = (function()
 end)()
 
 -- =============================================
--- SORU AUTO AIM (from Nameless Ware)
+-- SORU AUTO AIM (with shared FOV)
 -- =============================================
 local SoruAutoAim = (function()
     local module = {}
     local enabled = false
     local range = 300
-    local targetingMode = "360"
-    local fovType = "V1"
-    local fovRadius = 100
     local targetPriority = "Nearest"
-    local showFOV = false
     local currentTarget = nil
     local targetPosition = nil
     local lastAttack = 0
@@ -495,25 +604,6 @@ local SoruAutoAim = (function()
         print("[Ivory] Soru remote:", remote and "yes" or "no")
     end)
     
-    local function getFOVCenter(mode)
-        if mode == "V2" then return UserInputService:GetMouseLocation() end
-        return Camera.ViewportSize / 2
-    end
-    
-    local function isTargetValid(hrp, lpHRP, aimMode, fovRadius, fovType)
-        if not hrp or not lpHRP then return false end
-        if aimMode == "180" then
-            local dir = (hrp.Position - lpHRP.Position).Unit
-            if lpHRP.CFrame.LookVector:Dot(dir) < 0 then return false end
-        elseif aimMode == "FOV" then
-            local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
-            if not onScreen then return false end
-            local center = getFOVCenter(fovType)
-            if (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude > fovRadius then return false end
-        end
-        return true
-    end
-    
     local function getSoruTarget(lpHRP)
         if not lpHRP then return nil end
         local valid = {}
@@ -523,7 +613,7 @@ local SoruAutoAim = (function()
                 local hum = plr.Character:FindFirstChildOfClass("Humanoid")
                 local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
                 if hum and hum.Health > 0 and hrp then
-                    if isTargetValid(hrp, lpHRP, targetingMode, fovRadius, fovType) then
+                    if isInFOV(hrp) then
                         local dist = (hrp.Position - lpHRP.Position).Magnitude
                         if dist <= range then
                             table.insert(valid, {HRP = hrp, Humanoid = hum, Distance = dist})
@@ -535,12 +625,10 @@ local SoruAutoAim = (function()
         
         if #valid == 0 then return nil end
         
-        if targetingMode == "360" or targetingMode == "180" then
-            if targetPriority == "Nearest" then
-                table.sort(valid, function(a, b) return a.Distance < b.Distance end)
-            elseif targetPriority == "Low HP" then
-                table.sort(valid, function(a, b) return a.Humanoid.Health < b.Humanoid.Health end)
-            end
+        if targetPriority == "Nearest" then
+            table.sort(valid, function(a, b) return a.Distance < b.Distance end)
+        elseif targetPriority == "Low HP" then
+            table.sort(valid, function(a, b) return a.Humanoid.Health < b.Humanoid.Health end)
         end
         
         return valid[1].HRP
@@ -576,46 +664,7 @@ local SoruAutoAim = (function()
         end
     end
     
-    -- Update FOV circle
-    local function updateFOV()
-        if showFOV then
-            if not FOVGui then
-                FOVGui = Instance.new("ScreenGui")
-                FOVGui.Name = "IvorySoruFOV"
-                FOVGui.ResetOnSpawn = false
-                FOVGui.IgnoreGuiInset = true
-                FOVGui.DisplayOrder = 1
-                FOVGui.Parent = Gui
-                FOVRing = Instance.new("Frame")
-                FOVRing.Name = "FOVRing"
-                FOVRing.AnchorPoint = Vector2.new(0.5, 0.5)
-                FOVRing.Position = UDim2.new(0.5, 0, 0.5, 0)
-                FOVRing.BackgroundTransparency = 1
-                FOVRing.BorderSizePixel = 0
-                FOVRing.ZIndex = 100
-                FOVRing.Parent = FOVGui
-                local corner = Instance.new("UICorner")
-                corner.CornerRadius = UDim.new(1, 0)
-                corner.Parent = FOVRing
-                local stroke = Instance.new("UIStroke")
-                stroke.Thickness = 2
-                stroke.Color = COLORS.GREEN
-                stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-                stroke.Parent = FOVRing
-            end
-            local center = getFOVCenter(fovType)
-            local diameter = math.floor(fovRadius * 2)
-            FOVRing.Position = UDim2.new(0, center.X, 0, center.Y)
-            FOVRing.Size = UDim2.fromOffset(diameter, diameter)
-            FOVRing.Visible = true
-        elseif FOVRing then
-            FOVRing.Visible = false
-        end
-    end
-    
-    RunService.RenderStepped:Connect(updateFOV)
-    
-    -- Monitor for Soru/Flashstep animation to auto-teleport
+    -- Monitor for Soru/Flashstep animation
     local function monitorFlashstep(char)
         local hum = char:FindFirstChildOfClass("Humanoid")
         if not hum then return end
@@ -655,11 +704,7 @@ local SoruAutoAim = (function()
     end
     
     function module:SetRange(r) range = r end
-    function module:SetAimMode(mode) targetingMode = mode end
-    function module:SetFOVType(mode) fovType = mode end
-    function module:SetFOVRadius(r) fovRadius = r end
     function module:SetPriority(p) targetPriority = p end
-    function module:SetShowFOV(state) showFOV = state end
     function module:Attack() doSoruAttack() end
     function module:GetTarget() return currentTarget end
     function module:GetTargetPos() return targetPosition end
@@ -819,8 +864,8 @@ ToggleBtn.MouseEnter:Connect(function() TweenIt(ToggleBtn, {BackgroundColor3 = C
 ToggleBtn.MouseLeave:Connect(function() TweenIt(ToggleBtn, {BackgroundColor3 = COLORS.BLACK, TextColor3 = COLORS.WHITE}) end)
 
 local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0, 350, 0, 350)
-Main.Position = UDim2.new(0.5, -175, 0.5, -175)
+Main.Size = UDim2.new(0, 350, 0, 380)
+Main.Position = UDim2.new(0.5, -175, 0.5, -190)
 Main.BackgroundColor3 = COLORS.BLACK
 Main.BorderSizePixel = 0
 Main.Visible = true
@@ -839,7 +884,7 @@ local Title = Text(Top, "IVORY", 14, true)
 Title.Position = UDim2.new(0, 12, 0, 1)
 Title.Size = UDim2.new(0, 100, 0, 18)
 
-local SubTitle = Text(Top, "HUB v5.5", 7, false)
+local SubTitle = Text(Top, "HUB v5.6", 7, false)
 SubTitle.TextColor3 = COLORS.GRAY
 SubTitle.Position = UDim2.new(0, 13, 0, 20)
 SubTitle.Size = UDim2.new(0, 60, 0, 12)
@@ -1097,7 +1142,7 @@ local SettingsPage = CreatePage("Settings")
 
 -- MAIN PAGE
 Section(MainPage, "IVORY HUB")
-local mt = Text(MainPage, "IVORY HUB v5.5", 16, true)
+local mt = Text(MainPage, "IVORY HUB v5.6", 16, true)
 mt.Size = UDim2.new(1, 0, 0, 24)
 mt.TextXAlignment = Enum.TextXAlignment.Center
 mt.TextColor3 = COLORS.WHITE
@@ -1108,7 +1153,7 @@ ms.Position = UDim2.new(0, 0, 0, 26)
 ms.TextXAlignment = Enum.TextXAlignment.Center
 ms.TextColor3 = COLORS.GRAY
 
-local list = {"• Silent Aim (Players + NPCs)", "• Soru Auto Aim", "• ESP", "• Macro System"}
+local list = {"• Silent Aim (Players + NPCs)", "• Soru Auto Aim", "• Shared FOV System", "• ESP", "• Macro System"}
 for i, f in ipairs(list) do
     local lbl = Text(MainPage, f, 9, false)
     lbl.Size = UDim2.new(1, -10, 0, 16)
@@ -1120,10 +1165,12 @@ end
 -- COMBAT PAGE
 Section(CombatPage, "SILENT AIM")
 Toggle(CombatPage, "Player Silent Aim", false, function(s)
+    Features.SilentAim = s
     SilentAim:SetPlayerSilentAim(s)
 end)
 
 Toggle(CombatPage, "NPC Silent Aim", false, function(s)
+    Features.SilentAimNPC = s
     SilentAim:SetNPCSilentAim(s)
 end)
 
@@ -1139,8 +1186,29 @@ Slider(CombatPage, "Max Range", 1000, 100, 3000, function(v)
     SilentAim:SetDistanceLimit(v)
 end, "m")
 
+Section(CombatPage, "SHARED FOV")
+Toggle(CombatPage, "Show FOV Circle", false, function(s)
+    Features.FOVCircle = s
+end)
+
+Slider(CombatPage, "FOV Radius", 150, 10, 500, function(v)
+    Features.FOVRadius = v
+end)
+
+Button(CombatPage, "FOV Mode: V1 (Screen Center)", function()
+    local btn = CombatPage:FindFirstChild("FOVModeButton")
+    if Features.FOVMode == "V1" then
+        Features.FOVMode = "V2"
+        if btn then btn.Text = "FOV Mode: V2 (Mouse)" end
+    else
+        Features.FOVMode = "V1"
+        if btn then btn.Text = "FOV Mode: V1 (Screen Center)" end
+    end
+end)
+
 Section(CombatPage, "SORU AUTO AIM")
 Toggle(CombatPage, "Enable Soru", false, function(s)
+    Features.SoruAim = s
     SoruAutoAim:SetEnabled(s)
     if SoruBtn then SoruBtn.Visible = s end
 end)
@@ -1148,14 +1216,6 @@ end)
 Slider(CombatPage, "Soru Range", 300, 50, 500, function(v)
     SoruAutoAim:SetRange(v)
 end, "m")
-
-Toggle(CombatPage, "Show FOV Circle", false, function(s)
-    SoruAutoAim:SetShowFOV(s)
-end)
-
-Slider(CombatPage, "FOV Radius", 100, 10, 500, function(v)
-    SoruAutoAim:SetFOVRadius(v)
-end)
 
 -- MACRO PAGE
 Section(MacroPage, "MACRO")
@@ -1616,7 +1676,7 @@ Minimize.MouseButton1Click:Connect(function()
         TweenIt(Main, {Size = UDim2.new(0, 350, 0, 34)})
         Minimize.Text = "+"
     else
-        TweenIt(Main, {Size = UDim2.new(0, 350, 0, 350)})
+        TweenIt(Main, {Size = UDim2.new(0, 350, 0, 380)})
         task.wait(.15)
         Sidebar.Visible = true
         Content.Visible = true
@@ -1631,14 +1691,14 @@ Close.MouseButton1Click:Connect(function()
 end)
 
 print("========================================")
-print("        IVORY HUB v5.5 LOADED")
+print("        IVORY HUB v5.6 LOADED")
 print("========================================")
 print("✅ Silent Aim (Players + NPCs)")
 print("✅ Soru Auto Aim")
+print("✅ Shared FOV System")
 print("✅ ESP")
 print("✅ Macro System")
 print("========================================")
+print("💡 FOV applies to BOTH Silent Aim AND Soru")
 print("💡 Enable features in their tabs")
-print("💡 SORU button appears when enabled")
-print("💡 MACRO button appears when enabled")
 print("========================================")
