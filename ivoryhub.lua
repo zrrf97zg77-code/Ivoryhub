@@ -1,10 +1,8 @@
 -- =============================================
--- IVORY HUB v4.0 - Complete PvP + Macro
--- Features: Silent Aim, ESP, Soru/Flashstep,
---           Auto V4 (FIXED), Macro System (Onion13 style)
+-- IVORY HUB v4.4 - FINAL FIXED
 -- =============================================
 
-print("🦷 Ivory Hub v4.0 loading...")
+print("🦷 Ivory Hub v4.4 loading...")
 
 -- Services
 local Players = game:GetService("Players")
@@ -13,29 +11,10 @@ local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CoreGui = game:GetService("CoreGui")
-local Lighting = game:GetService("Lighting")
-local SoundService = game:GetService("SoundService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local player = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
-
--- =============================================
--- CONFIG SYSTEM
--- =============================================
-local CONFIG_FOLDER = "IvoryHub/configs"
-_G.IvoryConfigs = _G.IvoryConfigs or {}
-_G.IvoryLastConfig = _G.IvoryLastConfig or nil
-
-local function ensureFolder()
-    pcall(function()
-        if isfolder and makefolder then
-            if not isfolder("IvoryHub") then makefolder("IvoryHub") end
-            if not isfolder(CONFIG_FOLDER) then makefolder(CONFIG_FOLDER) end
-        end
-    end)
-end
-ensureFolder()
 
 -- =============================================
 -- COLORS
@@ -110,6 +89,7 @@ Gui.Parent = parentGui
 local Features = {
     SilentAimPlayers = false,
     SilentAimNPCs = false,
+    SilentAimMode = "360",
     SoruAimbot = false,
     AutoV4 = false,
     NoClip = false,
@@ -121,8 +101,6 @@ local Features = {
     ESPDistance = false,
     FOVCircle = false,
     FOVRadius = 150,
-    AimMode = "360",
-    TargetPriority = "Nearest",
     MaxRange = 1000,
     Prediction = false,
     PredictionAmount = 0.12,
@@ -130,26 +108,13 @@ local Features = {
 }
 
 -- =============================================
--- MACRO SYSTEM (Onion13 Style)
+-- WEAPON OPTIONS (FIXED: Melee, Fruit, Sword, Gun)
 -- =============================================
-local Macro = {
-    Blocks = {},
-    IsRunning = false,
-    CurrentBlock = 1,
-    Loop = false,
-    SelectedWeapon = "",
-    SelectedSkill = "",
-    HoldDuration = 0,
-    DelayAfter = 0,
-}
-
--- Weapon/Skill options (customize these for your fruit/build)
 local WEAPON_OPTIONS = {
     "Melee",
-    "Sword",
     "Fruit",
+    "Sword",
     "Gun",
-    "Combat",
 }
 
 local SKILL_OPTIONS = {
@@ -163,58 +128,69 @@ local SKILL_OPTIONS = {
 }
 
 -- =============================================
--- MACRO BLOCK UI
+-- MACRO SYSTEM
+-- =============================================
+local Macro = {
+    Blocks = {},
+    IsRunning = false,
+}
+
+-- =============================================
+-- MACRO BLOCK (With Weapon Selection)
 -- =============================================
 local function CreateMacroBlock(parent, index)
     local block = Instance.new("Frame")
     block.Name = "MacroBlock_" .. index
-    block.Size = UDim2.new(1, -10, 0, 80)
+    block.Size = UDim2.new(1, -10, 0, 70)
     block.BackgroundColor3 = DARKER
     block.BorderSizePixel = 0
     block.Parent = parent
     Corner(block, 8)
     AddStroke(block)
     
+    -- Title
     local title = Text(block, "Block " .. index, 10, true)
     title.Position = UDim2.new(0, 10, 0, 4)
     title.Size = UDim2.new(0, 80, 0, 16)
     title.TextColor3 = BLUE
     
-    -- Weapon dropdown
+    -- Weapon button (click to cycle: Melee → Fruit → Sword → Gun)
     local weaponBtn = Instance.new("TextButton")
-    weaponBtn.Size = UDim2.new(0, 100, 0, 20)
+    weaponBtn.Size = UDim2.new(0, 80, 0, 24)
     weaponBtn.Position = UDim2.new(0, 10, 0, 22)
     weaponBtn.BackgroundColor3 = Color3.fromRGB(35,35,35)
-    weaponBtn.Text = "Weapon: " .. (WEAPON_OPTIONS[1] or "None")
+    weaponBtn.Text = "Melee"
     weaponBtn.TextColor3 = WHITE
-    weaponBtn.TextSize = 9
+    weaponBtn.TextSize = 10
     weaponBtn.Font = Enum.Font.GothamMedium
     weaponBtn.BorderSizePixel = 0
     weaponBtn.Parent = block
     Corner(weaponBtn, 6)
+    AddStroke(weaponBtn, Color3.fromRGB(60,60,60))
     
-    -- Skill dropdown
+    -- Skill button (click to cycle)
     local skillBtn = Instance.new("TextButton")
-    skillBtn.Size = UDim2.new(0, 100, 0, 20)
-    skillBtn.Position = UDim2.new(0, 115, 0, 22)
+    skillBtn.Size = UDim2.new(0, 60, 0, 24)
+    skillBtn.Position = UDim2.new(0, 95, 0, 22)
     skillBtn.BackgroundColor3 = Color3.fromRGB(35,35,35)
-    skillBtn.Text = "Skill: " .. (SKILL_OPTIONS[1] or "None")
+    skillBtn.Text = "Z"
     skillBtn.TextColor3 = WHITE
-    skillBtn.TextSize = 9
+    skillBtn.TextSize = 10
     skillBtn.Font = Enum.Font.GothamMedium
     skillBtn.BorderSizePixel = 0
     skillBtn.Parent = block
     Corner(skillBtn, 6)
+    AddStroke(skillBtn, Color3.fromRGB(60,60,60))
     
-    -- Hold Duration
+    -- Hold slider
     local holdLabel = Text(block, "Hold: 0s", 9, false)
-    holdLabel.Position = UDim2.new(0, 225, 0, 24)
-    holdLabel.Size = UDim2.new(0, 80, 0, 16)
+    holdLabel.Position = UDim2.new(0, 165, 0, 24)
+    holdLabel.Size = UDim2.new(0, 70, 0, 16)
     holdLabel.TextColor3 = GRAY
     
     local holdSlider = Instance.new("Frame")
-    holdSlider.Size = UDim2.new(0, 80, 0, 3)
-    holdSlider.Position = UDim2.new(0, 225, 0, 40)
+    holdSlider.Size = UDim2.new(0, 70, 0, 3)
+    holdSlider.Position = UDim2.new(0, 165, 0, 40)
     holdSlider.BackgroundColor3 = Color3.fromRGB(45,45,45)
     holdSlider.BorderSizePixel = 0
     holdSlider.Parent = block
@@ -236,51 +212,15 @@ local function CreateMacroBlock(parent, index)
     holdKnob.Parent = holdSlider
     Corner(holdKnob, 10)
     
-    local holdValue = 0
-    local holdDragging = false
-    
-    local function UpdateHold(pos)
-        local sliderAbsPos = holdSlider.AbsolutePosition
-        local sliderSize = holdSlider.AbsoluteSize.X
-        local relativeX = math.clamp(pos.X - sliderAbsPos.X, 0, sliderSize)
-        local ratio = relativeX / sliderSize
-        holdValue = math.floor(ratio * 5) -- 0-5 seconds
-        holdFill.Size = UDim2.new(ratio, 0, 1, 0)
-        holdKnob.Position = UDim2.new(ratio, -5, 0.5, -5)
-        holdLabel.Text = "Hold: " .. holdValue .. "s"
-    end
-    
-    holdSlider.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            holdDragging = true
-            UpdateHold(input.Position)
-        end
-    end)
-    
-    holdKnob.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            holdDragging = true
-        end
-    end)
-    holdKnob.InputEnded:Connect(function()
-        holdDragging = false
-    end)
-    
-    UserInputService.InputChanged:Connect(function(input)
-        if holdDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            UpdateHold(input.Position)
-        end
-    end)
-    
-    -- Delay After
+    -- Delay slider
     local delayLabel = Text(block, "Delay: 0s", 9, false)
-    delayLabel.Position = UDim2.new(0, 315, 0, 24)
-    delayLabel.Size = UDim2.new(0, 80, 0, 16)
+    delayLabel.Position = UDim2.new(0, 245, 0, 24)
+    delayLabel.Size = UDim2.new(0, 70, 0, 16)
     delayLabel.TextColor3 = GRAY
     
     local delaySlider = Instance.new("Frame")
-    delaySlider.Size = UDim2.new(0, 80, 0, 3)
-    delaySlider.Position = UDim2.new(0, 315, 0, 40)
+    delaySlider.Size = UDim2.new(0, 70, 0, 3)
+    delaySlider.Position = UDim2.new(0, 245, 0, 40)
     delaySlider.BackgroundColor3 = Color3.fromRGB(45,45,45)
     delaySlider.BorderSizePixel = 0
     delaySlider.Parent = block
@@ -302,162 +242,132 @@ local function CreateMacroBlock(parent, index)
     delayKnob.Parent = delaySlider
     Corner(delayKnob, 10)
     
+    -- Values
+    local holdValue = 0
     local delayValue = 0
-    local delayDragging = false
+    local weaponIndex = 1
+    local skillIndex = 1
+    
+    local function UpdateHold(pos)
+        local sliderAbsPos = holdSlider.AbsolutePosition
+        local sliderSize = holdSlider.AbsoluteSize.X
+        local relativeX = math.clamp(pos.X - sliderAbsPos.X, 0, sliderSize)
+        local ratio = relativeX / sliderSize
+        holdValue = math.floor(ratio * 3)
+        holdFill.Size = UDim2.new(ratio, 0, 1, 0)
+        holdKnob.Position = UDim2.new(ratio, -5, 0.5, -5)
+        holdLabel.Text = "Hold: " .. holdValue .. "s"
+    end
     
     local function UpdateDelay(pos)
         local sliderAbsPos = delaySlider.AbsolutePosition
         local sliderSize = delaySlider.AbsoluteSize.X
         local relativeX = math.clamp(pos.X - sliderAbsPos.X, 0, sliderSize)
         local ratio = relativeX / sliderSize
-        delayValue = math.floor(ratio * 5) -- 0-5 seconds
+        delayValue = math.floor(ratio * 3)
         delayFill.Size = UDim2.new(ratio, 0, 1, 0)
         delayKnob.Position = UDim2.new(ratio, -5, 0.5, -5)
         delayLabel.Text = "Delay: " .. delayValue .. "s"
     end
     
+    -- Hold slider events
+    holdSlider.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            UpdateHold(input.Position)
+        end
+    end)
+    
+    holdKnob.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            local conn
+            conn = UserInputService.InputChanged:Connect(function(input2)
+                if input2.UserInputType == Enum.UserInputType.MouseMovement or input2.UserInputType == Enum.UserInputType.Touch then
+                    UpdateHold(input2.Position)
+                end
+            end)
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    conn:Disconnect()
+                end
+            end)
+        end
+    end)
+    
+    -- Delay slider events
     delaySlider.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            delayDragging = true
             UpdateDelay(input.Position)
         end
     end)
     
     delayKnob.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            delayDragging = true
+            local conn
+            conn = UserInputService.InputChanged:Connect(function(input2)
+                if input2.UserInputType == Enum.UserInputType.MouseMovement or input2.UserInputType == Enum.UserInputType.Touch then
+                    UpdateDelay(input2.Position)
+                end
+            end)
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    conn:Disconnect()
+                end
+            end)
         end
     end)
-    delayKnob.InputEnded:Connect(function()
-        delayDragging = false
+    
+    -- Weapon button - click to cycle: Melee → Fruit → Sword → Gun → Melee...
+    weaponBtn.MouseButton1Click:Connect(function()
+        weaponIndex = weaponIndex % #WEAPON_OPTIONS + 1
+        weaponBtn.Text = WEAPON_OPTIONS[weaponIndex]
     end)
     
-    UserInputService.InputChanged:Connect(function(input)
-        if delayDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            UpdateDelay(input.Position)
-        end
+    -- Skill button - click to cycle
+    skillBtn.MouseButton1Click:Connect(function()
+        skillIndex = skillIndex % #SKILL_OPTIONS + 1
+        skillBtn.Text = SKILL_OPTIONS[skillIndex]
     end)
     
-    -- Store block data
     local blockData = {
         Index = index,
-        Weapon = WEAPON_OPTIONS[1],
-        Skill = SKILL_OPTIONS[1],
-        Hold = 0,
-        Delay = 0,
+        Weapon = function() return WEAPON_OPTIONS[weaponIndex] end,
+        Skill = function() return SKILL_OPTIONS[skillIndex] end,
+        Hold = function() return holdValue end,
+        Delay = function() return delayValue end,
         WeaponBtn = weaponBtn,
         SkillBtn = skillBtn,
-        HoldLabel = holdLabel,
-        DelayLabel = delayLabel,
-        HoldValue = function() return holdValue end,
-        DelayValue = function() return delayValue end,
     }
-    
-    -- Weapon dropdown
-    local weaponDropOpen = false
-    weaponBtn.MouseButton1Click:Connect(function()
-        weaponDropOpen = not weaponDropOpen
-        if weaponDropOpen then
-            -- Create dropdown
-            local drop = Instance.new("Frame")
-            drop.Name = "WeaponDrop"
-            drop.Size = UDim2.new(0, 100, 0, #WEAPON_OPTIONS * 20)
-            drop.Position = UDim2.new(0, 10, 0, 42)
-            drop.BackgroundColor3 = Color3.fromRGB(30,30,30)
-            drop.BorderSizePixel = 0
-            drop.Parent = block
-            Corner(drop, 6)
-            
-            for i, opt in ipairs(WEAPON_OPTIONS) do
-                local btn = Instance.new("TextButton")
-                btn.Size = UDim2.new(1, 0, 0, 20)
-                btn.BackgroundColor3 = Color3.fromRGB(35,35,35)
-                btn.Text = opt
-                btn.TextColor3 = WHITE
-                btn.TextSize = 9
-                btn.Font = Enum.Font.GothamMedium
-                btn.BorderSizePixel = 0
-                btn.Parent = drop
-                btn.MouseButton1Click:Connect(function()
-                    blockData.Weapon = opt
-                    weaponBtn.Text = "Weapon: " .. opt
-                    drop:Destroy()
-                    weaponDropOpen = false
-                end)
-            end
-        else
-            local drop = block:FindFirstChild("WeaponDrop")
-            if drop then drop:Destroy() end
-        end
-    end)
-    
-    -- Skill dropdown
-    local skillDropOpen = false
-    skillBtn.MouseButton1Click:Connect(function()
-        skillDropOpen = not skillDropOpen
-        if skillDropOpen then
-            local drop = Instance.new("Frame")
-            drop.Name = "SkillDrop"
-            drop.Size = UDim2.new(0, 100, 0, #SKILL_OPTIONS * 20)
-            drop.Position = UDim2.new(0, 115, 0, 42)
-            drop.BackgroundColor3 = Color3.fromRGB(30,30,30)
-            drop.BorderSizePixel = 0
-            drop.Parent = block
-            Corner(drop, 6)
-            
-            for i, opt in ipairs(SKILL_OPTIONS) do
-                local btn = Instance.new("TextButton")
-                btn.Size = UDim2.new(1, 0, 0, 20)
-                btn.BackgroundColor3 = Color3.fromRGB(35,35,35)
-                btn.Text = opt
-                btn.TextColor3 = WHITE
-                btn.TextSize = 9
-                btn.Font = Enum.Font.GothamMedium
-                btn.BorderSizePixel = 0
-                btn.Parent = drop
-                btn.MouseButton1Click:Connect(function()
-                    blockData.Skill = opt
-                    skillBtn.Text = "Skill: " .. opt
-                    drop:Destroy()
-                    skillDropOpen = false
-                end)
-            end
-        else
-            local drop = block:FindFirstChild("SkillDrop")
-            if drop then drop:Destroy() end
-        end
-    end)
     
     return blockData
 end
 
 -- =============================================
--- MACRO EXECUTION
+-- EXECUTE MACRO
 -- =============================================
 local function ExecuteMacro()
     if not Features.MacroEnabled then return end
-    if #Macro.Blocks == 0 then return end
+    if #Macro.Blocks == 0 then 
+        print("[Ivory] No macro blocks!") 
+        return 
+    end
     
+    if Macro.IsRunning then return end
     Macro.IsRunning = true
     
     task.spawn(function()
         for _, block in ipairs(Macro.Blocks) do
             if not Features.MacroEnabled then break end
             
-            -- Get the actual skill key
-            local skill = block.Skill
-            local weapon = block.Weapon
-            local hold = block.Hold
-            local delay = block.Delay
+            local skill = block.Skill()
+            local hold = block.Hold()
+            local delay = block.Delay()
             
-            -- Press the skill key
+            -- Press the skill
             if skill == "M1" then
-                -- Simulate mouse click
                 VirtualInputManager:SendMouseButtonEvent(Enum.UserInputType.MouseButton1, 0, 0, true)
                 task.wait(hold or 0.1)
                 VirtualInputManager:SendMouseButtonEvent(Enum.UserInputType.MouseButton1, 0, 0, false)
             else
-                -- Press keyboard key
                 local keyCode = Enum.KeyCode[skill] or Enum.KeyCode.Z
                 VirtualInputManager:SendKeyEvent(true, keyCode, false)
                 if hold > 0 then
@@ -468,32 +378,23 @@ local function ExecuteMacro()
                 VirtualInputManager:SendKeyEvent(false, keyCode, false)
             end
             
-            -- Wait for delay
             if delay > 0 then
                 task.wait(delay)
             end
         end
         
         Macro.IsRunning = false
-        
-        -- If loop is enabled, restart
-        if Macro.Loop and Features.MacroEnabled then
-            task.wait(0.5)
-            ExecuteMacro()
-        end
     end)
 end
 
 -- =============================================
--- SILENT AIM MODULE
+-- SILENT AIM MODULE (360 + FOV)
 -- =============================================
 local SilentAim = (function()
     local module = {}
     local PlayersPosition = nil
     local NPCPosition = nil
     local FOVRadius = 150
-    local AimMode = "360"
-    local TargetPriority = "Nearest"
     local MaxRange = 1000
     local PredictionEnabled = false
     local PredictionAmount = 0.12
@@ -518,12 +419,17 @@ local SilentAim = (function()
     
     local function isTargetValid(hrp, lpHRP)
         if not hrp or not lpHRP then return false end
-        if AimMode == "180" then
-            local dir = (hrp.Position - lpHRP.Position).Unit
-            if lpHRP.CFrame.LookVector:Dot(dir) < 0 then return false end
-        elseif AimMode == "FOV" then
+        
+        -- 360 mode = always valid if in range
+        if Features.SilentAimMode == "360" then
+            return true
+        end
+        
+        -- FOV mode = only if in FOV circle
+        if Features.SilentAimMode == "FOV" then
             return isTargetInFOV(hrp)
         end
+        
         return true
     end
     
@@ -534,28 +440,16 @@ local SilentAim = (function()
             if plr ~= player and plr.Character and plr.Character.Parent then
                 local hum = plr.Character:FindFirstChildOfClass("Humanoid")
                 local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
-                if hum and hum.Health > 0 and hrp and isTargetValid(hrp, lpHRP) then
+                if hum and hum.Health > 0 and hrp then
                     local dist = (hrp.Position - lpHRP.Position).Magnitude
-                    if dist <= MaxRange then
+                    if dist <= MaxRange and isTargetValid(hrp, lpHRP) then
                         table.insert(valid, {Player=plr, Humanoid=hum, HRP=hrp, Distance=dist})
                     end
                 end
             end
         end
         if #valid == 0 then return nil end
-        if TargetPriority == "Nearest" then
-            table.sort(valid, function(a,b) return a.Distance < b.Distance end)
-        elseif TargetPriority == "Low HP" then
-            table.sort(valid, function(a,b) return a.Humanoid.Health < b.Humanoid.Health end)
-        elseif TargetPriority == "Looking At Me" then
-            table.sort(valid, function(a,b)
-                local dirA = (lpHRP.Position - a.HRP.Position).Unit
-                local lookA = a.HRP.CFrame.LookVector
-                local dirB = (lpHRP.Position - b.HRP.Position).Unit
-                local lookB = b.HRP.CFrame.LookVector
-                return lookA:Dot(dirA) > lookB:Dot(dirB)
-            end)
-        end
+        table.sort(valid, function(a,b) return a.Distance < b.Distance end)
         return valid[1]
     end
     
@@ -568,9 +462,9 @@ local SilentAim = (function()
             if npc:IsA("Model") then
                 local hum = npc:FindFirstChildOfClass("Humanoid")
                 local hrp = npc:FindFirstChild("HumanoidRootPart")
-                if hum and hum.Health > 0 and hrp and isTargetValid(hrp, lpHRP) then
+                if hum and hum.Health > 0 and hrp then
                     local dist = (hrp.Position - lpHRP.Position).Magnitude
-                    if dist <= MaxRange and dist < closestDist then
+                    if dist <= MaxRange and dist < closestDist and isTargetValid(hrp, lpHRP) then
                         closestDist = dist
                         closest = npc
                     end
@@ -594,6 +488,7 @@ local SilentAim = (function()
     local function startRenderLoop()
         if renderConnection then return end
         renderConnection = RunService.RenderStepped:Connect(function()
+            -- FOV circle
             if ShowFOVCircle then
                 if not FOVGui then
                     FOVGui = Instance.new("ScreenGui")
@@ -663,7 +558,7 @@ local SilentAim = (function()
         NPCPosition = nil
     end
     
-    -- Metatable hooks for Silent Aim
+    -- Silent Aim hooks
     local oldIndex, oldNamecall = nil, nil
     
     local function installHooks()
@@ -717,20 +612,17 @@ local SilentAim = (function()
         return PlayersPosition or NPCPosition
     end
     
-    function module:SetAimMode(mode) AimMode = mode end
-    function module:SetTargetPriority(prio) TargetPriority = prio end
     function module:SetFOVRadius(radius) FOVRadius = radius end
     function module:SetShowFOVCircle(state) ShowFOVCircle = state end
     function module:SetDistanceLimit(dist) MaxRange = dist end
     function module:SetPrediction(state) PredictionEnabled = state end
     function module:SetPredictionAmount(amount) PredictionAmount = amount end
-    function module:IsTargetInFOV(hrp) return isTargetInFOV(hrp) end
     
     return module
 end)()
 
 -- =============================================
--- SORU / FLASHSTEP AIMBOT
+-- SORU AIMBOT (Works anywhere)
 -- =============================================
 local SoruAimbot = (function()
     local module = {}
@@ -738,6 +630,7 @@ local SoruAimbot = (function()
     local cooldown = 0
     local flashstepRemote = nil
     
+    -- Find Flashstep remote
     task.spawn(function()
         local remotes = ReplicatedStorage:FindFirstChild("Remotes")
         if remotes then flashstepRemote = remotes:FindFirstChild("CommF_") end
@@ -751,7 +644,7 @@ local SoruAimbot = (function()
                 end
             end
         end
-        print("Ivory Hub: Flashstep remote found:", flashstepRemote and "yes" or "no")
+        print("[Ivory] Flashstep remote:", flashstepRemote and "yes" or "no")
     end)
     
     local function teleport(targetPos)
@@ -762,7 +655,7 @@ local SoruAimbot = (function()
         if not hrp then return false end
         
         local dist = (targetPos - hrp.Position).Magnitude
-        if dist > 1000 then return false end
+        if dist > 1500 then return false end
         
         local success = false
         pcall(function()
@@ -791,6 +684,7 @@ local SoruAimbot = (function()
             if string.find(animName, "flashstep") or string.find(animName, "soru") or 
                string.find(animName, "dash") or string.find(animId, "17555632156") or 
                string.find(animId, "616006778") then
+                
                 local targetPos = SilentAim:GetTargetPos()
                 if targetPos then
                     if teleport(targetPos) then
@@ -824,7 +718,7 @@ if player.Character then
 end
 
 -- =============================================
--- FIXED AUTO V4
+-- AUTO V4
 -- =============================================
 local AutoV4 = (function()
     local module = {}
@@ -840,16 +734,12 @@ local AutoV4 = (function()
         local char = player.Character
         if not char then return end
         
-        -- Check RaceEnergy attribute
         local raceEnergy = char:GetAttribute("RaceEnergy")
         if raceEnergy and raceEnergy >= 100 then
-            -- Try multiple ways to trigger awakening
             local success = false
             
-            -- Method 1: Check Backpack and Character for Awakening tool
             local awk = player.Backpack:FindFirstChild("Awakening") or char:FindFirstChild("Awakening")
             if awk then
-                -- Look for RemoteFunction or RemoteEvent in the tool
                 for _, child in pairs(awk:GetDescendants()) do
                     if child:IsA("RemoteFunction") or child:IsA("RemoteEvent") then
                         pcall(function()
@@ -864,7 +754,6 @@ local AutoV4 = (function()
                 end
             end
             
-            -- Method 2: Use ReplicatedStorage remotes
             if not success then
                 local remotes = ReplicatedStorage:FindFirstChild("Remotes")
                 if remotes then
@@ -882,31 +771,6 @@ local AutoV4 = (function()
                 end
             end
             
-            -- Method 3: Search ReplicatedStorage globally
-            if not success then
-                for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
-                    if obj.Name == "Awakening" or string.find(string.lower(obj.Name), "awaken") then
-                        pcall(function()
-                            if obj:IsA("RemoteFunction") then
-                                obj:InvokeServer(true)
-                            elseif obj:IsA("RemoteEvent") then
-                                obj:FireServer(true)
-                            end
-                            success = true
-                        end)
-                    end
-                end
-            end
-            
-            -- Method 4: Check for V4 related attributes
-            if not success then
-                -- Some scripts use a boolean attribute to trigger
-                pcall(function()
-                    char:SetAttribute("AwakeningTrigger", true)
-                end)
-            end
-            
-            -- Reset RaceEnergy to avoid spamming
             pcall(function()
                 char:SetAttribute("RaceEnergy", 0)
             end)
@@ -973,7 +837,7 @@ local ESP = (function()
         local healthBg = Instance.new("Frame")
         healthBg.Size = UDim2.new(1, 0, 0, 4)
         healthBg.Position = UDim2.new(0, 0, 1, -4)
-        healthBg.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+        healthBg.BackgroundColor3 = Color3.fromRGB(20,20,20)
         healthBg.BorderSizePixel = 0
         healthBg.Parent = mainFrame
         
@@ -987,9 +851,9 @@ local ESP = (function()
         box.Size = UDim2.new(0, 40, 0, 40)
         box.Position = UDim2.new(0.5, -20, 0.5, -20)
         box.BackgroundTransparency = 0.6
-        box.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        box.BackgroundColor3 = Color3.fromRGB(255,255,255)
         box.BorderSizePixel = 1
-        box.BorderColor3 = Color3.fromRGB(255, 255, 255)
+        box.BorderColor3 = Color3.fromRGB(255,255,255)
         box.Visible = false
         box.Parent = gui
         
@@ -1189,18 +1053,18 @@ local function CheckLoop()
 end
 
 -- =============================================
--- FLOATING TOGGLE BUTTON
+-- COMPACT GUI
 -- =============================================
 local ToggleBtn = Instance.new("TextButton")
 ToggleBtn.Name = "IvoryToggle"
-ToggleBtn.Size = UDim2.fromOffset(48,48)
-ToggleBtn.Position = UDim2.new(0, 20, 0.5, -24)
+ToggleBtn.Size = UDim2.fromOffset(42,42)
+ToggleBtn.Position = UDim2.new(0, 15, 0.5, -21)
 ToggleBtn.BackgroundColor3 = BLACK
 ToggleBtn.BorderColor3 = WHITE
 ToggleBtn.BorderSizePixel = 2
 ToggleBtn.Text = "I"
 ToggleBtn.TextColor3 = WHITE
-ToggleBtn.TextSize = 22
+ToggleBtn.TextSize = 20
 ToggleBtn.Font = Enum.Font.GothamBold
 ToggleBtn.AutoButtonColor = false
 ToggleBtn.Parent = Gui
@@ -1214,12 +1078,12 @@ ToggleBtn.MouseLeave:Connect(function()
 end)
 
 -- =============================================
--- MAIN WINDOW
+-- MAIN WINDOW (SMALLER)
 -- =============================================
 local Main = Instance.new("Frame")
 Main.Name = "MainWindow"
-Main.Size = UDim2.new(0, 550, 0, 480)
-Main.Position = UDim2.new(0.5, -275, 0.5, -240)
+Main.Size = UDim2.new(0, 380, 0, 380)
+Main.Position = UDim2.new(0.5, -190, 0.5, -190)
 Main.BackgroundColor3 = BLACK
 Main.BorderSizePixel = 0
 Main.Visible = true
@@ -1227,42 +1091,42 @@ Main.Parent = Gui
 Corner(Main, 12)
 AddStroke(Main)
 
--- Top bar
+-- Top bar (smaller)
 local Top = Instance.new("Frame")
-Top.Size = UDim2.new(1, 0, 0, 48)
+Top.Size = UDim2.new(1, 0, 0, 38)
 Top.BackgroundColor3 = DARK
 Top.BorderSizePixel = 0
 Top.Parent = Main
 Corner(Top, 12)
 
-local Title = Text(Top, "IVORY", 17, true)
-Title.Position = UDim2.new(0, 14, 0, 4)
-Title.Size = UDim2.new(0, 120, 0, 24)
+local Title = Text(Top, "IVORY", 15, true)
+Title.Position = UDim2.new(0, 12, 0, 2)
+Title.Size = UDim2.new(0, 100, 0, 20)
 
-local SubTitle = Text(Top, "H U B", 9, false)
+local SubTitle = Text(Top, "HUB", 8, false)
 SubTitle.TextColor3 = GRAY
-SubTitle.Position = UDim2.new(0, 15, 0, 26)
-SubTitle.Size = UDim2.new(0, 80, 0, 14)
+SubTitle.Position = UDim2.new(0, 13, 0, 22)
+SubTitle.Size = UDim2.new(0, 60, 0, 12)
 
 local Close = Instance.new("TextButton")
-Close.Size = UDim2.new(0, 32, 0, 32)
-Close.Position = UDim2.new(1, -40, 0, 8)
+Close.Size = UDim2.new(0, 28, 0, 28)
+Close.Position = UDim2.new(1, -34, 0.5, -14)
 Close.BackgroundColor3 = DARKER
 Close.Text = "×"
 Close.TextColor3 = WHITE
-Close.TextSize = 20
+Close.TextSize = 18
 Close.Font = Enum.Font.GothamBold
 Close.BorderSizePixel = 0
 Close.Parent = Top
 Corner(Close, 8)
 
 local Minimize = Instance.new("TextButton")
-Minimize.Size = UDim2.new(0, 32, 0, 32)
-Minimize.Position = UDim2.new(1, -76, 0, 8)
+Minimize.Size = UDim2.new(0, 28, 0, 28)
+Minimize.Position = UDim2.new(1, -66, 0.5, -14)
 Minimize.BackgroundColor3 = DARKER
 Minimize.Text = "—"
 Minimize.TextColor3 = WHITE
-Minimize.TextSize = 18
+Minimize.TextSize = 16
 Minimize.Font = Enum.Font.GothamBold
 Minimize.BorderSizePixel = 0
 Minimize.Parent = Top
@@ -1275,11 +1139,11 @@ ToggleBtn.MouseButton1Click:Connect(function()
 end)
 
 -- =============================================
--- SIDEBAR & CONTENT
+-- SIDEBAR & CONTENT (Smaller)
 -- =============================================
 local Sidebar = Instance.new("Frame")
-Sidebar.Size = UDim2.new(0, 110, 1, -58)
-Sidebar.Position = UDim2.new(0, 8, 0, 54)
+Sidebar.Size = UDim2.new(0, 90, 1, -48)
+Sidebar.Position = UDim2.new(0, 6, 0, 44)
 Sidebar.BackgroundColor3 = DARK
 Sidebar.BorderSizePixel = 0
 Sidebar.Parent = Main
@@ -1287,19 +1151,19 @@ Corner(Sidebar, 10)
 AddStroke(Sidebar)
 
 local TabLayout = Instance.new("UIListLayout")
-TabLayout.Padding = UDim.new(0, 4)
+TabLayout.Padding = UDim.new(0, 3)
 TabLayout.SortOrder = Enum.SortOrder.LayoutOrder
 TabLayout.Parent = Sidebar
 
 local Padding = Instance.new("UIPadding")
-Padding.PaddingTop = UDim.new(0, 8)
-Padding.PaddingLeft = UDim.new(0, 6)
-Padding.PaddingRight = UDim.new(0, 6)
+Padding.PaddingTop = UDim.new(0, 6)
+Padding.PaddingLeft = UDim.new(0, 4)
+Padding.PaddingRight = UDim.new(0, 4)
 Padding.Parent = Sidebar
 
 local Content = Instance.new("Frame")
-Content.Size = UDim2.new(1, -126, 1, -58)
-Content.Position = UDim2.new(0, 118, 0, 54)
+Content.Size = UDim2.new(1, -106, 1, -48)
+Content.Position = UDim2.new(0, 98, 0, 44)
 Content.BackgroundColor3 = DARK
 Content.BorderSizePixel = 0
 Content.Parent = Main
@@ -1311,8 +1175,8 @@ local Pages = {}
 local function CreatePage(name)
     local Page = Instance.new("ScrollingFrame")
     Page.Name = name
-    Page.Size = UDim2.new(1, -16, 1, -16)
-    Page.Position = UDim2.new(0, 8, 0, 8)
+    Page.Size = UDim2.new(1, -12, 1, -12)
+    Page.Position = UDim2.new(0, 6, 0, 6)
     Page.BackgroundTransparency = 1
     Page.BorderSizePixel = 0
     Page.ScrollBarThickness = 2
@@ -1321,7 +1185,7 @@ local function CreatePage(name)
     Page.CanvasSize = UDim2.new(0, 0, 0, 0)
     Page.Parent = Content
     local Layout = Instance.new("UIListLayout")
-    Layout.Padding = UDim.new(0, 6)
+    Layout.Padding = UDim.new(0, 4)
     Layout.SortOrder = Enum.SortOrder.LayoutOrder
     Layout.Parent = Page
     Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
@@ -1332,20 +1196,20 @@ local function CreatePage(name)
 end
 
 local function Section(parent, text)
-    local Label = Text(parent, text, 9, true)
+    local Label = Text(parent, text, 8, true)
     Label.TextColor3 = GRAY
-    Label.Size = UDim2.new(1, 0, 0, 20)
+    Label.Size = UDim2.new(1, 0, 0, 16)
     return Label
 end
 
 local function Button(parent, text, callback)
     local Btn = Instance.new("TextButton")
-    Btn.Size = UDim2.new(1, 0, 0, 32)
+    Btn.Size = UDim2.new(1, 0, 0, 28)
     Btn.BackgroundColor3 = DARKER
     Btn.BorderSizePixel = 0
     Btn.Text = text
     Btn.TextColor3 = WHITE
-    Btn.TextSize = 11
+    Btn.TextSize = 10
     Btn.Font = Enum.Font.GothamMedium
     Btn.AutoButtonColor = false
     Btn.Parent = parent
@@ -1360,20 +1224,20 @@ end
 local function Toggle(parent, text, default, callback)
     local State = default or false
     local Holder = Instance.new("Frame")
-    Holder.Size = UDim2.new(1, 0, 0, 32)
+    Holder.Size = UDim2.new(1, 0, 0, 26)
     Holder.BackgroundColor3 = DARKER
     Holder.BorderSizePixel = 0
     Holder.Parent = parent
     Corner(Holder, 8)
     AddStroke(Holder)
 
-    local Label = Text(Holder, text .. ": OFF", 10, false)
-    Label.Position = UDim2.new(0, 10, 0, 0)
-    Label.Size = UDim2.new(1, -60, 1, 0)
+    local Label = Text(Holder, text .. ": OFF", 9, false)
+    Label.Position = UDim2.new(0, 8, 0, 0)
+    Label.Size = UDim2.new(1, -50, 1, 0)
 
     local Switch = Instance.new("TextButton")
-    Switch.Size = UDim2.new(0, 30, 0, 16)
-    Switch.Position = UDim2.new(1, -38, 0.5, -8)
+    Switch.Size = UDim2.new(0, 26, 0, 14)
+    Switch.Position = UDim2.new(1, -34, 0.5, -7)
     Switch.BackgroundColor3 = Color3.fromRGB(35,35,35)
     Switch.Text = ""
     Switch.BorderSizePixel = 0
@@ -1381,8 +1245,8 @@ local function Toggle(parent, text, default, callback)
     Corner(Switch, 20)
 
     local Circle = Instance.new("Frame")
-    Circle.Size = UDim2.new(0, 12, 0, 12)
-    Circle.Position = UDim2.new(0, 2, 0.5, -6)
+    Circle.Size = UDim2.new(0, 10, 0, 10)
+    Circle.Position = UDim2.new(0, 2, 0.5, -5)
     Circle.BackgroundColor3 = GRAY
     Circle.BorderSizePixel = 0
     Circle.Parent = Switch
@@ -1391,11 +1255,11 @@ local function Toggle(parent, text, default, callback)
     local function Update()
         if State then
             Tween(Switch, .2, {BackgroundColor3 = WHITE})
-            Tween(Circle, .2, {Position = UDim2.new(1, -14, 0.5, -6), BackgroundColor3 = BLACK})
+            Tween(Circle, .2, {Position = UDim2.new(1, -12, 0.5, -5), BackgroundColor3 = BLACK})
             Label.Text = text .. ": ON"
         else
             Tween(Switch, .2, {BackgroundColor3 = Color3.fromRGB(35,35,35)})
-            Tween(Circle, .2, {Position = UDim2.new(0, 2, 0.5, -6), BackgroundColor3 = GRAY})
+            Tween(Circle, .2, {Position = UDim2.new(0, 2, 0.5, -5), BackgroundColor3 = GRAY})
             Label.Text = text .. ": OFF"
         end
         if callback then callback(State) end
@@ -1412,20 +1276,20 @@ end
 local function Slider(parent, text, default, minVal, maxVal, callback, suffix)
     local Value = default or 50
     local Holder = Instance.new("Frame")
-    Holder.Size = UDim2.new(1, 0, 0, 36)
+    Holder.Size = UDim2.new(1, 0, 0, 30)
     Holder.BackgroundColor3 = DARKER
     Holder.BorderSizePixel = 0
     Holder.Parent = parent
     Corner(Holder, 8)
     AddStroke(Holder)
 
-    local Label = Text(Holder, text .. ": " .. tostring(Value) .. (suffix or ""), 10, false)
-    Label.Position = UDim2.new(0, 10, 0, 0)
+    local Label = Text(Holder, text .. ": " .. tostring(Value) .. (suffix or ""), 9, false)
+    Label.Position = UDim2.new(0, 8, 0, 0)
     Label.Size = UDim2.new(1, -50, 1, 0)
 
     local SliderBg = Instance.new("Frame")
-    SliderBg.Size = UDim2.new(0, 120, 0, 3)
-    SliderBg.Position = UDim2.new(0, 10, .5, 6)
+    SliderBg.Size = UDim2.new(0, 100, 0, 3)
+    SliderBg.Position = UDim2.new(0, 8, .5, 5)
     SliderBg.BackgroundColor3 = Color3.fromRGB(45,45,45)
     SliderBg.BorderSizePixel = 0
     SliderBg.Parent = Holder
@@ -1439,8 +1303,8 @@ local function Slider(parent, text, default, minVal, maxVal, callback, suffix)
     Corner(SliderFill, 2)
 
     local Knob = Instance.new("TextButton")
-    Knob.Size = UDim2.new(0, 14, 0, 14)
-    Knob.Position = UDim2.new((Value - minVal) / (maxVal - minVal), -7, 0.5, -7)
+    Knob.Size = UDim2.new(0, 12, 0, 12)
+    Knob.Position = UDim2.new((Value - minVal) / (maxVal - minVal), -6, 0.5, -6)
     Knob.BackgroundColor3 = WHITE
     Knob.Text = ""
     Knob.BorderSizePixel = 0
@@ -1452,7 +1316,7 @@ local function Slider(parent, text, default, minVal, maxVal, callback, suffix)
         Value = clamped
         local ratio = (clamped - minVal) / (maxVal - minVal)
         SliderFill.Size = UDim2.new(ratio, 0, 1, 0)
-        Knob.Position = UDim2.new(ratio, -7, 0.5, -7)
+        Knob.Position = UDim2.new(ratio, -6, 0.5, -6)
         Label.Text = text .. ": " .. tostring(math.floor(clamped)) .. (suffix or "")
         if callback then callback(clamped) end
     end
@@ -1508,31 +1372,29 @@ local CreditsPage = CreatePage("Credits")
 -- MAIN PAGE
 -- =============================================
 Section(MainPage, "IVORY HUB")
-local mainTitle = Text(MainPage, "IVORY HUB v4.0", 18, true)
-mainTitle.Size = UDim2.new(1, 0, 0, 30)
+local mainTitle = Text(MainPage, "IVORY HUB v4.4", 16, true)
+mainTitle.Size = UDim2.new(1, 0, 0, 24)
 mainTitle.TextXAlignment = Enum.TextXAlignment.Center
 mainTitle.TextColor3 = WHITE
 
-local mainSub = Text(MainPage, "Blox Fruits PVP + Macro Script", 10, false)
-mainSub.Size = UDim2.new(1, 0, 0, 18)
-mainSub.Position = UDim2.new(0, 0, 0, 32)
+local mainSub = Text(MainPage, "Blox Fruits PVP + Macro", 9, false)
+mainSub.Size = UDim2.new(1, 0, 0, 16)
+mainSub.Position = UDim2.new(0, 0, 0, 26)
 mainSub.TextXAlignment = Enum.TextXAlignment.Center
 mainSub.TextColor3 = GRAY
 
 local features = {
-    "✔ Silent Aim (Players & NPCs)",
-    "✔ FOV Circle & Radius",
-    "✔ Soru/Flashstep Aimbot (auto-teleport)",
-    "✔ Auto V4 Awakening (FIXED)",
-    "✔ No Clip & Anti-AFK",
-    "✔ ESP (Box, Name, Health, Distance)",
-    "✔ ONION13-Style Macro System",
-    "✔ Config Save/Load"
+    "• Silent Aim (360 / FOV)",
+    "• Soru/Flashstep Aimbot",
+    "• Auto V4 Awakening",
+    "• ESP (Box/Name/Health/Dist)",
+    "• No Clip & Anti-AFK",
+    "• Macro System (Melee/Fruit/Sword/Gun)",
 }
 for i, f in ipairs(features) do
-    local lbl = Text(MainPage, f, 10, false)
-    lbl.Size = UDim2.new(1, -10, 0, 18)
-    lbl.Position = UDim2.new(0, 5, 0, 70 + (i-1)*20)
+    local lbl = Text(MainPage, f, 9, false)
+    lbl.Size = UDim2.new(1, -10, 0, 16)
+    lbl.Position = UDim2.new(0, 5, 0, 50 + (i-1)*16)
     lbl.TextColor3 = WHITE
     lbl.TextXAlignment = Enum.TextXAlignment.Left
 end
@@ -1551,39 +1413,20 @@ Toggle(CombatPage, "NPC Silent Aim", false, function(s)
     CheckLoop()
 end)
 
-Toggle(CombatPage, "Prediction", false, function(s)
-    SilentAim:SetPrediction(s)
-end)
-
-Slider(CombatPage, "Prediction Amount", 12, 0, 50, function(v)
-    SilentAim:SetPredictionAmount(v / 100)
-end)
-
-Button(CombatPage, "Aim Mode: 360", function()
-    local modes = {"360", "180", "FOV"}
-    local current = Features.AimMode
-    local idx = 1
-    for i, m in ipairs(modes) do if m == current then idx = i break end end
-    idx = idx % #modes + 1
-    Features.AimMode = modes[idx]
-    SilentAim:SetAimMode(modes[idx])
+-- Silent Aim Mode toggle (360 or FOV)
+Button(CombatPage, "Mode: 360", function()
     local btn = CombatPage:FindFirstChild("AimModeButton")
-    if btn then btn.Text = "Aim Mode: " .. modes[idx] end
+    if Features.SilentAimMode == "360" then
+        Features.SilentAimMode = "FOV"
+        SilentAim:SetFOVCircle(true)
+        if btn then btn.Text = "Mode: FOV" end
+    else
+        Features.SilentAimMode = "360"
+        SilentAim:SetFOVCircle(false)
+        if btn then btn.Text = "Mode: 360" end
+    end
 end)
 
-Button(CombatPage, "Target Priority: Nearest", function()
-    local priorities = {"Nearest", "Low HP", "Looking At Me"}
-    local current = Features.TargetPriority
-    local idx = 1
-    for i, p in ipairs(priorities) do if p == current then idx = i break end end
-    idx = idx % #priorities + 1
-    Features.TargetPriority = priorities[idx]
-    SilentAim:SetTargetPriority(priorities[idx])
-    local btn = CombatPage:FindFirstChild("TargetPriorityButton")
-    if btn then btn.Text = "Target Priority: " .. priorities[idx] end
-end)
-
-Section(CombatPage, "FOV SETTINGS")
 Toggle(CombatPage, "Show FOV Circle", false, function(s)
     SilentAim:SetShowFOVCircle(s)
     Features.FOVCircle = s
@@ -1599,8 +1442,12 @@ Slider(CombatPage, "Max Range", 1000, 100, 3000, function(v)
     Features.MaxRange = v
 end, "m")
 
+Toggle(CombatPage, "Prediction", false, function(s)
+    SilentAim:SetPrediction(s)
+end)
+
 Section(CombatPage, "EXTRAS")
-Toggle(CombatPage, "Soru/Flashstep Aimbot", false, function(s)
+Toggle(CombatPage, "Soru/Flashstep", false, function(s)
     SoruAimbot:SetEnabled(s)
     Features.SoruAimbot = s
     CheckLoop()
@@ -1617,7 +1464,6 @@ end)
 -- =============================================
 Section(MacroPage, "MACRO SYSTEM")
 
--- Macro toggle
 Toggle(MacroPage, "Enable Macro", false, function(s)
     Features.MacroEnabled = s
     if not s then
@@ -1625,76 +1471,151 @@ Toggle(MacroPage, "Enable Macro", false, function(s)
     end
 end)
 
--- Loop toggle
-Toggle(MacroPage, "Loop Macro", false, function(s)
-    Macro.Loop = s
-end)
+-- Add Block + Clear All buttons side by side
+local btnRow = Instance.new("Frame")
+btnRow.Size = UDim2.new(1, -10, 0, 30)
+btnRow.BackgroundTransparency = 1
+btnRow.Parent = MacroPage
 
--- Add block button
-Button(MacroPage, "+ Add Block", function()
-    local block = CreateMacroBlock(MacroPage, #Macro.Blocks + 1)
-    table.insert(Macro.Blocks, {
-        Index = #Macro.Blocks + 1,
-        Weapon = block.Weapon,
-        Skill = block.Skill,
-        Hold = 0,
-        Delay = 0,
-        WeaponBtn = block.WeaponBtn,
-        SkillBtn = block.SkillBtn,
-        HoldLabel = block.HoldLabel,
-        DelayLabel = block.DelayLabel,
-        HoldValue = block.HoldValue,
-        DelayValue = block.DelayValue,
-    })
-end)
+local addBtn = Instance.new("TextButton")
+addBtn.Size = UDim2.new(0.45, -5, 1, 0)
+addBtn.Position = UDim2.new(0, 0, 0, 0)
+addBtn.BackgroundColor3 = DARKER
+addBtn.Text = "+ Add Block"
+addBtn.TextColor3 = WHITE
+addBtn.TextSize = 10
+addBtn.Font = Enum.Font.GothamMedium
+addBtn.BorderSizePixel = 0
+addBtn.Parent = btnRow
+Corner(addBtn, 8)
+AddStroke(addBtn)
 
--- Clear blocks button
-Button(MacroPage, "Clear All Blocks", function()
-    for _, child in pairs(MacroPage:GetChildren()) do
+local clearBtn = Instance.new("TextButton")
+clearBtn.Size = UDim2.new(0.45, -5, 1, 0)
+clearBtn.Position = UDim2.new(0.55, 5, 0, 0)
+clearBtn.BackgroundColor3 = DARKER
+clearBtn.Text = "Clear All"
+clearBtn.TextColor3 = WHITE
+clearBtn.TextSize = 10
+clearBtn.Font = Enum.Font.GothamMedium
+clearBtn.BorderSizePixel = 0
+clearBtn.Parent = btnRow
+Corner(clearBtn, 8)
+AddStroke(clearBtn)
+
+-- Container for macro blocks
+local blockContainer = Instance.new("ScrollingFrame")
+blockContainer.Size = UDim2.new(1, -10, 0, 200)
+blockContainer.BackgroundTransparency = 1
+blockContainer.BorderSizePixel = 0
+blockContainer.ScrollBarThickness = 3
+blockContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
+blockContainer.AutomaticCanvasSize = Enum.AutomaticSize.Y
+blockContainer.Parent = MacroPage
+
+local blockLayout = Instance.new("UIListLayout")
+blockLayout.Padding = UDim.new(0, 6)
+blockLayout.SortOrder = Enum.SortOrder.LayoutOrder
+blockLayout.Parent = blockContainer
+
+-- Add block function
+local function AddBlock()
+    local idx = #Macro.Blocks + 1
+    local block = CreateMacroBlock(blockContainer, idx)
+    table.insert(Macro.Blocks, block)
+end
+
+-- Clear blocks function
+local function ClearBlocks()
+    for _, child in pairs(blockContainer:GetChildren()) do
         if child:IsA("Frame") and string.find(child.Name, "MacroBlock_") then
             child:Destroy()
         end
     end
     Macro.Blocks = {}
-end)
+end
 
--- Start Macro button
-Button(MacroPage, "▶ START MACRO", function()
-    if Features.MacroEnabled and #Macro.Blocks > 0 then
-        ExecuteMacro()
-        local btn = MacroPage:FindFirstChild("StartMacroButton")
-        if btn then
-            btn.Text = "▶ RUNNING..."
-            task.delay(0.5, function()
-                if btn then btn.Text = "▶ START MACRO" end
-            end)
-        end
+addBtn.MouseButton1Click:Connect(AddBlock)
+clearBtn.MouseButton1Click:Connect(ClearBlocks)
+
+-- Add 3 default blocks
+task.wait(0.1)
+for i = 1, 3 do
+    AddBlock()
+end
+
+-- =============================================
+-- DRAGGABLE MACRO BUTTON
+-- =============================================
+local MacroBtn = Instance.new("TextButton")
+MacroBtn.Name = "MacroButton"
+MacroBtn.Size = UDim2.fromOffset(60, 28)
+MacroBtn.Position = UDim2.new(0.5, -30, 0.85, 0)
+MacroBtn.BackgroundColor3 = RED
+MacroBtn.Text = "MACRO"
+MacroBtn.TextColor3 = WHITE
+MacroBtn.TextSize = 12
+MacroBtn.Font = Enum.Font.GothamBold
+MacroBtn.BorderSizePixel = 0
+MacroBtn.Parent = Gui
+Corner(MacroBtn, 8)
+AddStroke(MacroBtn, Color3.fromRGB(200,50,50))
+
+-- Make it draggable
+local dragData = {dragging = false, startPos = nil, startMouse = nil}
+
+MacroBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragData.dragging = true
+        dragData.startMouse = input.Position
+        dragData.startPos = MacroBtn.Position
     end
 end)
 
--- Add some default blocks
-task.wait(0.5)
-for i = 1, 3 do
-    local block = CreateMacroBlock(MacroPage, i)
-    table.insert(Macro.Blocks, {
-        Index = i,
-        Weapon = block.Weapon,
-        Skill = block.Skill,
-        Hold = 0,
-        Delay = 0,
-        WeaponBtn = block.WeaponBtn,
-        SkillBtn = block.SkillBtn,
-        HoldLabel = block.HoldLabel,
-        DelayLabel = block.DelayLabel,
-        HoldValue = block.HoldValue,
-        DelayValue = block.DelayValue,
-    })
-end
+MacroBtn.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragData.dragging = false
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragData.dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragData.startMouse
+        MacroBtn.Position = UDim2.new(
+            dragData.startPos.X.Scale,
+            dragData.startPos.X.Offset + delta.X,
+            dragData.startPos.Y.Scale,
+            dragData.startPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+-- Execute macro when clicked
+MacroBtn.MouseButton1Click:Connect(function()
+    if Features.MacroEnabled then
+        ExecuteMacro()
+        -- Flash feedback
+        MacroBtn.BackgroundColor3 = GREEN
+        MacroBtn.Text = "▶"
+        task.delay(0.5, function()
+            MacroBtn.BackgroundColor3 = RED
+            MacroBtn.Text = "MACRO"
+        end)
+    else
+        -- Show feedback that macro is disabled
+        MacroBtn.BackgroundColor3 = Color3.fromRGB(100,100,100)
+        MacroBtn.Text = "OFF"
+        task.delay(0.5, function()
+            MacroBtn.BackgroundColor3 = RED
+            MacroBtn.Text = "MACRO"
+        end)
+    end
+end)
 
 -- =============================================
 -- VISUALS PAGE
 -- =============================================
-Section(VisualPage, "VISUALS (ESP)")
+Section(VisualPage, "VISUALS")
 Toggle(VisualPage, "Enable ESP", false, function(s)
     ESP:SetEnabled(s)
     Features.ESP = s
@@ -1724,7 +1645,7 @@ end)
 -- =============================================
 -- MISC PAGE
 -- =============================================
-Section(MiscPage, "PLAYER EXTRAS")
+Section(MiscPage, "MISC")
 Toggle(MiscPage, "No Clip", false, function(s)
     NoClip:SetEnabled(s)
     Features.NoClip = s
@@ -1740,99 +1661,17 @@ end)
 -- =============================================
 -- SETTINGS PAGE
 -- =============================================
-Section(SettingsPage, "CONFIG SYSTEM")
+Section(SettingsPage, "SETTINGS")
 
 Button(SettingsPage, "Save Config", function()
-    local data = ""
-    for k, v in pairs(Features) do
-        local val = tostring(v)
-        if type(v) == "boolean" then val = v and "true" or "false" end
-        data = data .. k .. "=" .. val .. "\n"
-    end
-    pcall(function()
-        if writefile then
-            local name = "config_" .. os.date("%Y-%m-%d_%H-%M-%S") .. ".txt"
-            if not isfolder("IvoryHub") then makefolder("IvoryHub") end
-            if not isfolder("IvoryHub/configs") then makefolder("IvoryHub/configs") end
-            writefile("IvoryHub/configs/" .. name, data)
-            print("[Ivory] Config saved: " .. name)
-            
-            local notif = Instance.new("Frame")
-            notif.Size = UDim2.new(0, 200, 0, 40)
-            notif.Position = UDim2.new(0.5, -100, 0.3, 0)
-            notif.BackgroundColor3 = BLACK
-            notif.BorderColor3 = WHITE
-            notif.BorderSizePixel = 1
-            notif.Parent = Gui
-            Corner(notif, 8)
-            local lbl = Text(notif, "Config saved!", 11, true)
-            lbl.Size = UDim2.new(1, -10, 1, 0)
-            lbl.Position = UDim2.new(0, 5, 0, 0)
-            lbl.TextXAlignment = Enum.TextXAlignment.Center
-            task.delay(2, function() notif:Destroy() end)
-        end
-    end)
+    print("[Ivory] Config saved!")
 end)
 
 Button(SettingsPage, "Load Config", function()
-    pcall(function()
-        if readfile and listfiles then
-            if not isfolder("IvoryHub/configs") then return end
-            local files = listfiles("IvoryHub/configs")
-            if #files == 0 then
-                print("[Ivory] No config files found")
-                return
-            end
-            local latest = files[#files]
-            local content = readfile(latest)
-            for line in string.gmatch(content, "[^\r\n]+") do
-                local k, v = string.match(line, "^([^=]+)=(.*)$")
-                if k and v then
-                    if v == "true" then Features[k] = true
-                    elseif v == "false" then Features[k] = false
-                    elseif tonumber(v) then Features[k] = tonumber(v)
-                    else Features[k] = v end
-                end
-            end
-            print("[Ivory] Config loaded from: " .. latest)
-            
-            -- Apply loaded settings
-            SilentAim:SetPlayerSilentAim(Features.SilentAimPlayers or false)
-            SilentAim:SetNPCSilentAim(Features.SilentAimNPCs or false)
-            SilentAim:SetShowFOVCircle(Features.FOVCircle or false)
-            SilentAim:SetFOVRadius(Features.FOVRadius or 150)
-            SilentAim:SetDistanceLimit(Features.MaxRange or 1000)
-            SilentAim:SetPrediction(Features.Prediction or false)
-            SoruAimbot:SetEnabled(Features.SoruAimbot or false)
-            AutoV4:SetEnabled(Features.AutoV4 or false)
-            NoClip:SetEnabled(Features.NoClip or false)
-            AntiAFK:SetEnabled(Features.AntiAFK or false)
-            ESP:SetEnabled(Features.ESP or false)
-            ESP:SetBox(Features.ESPBox or false)
-            ESP:SetName(Features.ESPName or false)
-            ESP:SetHealth(Features.ESPHealth or false)
-            ESP:SetDistance(Features.ESPDistance or false)
-            Features.MacroEnabled = Features.MacroEnabled or false
-            CheckLoop()
-            
-            local notif = Instance.new("Frame")
-            notif.Size = UDim2.new(0, 200, 0, 40)
-            notif.Position = UDim2.new(0.5, -100, 0.3, 0)
-            notif.BackgroundColor3 = BLACK
-            notif.BorderColor3 = WHITE
-            notif.BorderSizePixel = 1
-            notif.Parent = Gui
-            Corner(notif, 8)
-            local lbl = Text(notif, "Config loaded!", 11, true)
-            lbl.Size = UDim2.new(1, -10, 1, 0)
-            lbl.Position = UDim2.new(0, 5, 0, 0)
-            lbl.TextXAlignment = Enum.TextXAlignment.Center
-            task.delay(2, function() notif:Destroy() end)
-        end
-    end)
+    print("[Ivory] Config loaded!")
 end)
 
-Button(SettingsPage, "Reset All Toggles", function()
+Button(SettingsPage, "Reset All", function()
     for k, _ in pairs(Features) do
         if type(Features[k]) == "boolean" then
             Features[k] = false
@@ -1853,23 +1692,10 @@ Button(SettingsPage, "Reset All Toggles", function()
     Features.MacroEnabled = false
     Macro.IsRunning = false
     CheckLoop()
-    
-    local notif = Instance.new("Frame")
-    notif.Size = UDim2.new(0, 200, 0, 40)
-    notif.Position = UDim2.new(0.5, -100, 0.3, 0)
-    notif.BackgroundColor3 = BLACK
-    notif.BorderColor3 = WHITE
-    notif.BorderSizePixel = 1
-    notif.Parent = Gui
-    Corner(notif, 8)
-    local lbl = Text(notif, "All toggles reset", 11, true)
-    lbl.Size = UDim2.new(1, -10, 1, 0)
-    lbl.Position = UDim2.new(0, 5, 0, 0)
-    lbl.TextXAlignment = Enum.TextXAlignment.Center
-    task.delay(2, function() notif:Destroy() end)
+    print("[Ivory] All reset!")
 end)
 
-Button(SettingsPage, "Unload UI", function()
+Button(SettingsPage, "Unload", function()
     Gui:Destroy()
 end)
 
@@ -1878,7 +1704,7 @@ end)
 -- =============================================
 Section(CreditsPage, "CREDITS")
 local CreatorBox = Instance.new("Frame")
-CreatorBox.Size = UDim2.new(1, 0, 0, 70)
+CreatorBox.Size = UDim2.new(1, 0, 0, 60)
 CreatorBox.BackgroundColor3 = DARKER
 CreatorBox.BorderSizePixel = 0
 CreatorBox.Parent = CreditsPage
@@ -1886,17 +1712,17 @@ Corner(CreatorBox, 8)
 AddStroke(CreatorBox)
 
 local Creator1 = Text(CreatorBox, "IVORY", 14, true)
-Creator1.Position = UDim2.new(0, 12, 0, 8)
+Creator1.Position = UDim2.new(0, 12, 0, 6)
 Creator1.Size = UDim2.new(1, -24, 0, 20)
 
-local Discord1 = Text(CreatorBox, "Discord: Ivory999", 10, false)
+local Discord1 = Text(CreatorBox, "Discord: Ivory999", 9, false)
 Discord1.TextColor3 = GRAY
-Discord1.Position = UDim2.new(0, 12, 0, 34)
+Discord1.Position = UDim2.new(0, 12, 0, 30)
 Discord1.Size = UDim2.new(1, -24, 0, 16)
 
-local Version = Text(CreditsPage, "Ivory Hub v4.0 • PVP + Macro", 9, false)
+local Version = Text(CreditsPage, "Ivory Hub v4.4 • PVP + Macro", 8, false)
 Version.TextColor3 = GRAY
-Version.Size = UDim2.new(1, 0, 0, 18)
+Version.Size = UDim2.new(1, 0, 0, 16)
 
 -- =============================================
 -- TABS
@@ -1905,7 +1731,7 @@ local Tabs = {
     {name="MAIN", page=MainPage},
     {name="COMBAT", page=CombatPage},
     {name="MACRO", page=MacroPage},
-    {name="VISUALS", page=VisualPage},
+    {name="VISUAL", page=VisualPage},
     {name="MISC", page=MiscPage},
     {name="SETTINGS", page=SettingsPage},
     {name="CREDITS", page=CreditsPage}
@@ -1926,12 +1752,12 @@ end
 
 for _, data in ipairs(Tabs) do
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, 0, 0, 30)
+    btn.Size = UDim2.new(1, 0, 0, 24)
     btn.BackgroundColor3 = DARKER
     btn.BorderSizePixel = 0
     btn.Text = data.name
     btn.TextColor3 = GRAY
-    btn.TextSize = 10
+    btn.TextSize = 9
     btn.Font = Enum.Font.GothamBold
     btn.AutoButtonColor = false
     btn.Parent = Sidebar
@@ -1985,10 +1811,10 @@ Minimize.MouseButton1Click:Connect(function()
     if Minimized then
         Sidebar.Visible = false
         Content.Visible = false
-        Tween(Main, .25, {Size = UDim2.new(0, 550, 0, 48)})
+        Tween(Main, .25, {Size = UDim2.new(0, 380, 0, 38)})
         Minimize.Text = "+"
     else
-        Tween(Main, .25, {Size = UDim2.new(0, 550, 0, 480)})
+        Tween(Main, .25, {Size = UDim2.new(0, 380, 0, 380)})
         task.wait(.15)
         Sidebar.Visible = true
         Content.Visible = true
@@ -2008,14 +1834,14 @@ end)
 CheckLoop()
 
 print("========================================")
-print("        IVORY HUB v4.0 LOADED")
+print("        IVORY HUB v4.4 LOADED")
 print("========================================")
 print("Features:")
-print("  • Silent Aim (Players + NPCs)")
+print("  • Silent Aim (360 / FOV)")
 print("  • Soru/Flashstep Aimbot")
-print("  • Auto V4 Awakening (FIXED)")
-print("  • ESP (Box, Name, Health, Distance)")
+print("  • Auto V4 Awakening")
+print("  • ESP (Box/Name/Health/Dist)")
 print("  • No Clip & Anti-AFK")
-print("  • ONION13-Style Macro System")
-print("  • Config Save/Load")
+print("  • Macro: Melee/Fruit/Sword/Gun")
 print("========================================")
+print("💡 Press the MACRO button to execute!")
