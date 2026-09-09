@@ -1,9 +1,9 @@
 -- =============================================
--- IVORY HUB v5.6 - WITH SHARED FOV
--- Silent Aim + Soru share the same FOV circle
+-- IVORY HUB v5.8 - SIMPLE SILENT AIM (FIXED)
+-- Clean, simple, works with everything
 -- =============================================
 
-print("🦷 Ivory Hub v5.6 loading...")
+print("🦷 Ivory Hub v5.8 loading...")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -76,82 +76,15 @@ end
 -- =============================================
 local Features = {
     SilentAim = false,
-    SilentAimNPC = false,
     SoruAim = false,
     ESP = false,
     Macro = false,
-    FOVCircle = false,
-    FOVRadius = 150,
-    FOVMode = "V1",
 }
 
 -- =============================================
--- SHARED FOV SYSTEM
+-- GET NEAREST ENEMY
 -- =============================================
-local FOVGui = nil
-local FOVRing = nil
-
-local function getFOVCenter()
-    if Features.FOVMode == "V2" then
-        return UserInputService:GetMouseLocation()
-    end
-    return Camera.ViewportSize / 2
-end
-
-local function isInFOV(hrp)
-    if not Features.FOVCircle then return true end
-    if not hrp then return false end
-    local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
-    if not onScreen then return false end
-    local center = getFOVCenter()
-    return (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude <= Features.FOVRadius
-end
-
-local function UpdateFOVCircle()
-    if Features.FOVCircle then
-        if not FOVGui then
-            FOVGui = Instance.new("ScreenGui")
-            FOVGui.Name = "IvoryFOV"
-            FOVGui.ResetOnSpawn = false
-            FOVGui.IgnoreGuiInset = true
-            FOVGui.DisplayOrder = 1
-            FOVGui.Parent = Gui
-            
-            FOVRing = Instance.new("Frame")
-            FOVRing.Name = "FOVRing"
-            FOVRing.AnchorPoint = Vector2.new(0.5, 0.5)
-            FOVRing.BackgroundTransparency = 1
-            FOVRing.BorderSizePixel = 0
-            FOVRing.ZIndex = 100
-            FOVRing.Parent = FOVGui
-            
-            local corner = Instance.new("UICorner")
-            corner.CornerRadius = UDim.new(1, 0)
-            corner.Parent = FOVRing
-            
-            local stroke = Instance.new("UIStroke")
-            stroke.Thickness = 2
-            stroke.Color = COLORS.RED
-            stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-            stroke.Parent = FOVRing
-        end
-        
-        local center = getFOVCenter()
-        local diameter = math.floor(Features.FOVRadius * 2)
-        FOVRing.Position = UDim2.new(0, center.X, 0, center.Y)
-        FOVRing.Size = UDim2.fromOffset(diameter, diameter)
-        FOVRing.Visible = true
-    elseif FOVRing then
-        FOVRing.Visible = false
-    end
-end
-
-RunService.RenderStepped:Connect(UpdateFOVCircle)
-
--- =============================================
--- GET NEAREST TARGET (with FOV support)
--- =============================================
-local function GetNearestTarget()
+local function GetNearestEnemy()
     local char = player.Character
     if not char then return nil end
     local root = char:FindFirstChild("HumanoidRootPart")
@@ -164,12 +97,10 @@ local function GetNearestTarget()
             local hum = plr.Character:FindFirstChildOfClass("Humanoid")
             local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
             if hum and hum.Health > 0 and hrp then
-                if isInFOV(hrp) then
-                    local dist = (hrp.Position - root.Position).Magnitude
-                    if dist < bestDist and dist <= 1000 then
-                        bestDist = dist
-                        best = hrp
-                    end
+                local dist = (hrp.Position - root.Position).Magnitude
+                if dist < bestDist and dist <= 1000 then
+                    bestDist = dist
+                    best = hrp
                 end
             end
         end
@@ -182,12 +113,10 @@ local function GetNearestTarget()
                 local hum = npc:FindFirstChildOfClass("Humanoid")
                 local hrp = npc:FindFirstChild("HumanoidRootPart")
                 if hum and hum.Health > 0 and hrp then
-                    if isInFOV(hrp) then
-                        local dist = (hrp.Position - root.Position).Magnitude
-                        if dist < bestDist and dist <= 1000 then
-                            bestDist = dist
-                            best = hrp
-                        end
+                    local dist = (hrp.Position - root.Position).Magnitude
+                    if dist < bestDist and dist <= 1000 then
+                        bestDist = dist
+                        best = hrp
                     end
                 end
             end
@@ -198,519 +127,143 @@ local function GetNearestTarget()
 end
 
 -- =============================================
--- SILENT AIM (from Nameless Ware)
+-- SIMPLE SILENT AIM - CLEAN HOOKS
 -- =============================================
-local SilentAim = (function()
-    local module = {}
+local TargetPos = nil
+
+local function SetupSilentAim()
+    local mt = getrawmetatable(game)
+    if not mt then return end
+    local oldIndex = mt.__index
+    local oldNamecall = mt.__namecall
     
-    local SilentAimPlayersEnabled = false
-    local SilentAimNPCsEnabled = false
-    local PredictionEnabled = true
-    local PredictionAmount = 0.12
-    local maxRange = 1000
-    local PlayersPosition = nil
-    local NPCPosition = nil
-    local currentTool = nil
-    local currentToolCategory = "Melee"
-    local currentSkillKey = nil
-    local lastSkillTime = 0
-    local SKILL_KEYS = {"Z","X","C","V","F","TAP"}
-    local BlacklistedKeys = {
-        Melee = { Z=false, X=false, C=false },
-        Sword = { Z=false, X=false },
-        Fruit = { Z=false, X=false, C=false, V=false, F=false, TAP=false },
-        Gun   = { Z=false, X=false }
-    }
+    setreadonly(mt, false)
     
-    -- Get target with FOV check
-    local function GetTarget()
-        local char = player.Character
-        if not char then return nil end
-        local root = char:FindFirstChild("HumanoidRootPart")
-        if not root then return nil end
-        
-        local best, bestDist = nil, math.huge
-        
-        for _, plr in pairs(Players:GetPlayers()) do
-            if plr ~= player and plr.Character then
-                local hum = plr.Character:FindFirstChildOfClass("Humanoid")
-                local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
-                if hum and hum.Health > 0 and hrp then
-                    if isInFOV(hrp) then
-                        local dist = (hrp.Position - root.Position).Magnitude
-                        if dist < bestDist and dist <= maxRange then
-                            bestDist = dist
-                            best = hrp
-                        end
-                    end
-                end
-            end
-        end
-        
-        local enemies = Workspace:FindFirstChild("Enemies")
-        if enemies then
-            for _, npc in pairs(enemies:GetChildren()) do
-                if npc:IsA("Model") then
-                    local hum = npc:FindFirstChildOfClass("Humanoid")
-                    local hrp = npc:FindFirstChild("HumanoidRootPart")
-                    if hum and hum.Health > 0 and hrp then
-                        if isInFOV(hrp) then
-                            local dist = (hrp.Position - root.Position).Magnitude
-                            if dist < bestDist and dist <= maxRange then
-                                bestDist = dist
-                                best = hrp
-                            end
-                        end
-                    end
-                end
-            end
-        end
-        
-        return best
-    end
-    
-    -- Prediction
-    local function predicted(hrp)
-        if not hrp then return nil end
-        local hum = hrp.Parent:FindFirstChildOfClass("Humanoid")
-        if not hum or hum.Health <= 0 then return hrp.Position end
-        if not PredictionEnabled then return hrp.Position end
-        
-        local vel = hrp.Velocity
-        local speed = vel.Magnitude
-        if speed < 5 then return hrp.Position end
-        
-        local ping = 0
-        pcall(function()
-            local PingService = game:GetService("Stats").Network.ServerStatsItem
-            ping = PingService:GetValue() / 1000
-        end)
-        ping = math.clamp(ping, 0, 0.35)
-        local predictionFactor = PredictionAmount + ping
-        if speed > 100 then predictionFactor = math.min(predictionFactor, 0.15) end
-        
-        return hrp.Position + (vel * predictionFactor)
-    end
-    
-    -- Get tool category
-    local function getToolCategory(tool)
-        if not tool then return "Melee" end
-        local name = string.lower(tool.Name)
-        local gunNames = {"guitar","rifle","cannon","gun","slingshot","kabucha","serpent bow","bow"}
-        for _,g in ipairs(gunNames) do if string.find(name,g) then return "Gun" end end
-        local meleeNames = {"claw","godhuman","superhuman","talon","step","karate","breath","kung fu","combat","fist","sanguine"}
-        for _,m in ipairs(meleeNames) do if string.find(name,m) then return "Melee" end end
-        if string.find(name,"fruit") or string.find(name,"-") then return "Fruit" end
-        return "Sword"
-    end
-    
-    local function isKeyBlacklisted(key)
-        if not key then return false end
-        local cat = currentToolCategory
-        if BlacklistedKeys[cat] and BlacklistedKeys[cat][key] ~= nil then return BlacklistedKeys[cat][key] end
-        return false
-    end
-    
-    -- Set current skill key
-    local function setCurrentSkillKey(key)
-        currentSkillKey = key
-        lastSkillTime = os.clock()
-        
-        if SilentAimPlayersEnabled or SilentAimNPCsEnabled then
-            local targetPos = PlayersPosition or NPCPosition
-            if targetPos then
-                local char = player.Character
-                local hrp = char and char:FindFirstChild("HumanoidRootPart")
-                if hrp then
-                    local look = (Vector3.new(targetPos.X, hrp.Position.Y, targetPos.Z) - hrp.Position).Unit
-                    if look.Magnitude > 0.001 then
-                        hrp.CFrame = CFrame.lookAt(hrp.Position, hrp.Position + look)
-                    end
-                end
-            end
-        end
-        
-        task.spawn(function()
-            local myTime = lastSkillTime
-            task.wait(1.5)
-            if lastSkillTime == myTime and currentSkillKey == key then
-                currentSkillKey = nil
-            end
-        end)
-    end
-    
-    -- Hook mobile buttons
-    local function hookMobileButton(btn)
-        if btn:GetAttribute("Hooked") then return end
-        btn:SetAttribute("Hooked", true)
-        local key = btn.Name
-        if table.find(SKILL_KEYS, key) then
-            btn.Activated:Connect(function() setCurrentSkillKey(key) end)
-        end
-    end
-    
-    -- Find skill keys from args
-    local function getSkillKeyFromArgs(args)
-        for _,arg in ipairs(args) do
-            if type(arg)=="string" and table.find(SKILL_KEYS, arg) then
-                return arg
-            end
-        end
-        return nil
-    end
-    
-    -- Main render loop
-    local renderConnection = nil
-    
-    local function startRenderLoop()
-        if renderConnection then return end
-        
-        renderConnection = RunService.RenderStepped:Connect(function()
-            local lpChar = player.Character
-            if not lpChar then return end
-            local lpHRP = lpChar:FindFirstChild("HumanoidRootPart")
-            if not lpHRP then return end
-            
-            if not SilentAimPlayersEnabled and not SilentAimNPCsEnabled then
-                PlayersPosition = nil
-                NPCPosition = nil
-                return
-            end
-            
-            if SilentAimPlayersEnabled then
-                local target = GetTarget()
+    -- Hook mouse.Hit and mouse.Target
+    mt.__index = function(self, key)
+        if not checkcaller() and self == mouse and Features.SilentAim then
+            if key == "Hit" or key == "Target" then
+                local target = GetNearestEnemy()
                 if target then
-                    PlayersPosition = predicted(target)
-                else
-                    PlayersPosition = nil
-                end
-            end
-            
-            if SilentAimNPCsEnabled then
-                local target = GetTarget()
-                if target then
-                    NPCPosition = predicted(target)
-                else
-                    NPCPosition = nil
-                end
-            end
-        end)
-    end
-    
-    local function stopRenderLoop()
-        if renderConnection then
-            renderConnection:Disconnect()
-            renderConnection = nil
-        end
-        PlayersPosition = nil
-        NPCPosition = nil
-    end
-    
-    -- =============================================
-    -- SILENT AIM HOOKS
-    -- =============================================
-    local function SetupHooks()
-        local mt = getrawmetatable(game)
-        if not mt then return end
-        local oldNamecall = mt.__namecall
-        local oldIndex = mt.__index
-        
-        setreadonly(mt, false)
-        
-        mt.__namecall = newcclosure(function(self, ...)
-            local Method = getnamecallmethod()
-            local args = {...}
-            
-            local skillKey = getSkillKeyFromArgs(args)
-            if skillKey then
-                if SilentAimPlayersEnabled or SilentAimNPCsEnabled then
-                    local targetPos = PlayersPosition or NPCPosition
-                    if targetPos then
-                        local char = player.Character
-                        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-                        if hrp then
-                            local look = (Vector3.new(targetPos.X, hrp.Position.Y, targetPos.Z) - hrp.Position).Unit
-                            if look.Magnitude > 0.001 then
-                                hrp.CFrame = CFrame.lookAt(hrp.Position, hrp.Position + look)
-                            end
-                        end
+                    TargetPos = target.Position
+                    if key == "Hit" then
+                        return CFrame.new(TargetPos)
                     end
-                end
-                setCurrentSkillKey(skillKey)
-            end
-            
-            local skip = false
-            if skillKey and isKeyBlacklisted(skillKey) then
-                skip = true
-            elseif not skillKey and currentSkillKey and isKeyBlacklisted(currentSkillKey) then
-                skip = true
-            end
-            
-            if not skip then
-                if Method == "FireServer" then
-                    if type(args[1]) == "Vector3" then
-                        if SilentAimPlayersEnabled and PlayersPosition then
-                            args[1] = PlayersPosition
-                        elseif SilentAimNPCsEnabled and NPCPosition then
-                            args[1] = NPCPosition
-                        end
-                    end
-                end
-            end
-            
-            return oldNamecall(self, unpack(args))
-        end)
-        
-        mt.__index = newcclosure(function(t, k)
-            if (SilentAimPlayersEnabled or SilentAimNPCsEnabled) and t == mouse then
-                local targetPos = PlayersPosition or NPCPosition
-                if targetPos then
-                    if k == "Hit" then
-                        return CFrame.new(targetPos)
-                    end
-                    if k == "Target" then
+                    if key == "Target" then
                         return nil
                     end
                 end
             end
-            return oldIndex(t, k)
-        end)
-        
-        setreadonly(mt, true)
-    end
-    
-    SetupHooks()
-    
-    -- Character added handler
-    local function onCharacterAdded(char)
-        currentTool = nil
-        currentToolCategory = "Melee"
-        currentSkillKey = nil
-        
-        for _, child in pairs(char:GetChildren()) do
-            if child:IsA("Tool") then
-                currentTool = child
-                currentToolCategory = getToolCategory(child)
-                currentSkillKey = nil
-                child.AncestryChanged:Connect(function(_, parent)
-                    if not parent then currentTool = nil end
-                end)
-            end
         end
-        
-        char.ChildAdded:Connect(function(child)
-            if child:IsA("Tool") then
-                currentTool = child
-                currentToolCategory = getToolCategory(child)
-                currentSkillKey = nil
-                child.AncestryChanged:Connect(function(_, parent)
-                    if not parent then currentTool = nil end
-                end)
-            end
-        end)
-        
-        char.ChildRemoved:Connect(function(child)
-            if child == currentTool then currentTool = nil end
-        end)
+        return oldIndex(self, key)
     end
     
-    player.CharacterAdded:Connect(onCharacterAdded)
-    if player.Character then onCharacterAdded(player.Character) end
-    
-    -- Hook mobile UI buttons
-    task.spawn(function()
-        while not player.PlayerGui do task.wait(0.5) end
-        local pg = player.PlayerGui
-        local main = pg:FindFirstChild("Main")
-        if main then
-            local skills = main:FindFirstChild("Skills")
-            if skills then
-                for _, wf in ipairs(skills:GetChildren()) do
-                    if wf:IsA("GuiObject") then
-                        for _, b in ipairs(wf:GetChildren()) do
-                            if b:IsA("ImageButton") or b:IsA("TextButton") then
-                                hookMobileButton(b)
-                            end
-                        end
+    -- Hook remote events
+    mt.__namecall = function(self, ...)
+        local args = {...}
+        local method = getnamecallmethod()
+        
+        if not checkcaller() and Features.SilentAim and TargetPos then
+            if method == "FireServer" or method == "InvokeServer" then
+                -- Replace Vector3 and CFrame args with target position
+                for i, v in ipairs(args) do
+                    if typeof(v) == "Vector3" then
+                        args[i] = TargetPos
+                    elseif typeof(v) == "CFrame" then
+                        args[i] = CFrame.new(TargetPos)
                     end
                 end
-                skills.ChildAdded:Connect(function(wf)
-                    if wf:IsA("GuiObject") then
-                        for _, b in ipairs(wf:GetChildren()) do
-                            if b:IsA("ImageButton") or b:IsA("TextButton") then
-                                hookMobileButton(b)
-                            end
-                        end
-                    end
-                end)
+                return oldNamecall(self, unpack(args))
             end
         end
-    end)
-    
-    -- Public API
-    function module:SetPlayerSilentAim(state)
-        SilentAimPlayersEnabled = state
-        if state then startRenderLoop() else if not SilentAimNPCsEnabled then stopRenderLoop() end end
+        return oldNamecall(self, ...)
     end
     
-    function module:SetNPCSilentAim(state)
-        SilentAimNPCsEnabled = state
-        if state then startRenderLoop() else if not SilentAimPlayersEnabled then stopRenderLoop() end end
-    end
-    
-    function module:SetPrediction(state) PredictionEnabled = state end
-    function module:SetPredictionAmount(amount) PredictionAmount = amount end
-    function module:SetDistanceLimit(dist) maxRange = dist end
-    function module:SetBlacklistKey(cat, key, state)
-        if BlacklistedKeys[cat] and BlacklistedKeys[cat][key] ~= nil then
-            BlacklistedKeys[cat][key] = state
-        end
-    end
-    function module:GetTargetPos() return PlayersPosition or NPCPosition end
-    
-    return module
-end)()
+    setreadonly(mt, true)
+end
+
+SetupSilentAim()
 
 -- =============================================
--- SORU AUTO AIM (with shared FOV)
+-- SORU AIM - Teleport on Flashstep
 -- =============================================
-local SoruAutoAim = (function()
-    local module = {}
-    local enabled = false
-    local range = 300
-    local targetPriority = "Nearest"
-    local currentTarget = nil
-    local targetPosition = nil
-    local lastAttack = 0
-    local cooldown = 1.0
-    local remote = nil
-    local FOVGui = nil
-    local FOVRing = nil
-    
-    -- Find remote
-    task.spawn(function()
-        local remotes = ReplicatedStorage:FindFirstChild("Remotes")
-        if remotes then
-            remote = remotes:FindFirstChild("CommF_")
-        end
-        if not remote then
-            for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
-                if obj.Name == "CommF_" then
-                    remote = obj
-                    break
-                end
+local SoruRemote = nil
+local SoruCooldown = 0
+
+-- Find remote
+task.spawn(function()
+    local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+    if remotes then
+        SoruRemote = remotes:FindFirstChild("CommF_")
+    end
+    if not SoruRemote then
+        for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
+            if obj.Name == "CommF_" or string.find(string.lower(obj.Name or ""), "flash") then
+                SoruRemote = obj
+                break
             end
         end
-        print("[Ivory] Soru remote:", remote and "yes" or "no")
+    end
+    print("[Ivory] Soru remote:", SoruRemote and "yes" or "no")
+end)
+
+local function DoSoruTeleport()
+    if not Features.SoruAim then return end
+    if tick() < SoruCooldown then return end
+    
+    local target = GetNearestEnemy()
+    if not target then return end
+    
+    local char = player.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    
+    local success = false
+    pcall(function()
+        if SoruRemote then
+            SoruRemote:InvokeServer("Flashstep", target.Position)
+            success = true
+        else
+            hrp.CFrame = CFrame.new(target.Position + Vector3.new(0, 2, 0))
+            success = true
+        end
     end)
     
-    local function getSoruTarget(lpHRP)
-        if not lpHRP then return nil end
-        local valid = {}
-        
-        for _, plr in pairs(Players:GetPlayers()) do
-            if plr ~= player and plr.Character then
-                local hum = plr.Character:FindFirstChildOfClass("Humanoid")
-                local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
-                if hum and hum.Health > 0 and hrp then
-                    if isInFOV(hrp) then
-                        local dist = (hrp.Position - lpHRP.Position).Magnitude
-                        if dist <= range then
-                            table.insert(valid, {HRP = hrp, Humanoid = hum, Distance = dist})
-                        end
-                    end
-                end
-            end
-        end
-        
-        if #valid == 0 then return nil end
-        
-        if targetPriority == "Nearest" then
-            table.sort(valid, function(a, b) return a.Distance < b.Distance end)
-        elseif targetPriority == "Low HP" then
-            table.sort(valid, function(a, b) return a.Humanoid.Health < b.Humanoid.Health end)
-        end
-        
-        return valid[1].HRP
+    if success then
+        SoruCooldown = tick() + 1.0
     end
+end
+
+-- Monitor Flashstep animation
+local function MonitorFlashstep(char)
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
     
-    local function doSoruAttack()
-        if not enabled then return end
-        if tick() < lastAttack + cooldown then return end
+    hum.AnimationPlayed:Connect(function(track)
+        if not Features.SoruAim then return end
+        if tick() < SoruCooldown then return end
         
-        local char = player.Character
-        if not char then return end
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        if not hrp then return end
+        local animName = string.lower(track.Name)
+        local animId = tostring(track.Animation and track.Animation.AnimationId or "")
         
-        local target = getSoruTarget(hrp)
-        if not target then return end
-        
-        local success = false
-        pcall(function()
-            if remote then
-                remote:InvokeServer("Flashstep", target.Position)
-                success = true
-            else
-                hrp.CFrame = CFrame.new(target.Position + Vector3.new(0, 2, 0))
-                success = true
-            end
-        end)
-        
-        if success then
-            lastAttack = tick()
-            currentTarget = target
-            targetPosition = target.Position
+        if string.find(animName, "flashstep") or string.find(animName, "soru") or
+           string.find(animName, "dash") or string.find(animId, "17555632156") or
+           string.find(animId, "616006778") then
+            DoSoruTeleport()
         end
-    end
-    
-    -- Monitor for Soru/Flashstep animation
-    local function monitorFlashstep(char)
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if not hum then return end
-        
-        hum.AnimationPlayed:Connect(function(track)
-            if not enabled then return end
-            if tick() < lastAttack + cooldown then return end
-            
-            local animName = string.lower(track.Name)
-            local animId = tostring(track.Animation and track.Animation.AnimationId or "")
-            
-            if string.find(animName, "flashstep") or string.find(animName, "soru") or
-               string.find(animName, "dash") or string.find(animId, "17555632156") or
-               string.find(animId, "616006778") then
-                doSoruAttack()
-            end
-        end)
-    end
-    
-    player.CharacterAdded:Connect(function(char)
-        task.wait(0.5)
-        monitorFlashstep(char)
     end)
-    
-    if player.Character then
-        task.wait(0.5)
-        monitorFlashstep(player.Character)
-    end
-    
-    -- Public API
-    function module:SetEnabled(state)
-        enabled = state
-        if not state then
-            currentTarget = nil
-            targetPosition = nil
-        end
-    end
-    
-    function module:SetRange(r) range = r end
-    function module:SetPriority(p) targetPriority = p end
-    function module:Attack() doSoruAttack() end
-    function module:GetTarget() return currentTarget end
-    function module:GetTargetPos() return targetPosition end
-    
-    return module
-end)()
+end
+
+player.CharacterAdded:Connect(function(char)
+    task.wait(0.5)
+    MonitorFlashstep(char)
+end)
+
+if player.Character then
+    task.wait(0.5)
+    MonitorFlashstep(player.Character)
+end
 
 -- =============================================
 -- ESP
@@ -864,8 +417,8 @@ ToggleBtn.MouseEnter:Connect(function() TweenIt(ToggleBtn, {BackgroundColor3 = C
 ToggleBtn.MouseLeave:Connect(function() TweenIt(ToggleBtn, {BackgroundColor3 = COLORS.BLACK, TextColor3 = COLORS.WHITE}) end)
 
 local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0, 350, 0, 380)
-Main.Position = UDim2.new(0.5, -175, 0.5, -190)
+Main.Size = UDim2.new(0, 350, 0, 350)
+Main.Position = UDim2.new(0.5, -175, 0.5, -175)
 Main.BackgroundColor3 = COLORS.BLACK
 Main.BorderSizePixel = 0
 Main.Visible = true
@@ -884,7 +437,7 @@ local Title = Text(Top, "IVORY", 14, true)
 Title.Position = UDim2.new(0, 12, 0, 1)
 Title.Size = UDim2.new(0, 100, 0, 18)
 
-local SubTitle = Text(Top, "HUB v5.6", 7, false)
+local SubTitle = Text(Top, "HUB v5.8", 7, false)
 SubTitle.TextColor3 = COLORS.GRAY
 SubTitle.Position = UDim2.new(0, 13, 0, 20)
 SubTitle.Size = UDim2.new(0, 60, 0, 12)
@@ -1142,7 +695,7 @@ local SettingsPage = CreatePage("Settings")
 
 -- MAIN PAGE
 Section(MainPage, "IVORY HUB")
-local mt = Text(MainPage, "IVORY HUB v5.6", 16, true)
+local mt = Text(MainPage, "IVORY HUB v5.8", 16, true)
 mt.Size = UDim2.new(1, 0, 0, 24)
 mt.TextXAlignment = Enum.TextXAlignment.Center
 mt.TextColor3 = COLORS.WHITE
@@ -1153,7 +706,7 @@ ms.Position = UDim2.new(0, 0, 0, 26)
 ms.TextXAlignment = Enum.TextXAlignment.Center
 ms.TextColor3 = COLORS.GRAY
 
-local list = {"• Silent Aim (Players + NPCs)", "• Soru Auto Aim", "• Shared FOV System", "• ESP", "• Macro System"}
+local list = {"• Silent Aim (Players)", "• Soru Auto Aim (Flashstep)", "• ESP", "• Macro System"}
 for i, f in ipairs(list) do
     local lbl = Text(MainPage, f, 9, false)
     lbl.Size = UDim2.new(1, -10, 0, 16)
@@ -1164,60 +717,23 @@ end
 
 -- COMBAT PAGE
 Section(CombatPage, "SILENT AIM")
-Toggle(CombatPage, "Player Silent Aim", false, function(s)
+Toggle(CombatPage, "Enable Silent Aim", false, function(s)
     Features.SilentAim = s
-    SilentAim:SetPlayerSilentAim(s)
 end)
 
-Toggle(CombatPage, "NPC Silent Aim", false, function(s)
-    Features.SilentAimNPC = s
-    SilentAim:SetNPCSilentAim(s)
-end)
-
-Toggle(CombatPage, "Prediction", true, function(s)
-    SilentAim:SetPrediction(s)
-end)
-
-Slider(CombatPage, "Prediction Amount", 12, 0, 50, function(v)
-    SilentAim:SetPredictionAmount(v / 100)
-end)
-
-Slider(CombatPage, "Max Range", 1000, 100, 3000, function(v)
-    SilentAim:SetDistanceLimit(v)
+Slider(CombatPage, "Aim Range", 1000, 100, 3000, function(v)
+    -- Range is used in GetNearestEnemy
 end, "m")
 
-Section(CombatPage, "SHARED FOV")
-Toggle(CombatPage, "Show FOV Circle", false, function(s)
-    Features.FOVCircle = s
-end)
-
-Slider(CombatPage, "FOV Radius", 150, 10, 500, function(v)
-    Features.FOVRadius = v
-end)
-
-Button(CombatPage, "FOV Mode: V1 (Screen Center)", function()
-    local btn = CombatPage:FindFirstChild("FOVModeButton")
-    if Features.FOVMode == "V1" then
-        Features.FOVMode = "V2"
-        if btn then btn.Text = "FOV Mode: V2 (Mouse)" end
-    else
-        Features.FOVMode = "V1"
-        if btn then btn.Text = "FOV Mode: V1 (Screen Center)" end
-    end
-end)
-
-Section(CombatPage, "SORU AUTO AIM")
-Toggle(CombatPage, "Enable Soru", false, function(s)
+Section(CombatPage, "SORU")
+Toggle(CombatPage, "Enable Soru Aimbot", false, function(s)
     Features.SoruAim = s
-    SoruAutoAim:SetEnabled(s)
     if SoruBtn then SoruBtn.Visible = s end
 end)
 
-Slider(CombatPage, "Soru Range", 300, 50, 500, function(v)
-    SoruAutoAim:SetRange(v)
-end, "m")
-
+-- =============================================
 -- MACRO PAGE
+-- =============================================
 Section(MacroPage, "MACRO")
 Toggle(MacroPage, "Enable Macro", false, function(s)
     Features.Macro = s
@@ -1554,7 +1070,7 @@ UserInputService.InputChanged:Connect(function(input)
 end)
 
 SoruBtn.MouseButton1Click:Connect(function()
-    SoruAutoAim:Attack()
+    DoSoruTeleport()
     SoruBtn.BackgroundColor3 = COLORS.GREEN
     SoruBtn.BackgroundTransparency = 0
     task.delay(0.3, function()
@@ -1580,9 +1096,6 @@ Button(SettingsPage, "Reset All", function()
     for k, v in pairs(Features) do
         if type(v) == "boolean" then Features[k] = false end
     end
-    SilentAim:SetPlayerSilentAim(false)
-    SilentAim:SetNPCSilentAim(false)
-    SoruAutoAim:SetEnabled(false)
     MacroRunning = false
     if MacroBtn then MacroBtn.Visible = false end
     if SoruBtn then SoruBtn.Visible = false end
@@ -1676,7 +1189,7 @@ Minimize.MouseButton1Click:Connect(function()
         TweenIt(Main, {Size = UDim2.new(0, 350, 0, 34)})
         Minimize.Text = "+"
     else
-        TweenIt(Main, {Size = UDim2.new(0, 350, 0, 380)})
+        TweenIt(Main, {Size = UDim2.new(0, 350, 0, 350)})
         task.wait(.15)
         Sidebar.Visible = true
         Content.Visible = true
@@ -1691,14 +1204,12 @@ Close.MouseButton1Click:Connect(function()
 end)
 
 print("========================================")
-print("        IVORY HUB v5.6 LOADED")
+print("        IVORY HUB v5.8 LOADED")
 print("========================================")
-print("✅ Silent Aim (Players + NPCs)")
-print("✅ Soru Auto Aim")
-print("✅ Shared FOV System")
+print("✅ Silent Aim (Simple & Clean)")
+print("✅ Soru Auto Aim (Flashstep)")
 print("✅ ESP")
 print("✅ Macro System")
 print("========================================")
-print("💡 FOV applies to BOTH Silent Aim AND Soru")
 print("💡 Enable features in their tabs")
 print("========================================")
