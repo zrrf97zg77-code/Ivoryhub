@@ -1,9 +1,8 @@
 -- =============================================
--- IVORY HUB v9.0 - FANCY EDITION
--- Redesigned tabs, animated UI, credits, aim distance
+-- IVORY HUB v9.2 - FIXED FOV LOCK
 -- =============================================
 
-print("🦷 Ivory Hub v9.0 loading...")
+print("🦷 Ivory Hub v9.2 loading...")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -30,9 +29,6 @@ Gui.IgnoreGuiInset = true
 Gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 Gui.Parent = parent
 
--- =============================================
--- COLORS
--- =============================================
 local COLORS = {
     BLACK = Color3.fromRGB(7,7,7),
     DARK = Color3.fromRGB(13,13,13),
@@ -42,28 +38,26 @@ local COLORS = {
     GRAY = Color3.fromRGB(145,145,145),
     RED = Color3.fromRGB(255,50,50),
     GREEN = Color3.fromRGB(50,255,50),
-    BLUE = Color3.fromRGB(50,150,255),
     YELLOW = Color3.fromRGB(255,200,0),
-    PURPLE = Color3.fromRGB(180,120,255),
     ACCENT = Color3.fromRGB(255,50,50),
 }
 
-local function Corner(obj, r)
+local function Corner(o, r)
     local c = Instance.new("UICorner")
     c.CornerRadius = UDim.new(0, r)
-    c.Parent = obj
+    c.Parent = o
 end
 
-local function Stroke(obj, color, thickness)
+local function Stroke(o, c, t)
     local s = Instance.new("UIStroke")
-    s.Color = color or Color3.fromRGB(40,40,40)
-    s.Thickness = thickness or 1
-    s.Parent = obj
+    s.Color = c or Color3.fromRGB(40,40,40)
+    s.Thickness = t or 1
+    s.Parent = o
     return s
 end
 
-local function TweenIt(obj, props, time)
-    TweenService:Create(obj, TweenInfo.new(time or 0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), props):Play()
+local function TweenIt(o, p, t)
+    TweenService:Create(o, TweenInfo.new(t or 0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), p):Play()
 end
 
 local function Text(parent, text, size, bold)
@@ -79,7 +73,7 @@ local function Text(parent, text, size, bold)
 end
 
 -- =============================================
--- FEATURES STATE (ALL OFF)
+-- FEATURES
 -- =============================================
 local Features = {
     SilentAim = false,
@@ -146,11 +140,8 @@ local function LoadConfig()
             end
         end
     end)
-    -- Only apply NON-boolean (sliders/cycles)
     for k, v in pairs(loaded) do
-        if type(v) ~= "boolean" then
-            Features[k] = v
-        end
+        if type(v) ~= "boolean" then Features[k] = v end
     end
 end
 
@@ -216,11 +207,11 @@ local function UpdateFOVCircle()
             FOVRing.ZIndex = 100
             FOVRing.Parent = FOVGui
             Corner(FOVRing, 999)
-            local stroke = Instance.new("UIStroke")
-            stroke.Thickness = 2
-            stroke.Color = COLORS.ACCENT
-            stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-            stroke.Parent = FOVRing
+            local s = Instance.new("UIStroke")
+            s.Thickness = 2
+            s.Color = COLORS.ACCENT
+            s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+            s.Parent = FOVRing
         end
         if FOVRing then
             local c = getFOVCenter()
@@ -242,13 +233,13 @@ RunService.RenderStepped:Connect(function() pcall(UpdateFOVCircle) end)
 local function isCombatNPC(model, hum, root)
     if not model or not hum or not root then return false end
     if hum.Health <= 0 then return false end
-    local nameLower = string.lower(model.Name)
-    local blockList = {"shop","seller","dealer","quest","trainer","teacher","merchant",
+    local n = string.lower(model.Name)
+    local block = {"shop","seller","dealer","quest","trainer","teacher","merchant",
         "gacha","title","dialog","manager","vendor","guide","helper","boat","customer",
         "spawn","luxury","bartender","captain","toribro","indra","nami","ability",
         "sword dealer","weapon","blox fruit","crew","quest giver","town","citizen"}
-    for _, word in ipairs(blockList) do
-        if string.find(nameLower, word, 1, true) then return false end
+    for _, w in ipairs(block) do
+        if string.find(n, w, 1, true) then return false end
     end
     if model:FindFirstChildWhichIsA("ProximityPrompt", true) then return false end
     if model:FindFirstChildWhichIsA("ClickDetector", true) then return false end
@@ -257,26 +248,36 @@ local function isCombatNPC(model, hum, root)
 end
 
 -- =============================================
--- TARGET FINDER
+-- TARGET FINDER (strips stale targets)
 -- =============================================
 local function GetNearestTarget(targetType, mode, maxDist)
     local char = player.Character
     if not char then return nil end
     local root = char:FindFirstChild("HumanoidRootPart")
     if not root then return nil end
-    local best, bestDist = nil, math.huge
     
+    local best, bestDist = nil, math.huge
+    local maxRange = maxDist or Features.MaxRange or 1000
+    
+    -- Players
     if targetType == "Players" or targetType == "Both" then
         for _, plr in pairs(Players:GetPlayers()) do
             if plr ~= player and plr.Character then
                 local hum = plr.Character:FindFirstChildOfClass("Humanoid")
                 local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
                 if hum and hum.Health > 0 and hrp then
-                    if mode == "360" or isInFOV(hrp) then
-                        local dist = (hrp.Position - root.Position).Magnitude
-                        if dist <= maxDist and dist < bestDist then
-                            bestDist = dist
-                            best = hrp
+                    local dist = (hrp.Position - root.Position).Magnitude
+                    if dist <= maxRange then
+                        if mode == "FOV" then
+                            if isInFOV(hrp) and dist < bestDist then
+                                bestDist = dist
+                                best = hrp
+                            end
+                        else
+                            if dist < bestDist then
+                                bestDist = dist
+                                best = hrp
+                            end
                         end
                     end
                 end
@@ -284,9 +285,10 @@ local function GetNearestTarget(targetType, mode, maxDist)
         end
     end
     
+    -- NPCs
     if targetType == "NPCs" or targetType == "Both" then
-        local folderNames = {"Enemies","Enemy","Monsters","Monster","Mobs","Mob","Bosses","Boss"}
-        for _, name in ipairs(folderNames) do
+        local fns = {"Enemies","Enemy","Monsters","Monster","Mobs","Mob","Bosses","Boss"}
+        for _, name in ipairs(fns) do
             local folder = workspace:FindFirstChild(name)
             if folder then
                 for _, npc in pairs(folder:GetChildren()) do
@@ -294,11 +296,18 @@ local function GetNearestTarget(targetType, mode, maxDist)
                         local hum = npc:FindFirstChildOfClass("Humanoid")
                         local hrp = npc:FindFirstChild("HumanoidRootPart")
                         if hum and hrp and isCombatNPC(npc, hum, hrp) then
-                            if mode == "360" or isInFOV(hrp) then
-                                local dist = (hrp.Position - root.Position).Magnitude
-                                if dist <= maxDist and dist < bestDist then
-                                    bestDist = dist
-                                    best = hrp
+                            local dist = (hrp.Position - root.Position).Magnitude
+                            if dist <= maxRange then
+                                if mode == "FOV" then
+                                    if isInFOV(hrp) and dist < bestDist then
+                                        bestDist = dist
+                                        best = hrp
+                                    end
+                                else
+                                    if dist < bestDist then
+                                        bestDist = dist
+                                        best = hrp
+                                    end
                                 end
                             end
                         end
@@ -311,7 +320,7 @@ local function GetNearestTarget(targetType, mode, maxDist)
 end
 
 -- =============================================
--- SILENT AIM
+-- SILENT AIM (FIXED - clears when no target)
 -- =============================================
 local TargetPos = nil
 
@@ -330,6 +339,9 @@ pcall(function()
                     TargetPos = t.Position
                     if key == "Hit" then return CFrame.new(TargetPos) end
                     if key == "Target" then return nil end
+                else
+                    -- IMPORTANT: clear target when nobody's in range/FOV
+                    TargetPos = nil
                 end
             end
         end
@@ -351,6 +363,16 @@ pcall(function()
         return oldNamecall(self, ...)
     end
     setreadonly(mt, true)
+end)
+
+-- Reset TargetPos when Silent Aim is disabled
+task.spawn(function()
+    while Gui and Gui.Parent do
+        if not Features.SilentAim then
+            TargetPos = nil
+        end
+        task.wait(0.1)
+    end
 end)
 
 -- =============================================
@@ -453,15 +475,15 @@ local FastAttack = (function()
         if not myChar then return nil end
         local myRoot = myChar:FindFirstChild("HumanoidRootPart")
         if not myRoot then return nil end
-        local nearest, nd = nil, Features.FastRange
+        local n, nd = nil, Features.FastRange
         for _, e in ipairs(getEnemies()) do
             local er = e:FindFirstChild("HumanoidRootPart")
             if er then
                 local d = (er.Position - myRoot.Position).Magnitude
-                if d < nd then nd = d nearest = e end
+                if d < nd then nd = d n = e end
             end
         end
-        return nearest
+        return n
     end
     local function fire(t)
         if not RegisterAttack or not RegisterHit then return end
@@ -500,7 +522,7 @@ local FastAttack = (function()
 end)()
 
 -- =============================================
--- ESP (Corner brackets + clean layout)
+-- ESP
 -- =============================================
 local ESPData = {}
 
@@ -519,11 +541,9 @@ local function CreateESP(target)
     gui.AlwaysOnTop = true
     gui.Parent = head
     
-    local cornerSize = 12
-    local cornerThickness = 2
-    
     local corners = {}
-    local function mkCorner(x, y, w, h)
+    local cs, ct = 12, 2
+    local function mkC(x, y, w, h)
         local c = Instance.new("Frame")
         c.Size = UDim2.new(0, w, 0, h)
         c.Position = UDim2.new(0, x, 0, y)
@@ -532,14 +552,10 @@ local function CreateESP(target)
         c.Parent = gui
         table.insert(corners, c)
     end
-    mkCorner(20, 20, cornerSize, cornerThickness)
-    mkCorner(20, 20, cornerThickness, cornerSize)
-    mkCorner(200-20-cornerSize, 20, cornerSize, cornerThickness)
-    mkCorner(200-20-cornerThickness, 20, cornerThickness, cornerSize)
-    mkCorner(20, 80-20-cornerThickness, cornerSize, cornerThickness)
-    mkCorner(20, 80-20-cornerSize, cornerThickness, cornerSize)
-    mkCorner(200-20-cornerSize, 80-20-cornerThickness, cornerSize, cornerThickness)
-    mkCorner(200-20-cornerThickness, 80-20-cornerSize, cornerThickness, cornerSize)
+    mkC(20, 20, cs, ct); mkC(20, 20, ct, cs)
+    mkC(200-20-cs, 20, cs, ct); mkC(200-20-ct, 20, ct, cs)
+    mkC(20, 80-20-ct, cs, ct); mkC(20, 80-20-cs, ct, cs)
+    mkC(200-20-cs, 80-20-ct, cs, ct); mkC(200-20-ct, 80-20-cs, ct, cs)
     
     local nameL = Instance.new("TextLabel")
     nameL.Size = UDim2.new(1, -40, 0, 16)
@@ -582,7 +598,7 @@ local function CreateESP(target)
     distL.TextXAlignment = Enum.TextXAlignment.Center
     distL.Parent = gui
     
-    ESPData[target] = {gui = gui, name = nameL, dist = distL, healthBg = healthBg, healthFill = healthFill, corners = corners}
+    ESPData[target] = {gui=gui, name=nameL, dist=distL, healthBg=healthBg, healthFill=healthFill, corners=corners}
 end
 
 local function UpdateESP()
@@ -592,7 +608,8 @@ local function UpdateESP()
     end
     local current = {}
     local cam = Camera
-    local function applyData(d, name, root, hum, isNpc)
+    
+    local function apply(d, name, root, hum)
         d.gui.Visible = true
         d.name.Text = name
         d.dist.Text = math.floor((root.Position - cam.CFrame.Position).Magnitude) .. "m"
@@ -617,7 +634,7 @@ local function UpdateESP()
                     if hum and hum.Health > 0 and root then
                         if not ESPData[plr] then CreateESP(plr) end
                         current[plr] = true
-                        if ESPData[plr] then applyData(ESPData[plr], plr.Name, root, hum, false) end
+                        if ESPData[plr] then apply(ESPData[plr], plr.Name, root, hum) end
                     end
                 end
             end
@@ -640,7 +657,7 @@ local function UpdateESP()
                                 ESPData[npc] = ESPData[fake]
                             end
                             current[npc] = true
-                            if ESPData[npc] then applyData(ESPData[npc], "NPC", root, hum, true) end
+                            if ESPData[npc] then apply(ESPData[npc], "NPC", root, hum) end
                         end
                     end
                 end
@@ -648,10 +665,10 @@ local function UpdateESP()
         end
     end
     
-    for target, d in pairs(ESPData) do
-        if not current[target] then
+    for t, d in pairs(ESPData) do
+        if not current[t] then
             pcall(function() d.gui:Destroy() end)
-            ESPData[target] = nil
+            ESPData[t] = nil
         end
     end
 end
@@ -701,7 +718,7 @@ local function ExecuteMacro()
 end
 
 -- =============================================
--- UI BUILD
+-- UI
 -- =============================================
 local ToggleBtn = Instance.new("TextButton")
 ToggleBtn.Size = UDim2.fromOffset(42,42)
@@ -717,9 +734,6 @@ ToggleBtn.AutoButtonColor = false
 ToggleBtn.Parent = Gui
 Corner(ToggleBtn, 10)
 
-ToggleBtn.MouseEnter:Connect(function() TweenIt(ToggleBtn, {BackgroundColor3 = COLORS.ACCENT, TextColor3 = COLORS.BLACK}) end)
-ToggleBtn.MouseLeave:Connect(function() TweenIt(ToggleBtn, {BackgroundColor3 = COLORS.BLACK, TextColor3 = COLORS.WHITE}) end)
-
 local Main = Instance.new("Frame")
 Main.Size = UDim2.new(0, 400, 0, 440)
 Main.Position = UDim2.new(0.5, -200, 0.5, -220)
@@ -730,7 +744,6 @@ Main.Parent = Gui
 Corner(Main, 14)
 Stroke(Main, COLORS.ACCENT, 1.5)
 
--- Fancy header with gradient
 local Top = Instance.new("Frame")
 Top.Size = UDim2.new(1, 0, 0, 44)
 Top.BackgroundColor3 = COLORS.DARK
@@ -738,7 +751,6 @@ Top.BorderSizePixel = 0
 Top.Parent = Main
 Corner(Top, 14)
 
--- Header accent line
 local headerLine = Instance.new("Frame")
 headerLine.Size = UDim2.new(1, -20, 0, 1)
 headerLine.Position = UDim2.new(0, 10, 1, -1)
@@ -755,25 +767,6 @@ local SubTitle = Text(Top, "HUB", 9, false)
 SubTitle.TextColor3 = COLORS.ACCENT
 SubTitle.Position = UDim2.new(0, 16, 0, 26)
 SubTitle.Size = UDim2.new(0, 60, 0, 12)
-
--- Animated dot indicator
-local dot = Instance.new("Frame")
-dot.Size = UDim2.new(0, 8, 0, 8)
-dot.Position = UDim2.new(1, -78, 0.5, -4)
-dot.BackgroundColor3 = COLORS.GREEN
-dot.BorderSizePixel = 0
-dot.Parent = Top
-Corner(dot, 4)
-Stroke(dot, COLORS.GREEN, 1)
-
-task.spawn(function()
-    while dot.Parent do
-        TweenIt(dot, {BackgroundTransparency = 0.7}, 0.8)
-        task.wait(0.8)
-        TweenIt(dot, {BackgroundTransparency = 0}, 0.8)
-        task.wait(0.8)
-    end
-end)
 
 local Close = Instance.new("TextButton")
 Close.Size = UDim2.new(0, 26, 0, 26)
@@ -801,16 +794,11 @@ Corner(Minimize, 8)
 
 ToggleBtn.MouseButton1Click:Connect(function()
     Main.Visible = not Main.Visible
-    if Main.Visible then
-        TweenIt(ToggleBtn, {BackgroundColor3 = COLORS.ACCENT, TextColor3 = COLORS.BLACK})
-    else
-        TweenIt(ToggleBtn, {BackgroundColor3 = COLORS.BLACK, TextColor3 = COLORS.WHITE})
-    end
+    TweenIt(ToggleBtn, Main.Visible and
+        {BackgroundColor3 = COLORS.ACCENT, TextColor3 = COLORS.BLACK} or
+        {BackgroundColor3 = COLORS.BLACK, TextColor3 = COLORS.WHITE})
 end)
 
--- =============================================
--- SIDEBAR (fancy tabs)
--- =============================================
 local Sidebar = Instance.new("Frame")
 Sidebar.Size = UDim2.new(0, 95, 1, -54)
 Sidebar.Position = UDim2.new(0, 8, 0, 50)
@@ -818,7 +806,7 @@ Sidebar.BackgroundColor3 = COLORS.DARK
 Sidebar.BorderSizePixel = 0
 Sidebar.Parent = Main
 Corner(Sidebar, 12)
-Stroke(Sidebar, Color3.fromRGB(30,30,30), 1)
+Stroke(Sidebar)
 
 local TabLayout = Instance.new("UIListLayout")
 TabLayout.Padding = UDim.new(0, 4)
@@ -838,7 +826,7 @@ Content.BackgroundColor3 = COLORS.DARK
 Content.BorderSizePixel = 0
 Content.Parent = Main
 Corner(Content, 12)
-Stroke(Content, Color3.fromRGB(30,30,30), 1)
+Stroke(Content)
 
 local Pages = {}
 local function CreatePage(name)
@@ -853,88 +841,84 @@ local function CreatePage(name)
     page.Visible = false
     page.CanvasSize = UDim2.new(0, 0, 0, 0)
     page.Parent = Content
-    local layout = Instance.new("UIListLayout")
-    layout.Padding = UDim.new(0, 5)
-    layout.SortOrder = Enum.SortOrder.LayoutOrder
-    layout.Parent = page
-    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        page.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
+    local l = Instance.new("UIListLayout")
+    l.Padding = UDim.new(0, 5)
+    l.SortOrder = Enum.SortOrder.LayoutOrder
+    l.Parent = page
+    l:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        page.CanvasSize = UDim2.new(0, 0, 0, l.AbsoluteContentSize.Y + 10)
     end)
     Pages[name] = page
     return page
 end
 
 local function Section(parent, text)
-    local lbl = Text(parent, text, 8, true)
-    lbl.TextColor3 = COLORS.ACCENT
-    lbl.Size = UDim2.new(1, 0, 0, 14)
-    return lbl
+    local l = Text(parent, text, 8, true)
+    l.TextColor3 = COLORS.ACCENT
+    l.Size = UDim2.new(1, 0, 0, 14)
+    return l
 end
 
 local function Button(parent, text, cb)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, 0, 0, 28)
-    btn.BackgroundColor3 = COLORS.CARD
-    btn.BorderSizePixel = 0
-    btn.Text = text
-    btn.TextColor3 = COLORS.WHITE
-    btn.TextSize = 10
-    btn.Font = Enum.Font.GothamMedium
-    btn.AutoButtonColor = false
-    btn.Parent = parent
-    Corner(btn, 8)
-    Stroke(btn, Color3.fromRGB(35,35,35), 1)
-    btn.MouseEnter:Connect(function() TweenIt(btn, {BackgroundColor3 = Color3.fromRGB(32,32,32)}) end)
-    btn.MouseLeave:Connect(function() TweenIt(btn, {BackgroundColor3 = COLORS.CARD}) end)
-    btn.MouseButton1Click:Connect(cb)
-    return btn
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(1, 0, 0, 28)
+    b.BackgroundColor3 = COLORS.CARD
+    b.BorderSizePixel = 0
+    b.Text = text
+    b.TextColor3 = COLORS.WHITE
+    b.TextSize = 10
+    b.Font = Enum.Font.GothamMedium
+    b.AutoButtonColor = false
+    b.Parent = parent
+    Corner(b, 8)
+    Stroke(b, Color3.fromRGB(35,35,35), 1)
+    b.MouseButton1Click:Connect(cb)
+    return b
 end
 
 local function CycleButton(parent, text, options, default, cb)
     local idx = 1
-    for i, opt in ipairs(options) do if opt == default then idx = i break end end
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, 0, 0, 28)
-    btn.BackgroundColor3 = COLORS.CARD
-    btn.BorderSizePixel = 0
-    btn.Text = text .. ": " .. options[idx]
-    btn.TextColor3 = COLORS.WHITE
-    btn.TextSize = 10
-    btn.Font = Enum.Font.GothamMedium
-    btn.AutoButtonColor = false
-    btn.Parent = parent
-    Corner(btn, 8)
-    Stroke(btn, Color3.fromRGB(35,35,35), 1)
-    btn.MouseEnter:Connect(function() TweenIt(btn, {BackgroundColor3 = Color3.fromRGB(32,32,32)}) end)
-    btn.MouseLeave:Connect(function() TweenIt(btn, {BackgroundColor3 = COLORS.CARD}) end)
+    for i, o in ipairs(options) do if o == default then idx = i break end end
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(1, 0, 0, 28)
+    b.BackgroundColor3 = COLORS.CARD
+    b.BorderSizePixel = 0
+    b.Text = text .. ": " .. options[idx]
+    b.TextColor3 = COLORS.WHITE
+    b.TextSize = 10
+    b.Font = Enum.Font.GothamMedium
+    b.AutoButtonColor = false
+    b.Parent = parent
+    Corner(b, 8)
+    Stroke(b, Color3.fromRGB(35,35,35), 1)
     if cb then cb(options[idx]) end
-    btn.MouseButton1Click:Connect(function()
+    b.MouseButton1Click:Connect(function()
         idx = idx % #options + 1
-        btn.Text = text .. ": " .. options[idx]
+        b.Text = text .. ": " .. options[idx]
         if cb then cb(options[idx]) end
     end)
-    return btn
+    return b
 end
 
 local function Toggle(parent, text, default, cb)
     local state = default or false
-    local holder = Instance.new("Frame")
-    holder.Size = UDim2.new(1, 0, 0, 28)
-    holder.BackgroundColor3 = COLORS.CARD
-    holder.BorderSizePixel = 0
-    holder.Parent = parent
-    Corner(holder, 8)
-    Stroke(holder, Color3.fromRGB(35,35,35), 1)
-    local label = Text(holder, text .. ": OFF", 10, false)
-    label.Position = UDim2.new(0, 10, 0, 0)
-    label.Size = UDim2.new(1, -50, 1, 0)
+    local h = Instance.new("Frame")
+    h.Size = UDim2.new(1, 0, 0, 28)
+    h.BackgroundColor3 = COLORS.CARD
+    h.BorderSizePixel = 0
+    h.Parent = parent
+    Corner(h, 8)
+    Stroke(h, Color3.fromRGB(35,35,35), 1)
+    local lbl = Text(h, text .. ": OFF", 10, false)
+    lbl.Position = UDim2.new(0, 10, 0, 0)
+    lbl.Size = UDim2.new(1, -50, 1, 0)
     local sw = Instance.new("TextButton")
     sw.Size = UDim2.new(0, 26, 0, 14)
     sw.Position = UDim2.new(1, -34, 0.5, -7)
     sw.BackgroundColor3 = Color3.fromRGB(35,35,35)
     sw.Text = ""
     sw.BorderSizePixel = 0
-    sw.Parent = holder
+    sw.Parent = h
     Corner(sw, 20)
     local ball = Instance.new("Frame")
     ball.Size = UDim2.new(0, 10, 0, 10)
@@ -947,40 +931,36 @@ local function Toggle(parent, text, default, cb)
         if state then
             TweenIt(sw, {BackgroundColor3 = COLORS.ACCENT})
             TweenIt(ball, {Position = UDim2.new(1, -12, 0.5, -5), BackgroundColor3 = COLORS.WHITE})
-            label.Text = text .. ": ON"
-            label.TextColor3 = COLORS.WHITE
+            lbl.Text = text .. ": ON"
         else
             TweenIt(sw, {BackgroundColor3 = Color3.fromRGB(35,35,35)})
             TweenIt(ball, {Position = UDim2.new(0, 2, 0.5, -5), BackgroundColor3 = COLORS.GRAY})
-            label.Text = text .. ": OFF"
-            label.TextColor3 = Color3.fromRGB(200,200,200)
+            lbl.Text = text .. ": OFF"
         end
         if cb then cb(state) end
     end
     sw.MouseButton1Click:Connect(function() state = not state Update() end)
     Update()
-    return holder
+    return h
 end
 
--- Mobile-friendly slider (bigger knob, bigger drag area)
 local function Slider(parent, text, default, minVal, maxVal, cb, suffix)
     local Value = default or 50
-    local holder = Instance.new("Frame")
-    holder.Size = UDim2.new(1, 0, 0, 36)
-    holder.BackgroundColor3 = COLORS.CARD
-    holder.BorderSizePixel = 0
-    holder.Parent = parent
-    Corner(holder, 8)
-    Stroke(holder, Color3.fromRGB(35,35,35), 1)
-    local label = Text(holder, text .. ": " .. tostring(Value) .. (suffix or ""), 10, false)
-    label.Position = UDim2.new(0, 10, 0, 0)
-    label.Size = UDim2.new(1, -50, 1, 0)
-    -- Bigger bar for mobile
+    local h = Instance.new("Frame")
+    h.Size = UDim2.new(1, 0, 0, 36)
+    h.BackgroundColor3 = COLORS.CARD
+    h.BorderSizePixel = 0
+    h.Parent = parent
+    Corner(h, 8)
+    Stroke(h, Color3.fromRGB(35,35,35), 1)
+    local lbl = Text(h, text .. ": " .. tostring(Value) .. (suffix or ""), 10, false)
+    lbl.Position = UDim2.new(0, 10, 0, 0)
+    lbl.Size = UDim2.new(1, -50, 1, 0)
     local barHolder = Instance.new("Frame")
     barHolder.Size = UDim2.new(1, -20, 0, 20)
     barHolder.Position = UDim2.new(0, 10, 0, 22)
     barHolder.BackgroundTransparency = 1
-    barHolder.Parent = holder
+    barHolder.Parent = h
     local bg = Instance.new("Frame")
     bg.Size = UDim2.new(1, 0, 0, 4)
     bg.Position = UDim2.new(0, 0, 0.5, -2)
@@ -1005,24 +985,21 @@ local function Slider(parent, text, default, minVal, maxVal, cb, suffix)
     Stroke(knob, COLORS.ACCENT, 2)
     local dragging = false
     local function UpdateSlider(v)
-        local clamped = math.clamp(v, minVal, maxVal)
-        Value = clamped
-        local ratio = (clamped - minVal) / (maxVal - minVal)
-        fill.Size = UDim2.new(ratio, 0, 1, 0)
-        knob.Position = UDim2.new(ratio, -9, 0.5, -9)
-        label.Text = text .. ": " .. tostring(math.floor(clamped)) .. (suffix or "")
-        if cb then cb(clamped) end
+        local cv = math.clamp(v, minVal, maxVal)
+        Value = cv
+        local r = (cv - minVal) / (maxVal - minVal)
+        fill.Size = UDim2.new(r, 0, 1, 0)
+        knob.Position = UDim2.new(r, -9, 0.5, -9)
+        lbl.Text = text .. ": " .. tostring(math.floor(cv)) .. (suffix or "")
+        if cb then cb(cv) end
     end
-    -- Bigger hitbox for mobile
     local fullBar = Instance.new("TextButton")
     fullBar.Size = UDim2.new(1, 0, 0, 20)
     fullBar.Position = UDim2.new(0, 0, 0.5, -10)
     fullBar.BackgroundTransparency = 1
     fullBar.Text = ""
     fullBar.Parent = barHolder
-    fullBar.MouseButton1Down:Connect(function()
-        dragging = true
-    end)
+    fullBar.MouseButton1Down:Connect(function() dragging = true end)
     fullBar.MouseButton1Up:Connect(function() dragging = false end)
     fullBar.MouseLeave:Connect(function() dragging = false end)
     knob.MouseButton1Down:Connect(function() dragging = true end)
@@ -1036,12 +1013,10 @@ local function Slider(parent, text, default, minVal, maxVal, cb, suffix)
             UpdateSlider(minVal + (rx / sz) * (maxVal - minVal))
         end
     end)
-    return holder
+    return h
 end
 
--- =============================================
 -- PAGES
--- =============================================
 local MainPage = CreatePage("Main")
 local CombatPage = CreatePage("Combat")
 local FastPage = CreatePage("Fast")
@@ -1050,9 +1025,8 @@ local VisualPage = CreatePage("Visual")
 local ConfigPage = CreatePage("Config")
 local CreditsPage = CreatePage("Credits")
 
--- MAIN
 Section(MainPage, "IVORY HUB")
-local mt = Text(MainPage, "IVORY HUB v9.0", 18, true)
+local mt = Text(MainPage, "IVORY HUB v9.2", 18, true)
 mt.Size = UDim2.new(1, 0, 0, 26)
 mt.TextXAlignment = Enum.TextXAlignment.Center
 mt.TextColor3 = COLORS.WHITE
@@ -1063,60 +1037,44 @@ msub.Position = UDim2.new(0, 0, 0, 28)
 msub.TextXAlignment = Enum.TextXAlignment.Center
 msub.TextColor3 = COLORS.GRAY
 
-Section(MainPage, "CREATORS")
-local cred = Text(MainPage, "Ivory & Rayo", 11, true)
-cred.Size = UDim2.new(1, 0, 0, 18)
-cred.TextXAlignment = Enum.TextXAlignment.Center
-cred.TextColor3 = COLORS.ACCENT
-
--- COMBAT
 Section(CombatPage, "SILENT AIM")
 Toggle(CombatPage, "Enable Silent Aim", Features.SilentAim, function(s)
     Features.SilentAim = s
+    if not s then TargetPos = nil end
     SaveConfig()
 end)
 CycleButton(CombatPage, "Target", {"Both","Players","NPCs"}, Features.SilentAimTarget, function(v)
-    Features.SilentAimTarget = v
-    SaveConfig()
+    Features.SilentAimTarget = v SaveConfig()
 end)
 CycleButton(CombatPage, "Mode", {"360","FOV"}, Features.SilentAimMode, function(v)
-    Features.SilentAimMode = v
-    SaveConfig()
+    Features.SilentAimMode = v SaveConfig()
 end)
 Slider(CombatPage, "Aim Distance", Features.SilentAimDistance, 0, 2000, function(v)
-    Features.SilentAimDistance = v
-    SaveConfig()
+    Features.SilentAimDistance = v SaveConfig()
 end, "m")
 
-Section(CombatPage, "SORU AIM")
-Toggle(CombatPage, "Enable Soru Aimbot", Features.SoruAim, function(s)
-    Features.SoruAim = s
-    SaveConfig()
+Section(CombatPage, "SORU")
+Toggle(CombatPage, "Enable Soru", Features.SoruAim, function(s)
+    Features.SoruAim = s SaveConfig()
 end)
 CycleButton(CombatPage, "Soru Target", {"Both","Players","NPCs"}, Features.SoruTarget, function(v)
-    Features.SoruTarget = v
-    SaveConfig()
+    Features.SoruTarget = v SaveConfig()
 end)
 CycleButton(CombatPage, "Soru Mode", {"360","FOV"}, Features.SoruMode, function(v)
-    Features.SoruMode = v
-    SaveConfig()
+    Features.SoruMode = v SaveConfig()
 end)
 
 Section(CombatPage, "FOV")
 Toggle(CombatPage, "Show FOV Circle", Features.FOVCircle, function(s)
-    Features.FOVCircle = s
-    SaveConfig()
+    Features.FOVCircle = s SaveConfig()
 end)
 Slider(CombatPage, "FOV Radius", Features.FOVRadius, 10, 500, function(v)
-    Features.FOVRadius = v
-    SaveConfig()
+    Features.FOVRadius = v SaveConfig()
 end)
 CycleButton(CombatPage, "FOV Mode", {"V1","V2"}, Features.FOVMode, function(v)
-    Features.FOVMode = v
-    SaveConfig()
+    Features.FOVMode = v SaveConfig()
 end)
 
--- FAST
 Section(FastPage, "FAST ATTACK")
 Toggle(FastPage, "Enable Fast Attack", Features.FastAttack, function(s)
     Features.FastAttack = s
@@ -1124,15 +1082,12 @@ Toggle(FastPage, "Enable Fast Attack", Features.FastAttack, function(s)
     SaveConfig()
 end)
 Slider(FastPage, "Speed", Features.FastSpeed, 1, 30, function(v)
-    Features.FastSpeed = v
-    SaveConfig()
+    Features.FastSpeed = v SaveConfig()
 end, "x")
 Slider(FastPage, "Range", Features.FastRange, 5, 100, function(v)
-    Features.FastRange = v
-    SaveConfig()
+    Features.FastRange = v SaveConfig()
 end, " studs")
 
--- MACRO
 Section(MacroPage, "MACRO")
 Toggle(MacroPage, "Enable Macro", Features.Macro, function(s)
     Features.Macro = s
@@ -1192,7 +1147,6 @@ blockLayout.Parent = blockContainer
 
 local SKILLS = {"Z","X","C","V","F","Tap","M1"}
 
--- MACRO BUTTON (created before AddBlock)
 local MacroBtn = Instance.new("TextButton")
 MacroBtn.Size = UDim2.fromOffset(60, 30)
 MacroBtn.Position = UDim2.new(0.5, -30, 0.85, 0)
@@ -1251,7 +1205,6 @@ local function AddBlock()
     dLabel.Size = UDim2.new(0, 60, 0, 14)
     dLabel.TextColor3 = COLORS.GRAY
     
-    -- Hold slider
     local hSlider = Instance.new("Frame")
     hSlider.Size = UDim2.new(1, -175, 0, 4)
     hSlider.Position = UDim2.new(0, 165, 0, 9)
@@ -1276,7 +1229,6 @@ local function AddBlock()
     hKnob.Parent = hSlider
     Corner(hKnob, 10)
     
-    -- Delay slider
     local dSlider = Instance.new("Frame")
     dSlider.Size = UDim2.new(1, -175, 0, 4)
     dSlider.Position = UDim2.new(0, 165, 0, 27)
@@ -1366,7 +1318,6 @@ clearBtn.MouseButton1Click:Connect(function()
     if MacroBtn then MacroBtn.Visible = false end
 end)
 
--- MACRO BTN drag
 local mdrag = {d = false, sp = nil, sm = nil}
 MacroBtn.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -1396,104 +1347,62 @@ MacroBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- VISUAL
 Section(VisualPage, "ESP")
-Toggle(VisualPage, "Enable ESP", Features.ESP, function(s)
-    Features.ESP = s
-    SaveConfig()
-end)
-Toggle(VisualPage, "Box (Corners)", Features.ESPBox, function(s)
-    Features.ESPBox = s
-    SaveConfig()
-end)
-Toggle(VisualPage, "Name", Features.ESPName, function(s)
-    Features.ESPName = s
-    SaveConfig()
-end)
-Toggle(VisualPage, "Health Bar", Features.ESPHealth, function(s)
-    Features.ESPHealth = s
-    SaveConfig()
-end)
-Toggle(VisualPage, "Distance", Features.ESPDistance, function(s)
-    Features.ESPDistance = s
-    SaveConfig()
-end)
-Toggle(VisualPage, "Players", Features.ESPPlayers, function(s)
-    Features.ESPPlayers = s
-    SaveConfig()
-end)
-Toggle(VisualPage, "NPCs", Features.ESPNPCs, function(s)
-    Features.ESPNPCs = s
-    SaveConfig()
-end)
+Toggle(VisualPage, "Enable ESP", Features.ESP, function(s) Features.ESP = s SaveConfig() end)
+Toggle(VisualPage, "Box (Corners)", Features.ESPBox, function(s) Features.ESPBox = s SaveConfig() end)
+Toggle(VisualPage, "Name", Features.ESPName, function(s) Features.ESPName = s SaveConfig() end)
+Toggle(VisualPage, "Health Bar", Features.ESPHealth, function(s) Features.ESPHealth = s SaveConfig() end)
+Toggle(VisualPage, "Distance", Features.ESPDistance, function(s) Features.ESPDistance = s SaveConfig() end)
+Toggle(VisualPage, "Players", Features.ESPPlayers, function(s) Features.ESPPlayers = s SaveConfig() end)
+Toggle(VisualPage, "NPCs", Features.ESPNPCs, function(s) Features.ESPNPCs = s SaveConfig() end)
 
--- CONFIG
 Section(ConfigPage, "CONFIG")
 Button(ConfigPage, "Save Config", function() SaveConfig() end)
 Button(ConfigPage, "Load Config", function() LoadConfig() end)
 Button(ConfigPage, "Reset Config", function() ResetConfig() end)
-Button(ConfigPage, "Unload UI", function()
-    SaveConfig()
-    Gui:Destroy()
-end)
+Button(ConfigPage, "Unload UI", function() SaveConfig() Gui:Destroy() end)
 
--- CREDITS
 Section(CreditsPage, "IVORY HUB")
-local cTitle = Text(CreditsPage, "Ivory Hub v9.0", 16, true)
-cTitle.Size = UDim2.new(1, 0, 0, 24)
-cTitle.TextXAlignment = Enum.TextXAlignment.Center
-cTitle.TextColor3 = COLORS.WHITE
+local cT = Text(CreditsPage, "Ivory Hub v9.2", 16, true)
+cT.Size = UDim2.new(1, 0, 0, 24)
+cT.TextXAlignment = Enum.TextXAlignment.Center
+cT.TextColor3 = COLORS.WHITE
 
-local cSub = Text(CreditsPage, "Created with 🦷 by:", 10, false)
-cSub.Size = UDim2.new(1, 0, 0, 18)
-cSub.Position = UDim2.new(0, 0, 0, 26)
-cSub.TextXAlignment = Enum.TextXAlignment.Center
-cSub.TextColor3 = COLORS.GRAY
+local cS = Text(CreditsPage, "Created by:", 10, false)
+cS.Size = UDim2.new(1, 0, 0, 18)
+cS.Position = UDim2.new(0, 0, 0, 26)
+cS.TextXAlignment = Enum.TextXAlignment.Center
+cS.TextColor3 = COLORS.GRAY
 
--- Creator cards
-local function creatorCard(name, discord, yPos)
-    local card = Instance.new("Frame")
-    card.Size = UDim2.new(1, -10, 0, 60)
-    card.Position = UDim2.new(0, 5, 0, yPos)
-    card.BackgroundColor3 = COLORS.CARD
-    card.BorderSizePixel = 0
-    card.Parent = CreditsPage
-    Corner(card, 10)
-    Stroke(card, COLORS.ACCENT, 1)
-    
-    local accent = Instance.new("Frame")
-    accent.Size = UDim2.new(0, 4, 1, -8)
-    accent.Position = UDim2.new(0, 4, 0, 4)
-    accent.BackgroundColor3 = COLORS.ACCENT
-    accent.BorderSizePixel = 0
-    accent.Parent = card
-    Corner(accent, 2)
-    
-    local nL = Text(card, name, 14, true)
-    nL.Position = UDim2.new(0, 16, 0, 10)
-    nL.Size = UDim2.new(1, -20, 0, 18)
-    nL.TextColor3 = COLORS.WHITE
-    
-    local dL = Text(card, "Discord: " .. discord, 10, false)
-    dL.Position = UDim2.new(0, 16, 0, 32)
-    dL.Size = UDim2.new(1, -20, 0, 16)
-    dL.TextColor3 = COLORS.GRAY
-    
-    return card
+local function card(name, discord, y)
+    local crd = Instance.new("Frame")
+    crd.Size = UDim2.new(1, -10, 0, 60)
+    crd.Position = UDim2.new(0, 5, 0, y)
+    crd.BackgroundColor3 = COLORS.CARD
+    crd.BorderSizePixel = 0
+    crd.Parent = CreditsPage
+    Corner(crd, 10)
+    Stroke(crd, COLORS.ACCENT, 1)
+    local ac = Instance.new("Frame")
+    ac.Size = UDim2.new(0, 4, 1, -8)
+    ac.Position = UDim2.new(0, 4, 0, 4)
+    ac.BackgroundColor3 = COLORS.ACCENT
+    ac.BorderSizePixel = 0
+    ac.Parent = crd
+    Corner(ac, 2)
+    local n = Text(crd, name, 14, true)
+    n.Position = UDim2.new(0, 16, 0, 10)
+    n.Size = UDim2.new(1, -20, 0, 18)
+    n.TextColor3 = COLORS.WHITE
+    local d = Text(crd, "Discord: " .. discord, 10, false)
+    d.Position = UDim2.new(0, 16, 0, 32)
+    d.Size = UDim2.new(1, -20, 0, 16)
+    d.TextColor3 = COLORS.GRAY
 end
 
-creatorCard("IVORY", "Ivory999", 55)
-creatorCard("RAYO", "Rayo06996", 125)
+card("IVORY", "Ivory999", 55)
+card("RAYO", "Rayo06996", 125)
 
-Section(CreditsPage, "INFO")
-local info = Text(CreditsPage, "Blox Fruits PVP Hub", 10, false)
-info.Size = UDim2.new(1, 0, 0, 16)
-info.TextXAlignment = Enum.TextXAlignment.Center
-info.TextColor3 = COLORS.GRAY
-
--- =============================================
--- TABS (Fancy with icons)
--- =============================================
 local Tabs = {
     {name="MAIN", icon="🏠", page=MainPage},
     {name="COMBAT", icon="⚔️", page=CombatPage},
@@ -1505,28 +1414,28 @@ local Tabs = {
 }
 local CurrentTab
 
-local function SelectTab(button, page, isActive)
-    for _, data in ipairs(Tabs) do
-        if data.button then
-            TweenIt(data.button, {BackgroundColor3 = COLORS.DARKER}, 0.2)
-            data.button.TextColor3 = COLORS.GRAY
-            if data.accent then data.accent.Visible = false end
+local function SelectTab(button, page, accent)
+    for _, d in ipairs(Tabs) do
+        if d.button then
+            TweenIt(d.button, {BackgroundColor3 = COLORS.DARKER}, 0.2)
+            d.button.TextColor3 = COLORS.GRAY
+            if d.accent then d.accent.Visible = false end
         end
-        data.page.Visible = false
+        d.page.Visible = false
     end
     TweenIt(button, {BackgroundColor3 = COLORS.ACCENT}, 0.2)
     button.TextColor3 = COLORS.WHITE
-    if isActive then isActive.Visible = true end
+    if accent then accent.Visible = true end
     page.Visible = true
     CurrentTab = page
 end
 
-for _, data in ipairs(Tabs) do
+for _, d in ipairs(Tabs) do
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, 0, 0, 30)
     btn.BackgroundColor3 = COLORS.DARKER
     btn.BorderSizePixel = 0
-    btn.Text = "  " .. data.icon .. "  " .. data.name
+    btn.Text = "  " .. d.icon .. "  " .. d.name
     btn.TextColor3 = COLORS.GRAY
     btn.TextSize = 10
     btn.Font = Enum.Font.GothamBold
@@ -1535,46 +1444,33 @@ for _, data in ipairs(Tabs) do
     btn.Parent = Sidebar
     Corner(btn, 8)
     Stroke(btn, Color3.fromRGB(35,35,35), 1)
-    
-    local accent = Instance.new("Frame")
-    accent.Size = UDim2.new(0, 3, 1, -8)
-    accent.Position = UDim2.new(0, 3, 0, 4)
-    accent.BackgroundColor3 = COLORS.WHITE
-    accent.BorderSizePixel = 0
-    accent.Visible = false
-    accent.Parent = btn
-    Corner(accent, 2)
-    
-    data.button = btn
-    data.accent = accent
-    
+    local ac = Instance.new("Frame")
+    ac.Size = UDim2.new(0, 3, 1, -8)
+    ac.Position = UDim2.new(0, 3, 0, 4)
+    ac.BackgroundColor3 = COLORS.WHITE
+    ac.BorderSizePixel = 0
+    ac.Visible = false
+    ac.Parent = btn
+    Corner(ac, 2)
+    d.button = btn
+    d.accent = ac
     btn.MouseEnter:Connect(function()
-        if CurrentTab ~= data.page then
-            TweenIt(btn, {BackgroundColor3 = Color3.fromRGB(28,28,28)}, 0.15)
-        end
+        if CurrentTab ~= d.page then TweenIt(btn, {BackgroundColor3 = Color3.fromRGB(28,28,28)}, 0.15) end
     end)
     btn.MouseLeave:Connect(function()
-        if CurrentTab ~= data.page then
-            TweenIt(btn, {BackgroundColor3 = COLORS.DARKER}, 0.15)
-        end
+        if CurrentTab ~= d.page then TweenIt(btn, {BackgroundColor3 = COLORS.DARKER}, 0.15) end
     end)
-    btn.MouseButton1Click:Connect(function()
-        SelectTab(btn, data.page, accent)
-    end)
+    btn.MouseButton1Click:Connect(function() SelectTab(btn, d.page, ac) end)
 end
 SelectTab(Tabs[1].button, Tabs[1].page, Tabs[1].accent)
 
--- Keep macro button sync
 task.spawn(function()
     while Gui and Gui.Parent do
-        if MacroBtn then
-            MacroBtn.Visible = Features.Macro and #MacroBlocks > 0
-        end
+        if MacroBtn then MacroBtn.Visible = Features.Macro and #MacroBlocks > 0 end
         task.wait(0.3)
     end
 end)
 
--- DRAGGING
 local Drag, DStart, SPos = false, nil, nil
 Top.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -1582,9 +1478,7 @@ Top.InputBegan:Connect(function(input)
     end
 end)
 Top.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        Drag = false
-    end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then Drag = false end
 end)
 UserInputService.InputChanged:Connect(function(input)
     if Drag and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
@@ -1593,10 +1487,10 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
-local Minimized = false
+local Min = false
 Minimize.MouseButton1Click:Connect(function()
-    Minimized = not Minimized
-    if Minimized then
+    Min = not Min
+    if Min then
         Sidebar.Visible = false
         Content.Visible = false
         TweenIt(Main, {Size = UDim2.new(0, 400, 0, 44)})
@@ -1618,7 +1512,5 @@ Close.MouseButton1Click:Connect(function()
 end)
 
 print("========================================")
-print("        IVORY HUB v9.0 LOADED")
-print("========================================")
-print("Fancy UI + Mobile Sliders + Aim Distance")
+print("        IVORY HUB v9.2 LOADED")
 print("========================================")
