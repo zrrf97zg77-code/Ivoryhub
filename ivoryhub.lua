@@ -1,9 +1,9 @@
 -- =============================================
--- IVORY HUB v8.1 - FULL BUILD + FIXES
--- Fixed: NPC Silent Aim / Soru, Macro button visibility
+-- IVORY HUB v8.2 - NO SORU BUTTON, NO HITBOX
+-- Fast Attack works but doesn't resize parts
 -- =============================================
 
-print("🦷 Ivory Hub v8.1 loading...")
+print("🦷 Ivory Hub v8.2 loading...")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -89,7 +89,6 @@ local Features = {
     FastAttack = false,
     FastSpeed = 10,
     FastRange = 25,
-    HitboxSize = 15,
     FOVCircle = false,
     FOVRadius = 150,
     FOVMode = "V1",
@@ -153,7 +152,6 @@ local function ResetConfig()
     Features.FastAttack = false
     Features.FastSpeed = 10
     Features.FastRange = 25
-    Features.HitboxSize = 15
     Features.FOVCircle = false
     Features.FOVRadius = 150
     Features.FOVMode = "V1"
@@ -223,7 +221,7 @@ end
 RunService.RenderStepped:Connect(function() pcall(UpdateFOVCircle) end)
 
 -- =============================================
--- TARGET FINDER (FIXED for NPCs)
+-- TARGET FINDER
 -- =============================================
 local function GetNearestTarget(targetType)
     local char = player.Character
@@ -233,7 +231,6 @@ local function GetNearestTarget(targetType)
     
     local best, bestDist = nil, math.huge
     
-    -- Players
     if targetType == "Players" or targetType == "Both" then
         for _, plr in pairs(Players:GetPlayers()) do
             if plr ~= player and plr.Character then
@@ -252,13 +249,11 @@ local function GetNearestTarget(targetType)
         end
     end
     
-    -- NPCs (robust detection)
     if targetType == "NPCs" or targetType == "Both" then
         local function checkModel(model)
             if not model or not model:IsA("Model") then return end
             if model == char then return end
             if Players:GetPlayerFromCharacter(model) then return end
-            
             local hum = model:FindFirstChildOfClass("Humanoid")
             local hrp = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("UpperTorso") or model.PrimaryPart
             if hum and hum.Health > 0 and hrp then
@@ -271,19 +266,13 @@ local function GetNearestTarget(targetType)
                 end
             end
         end
-        
-        -- Known folders
         local folderNames = {"Enemies", "Enemy", "NPCs", "NPC", "Monsters", "Monster", "Mobs", "Mob", "Units", "Bosses", "Boss"}
         for _, name in ipairs(folderNames) do
             local folder = workspace:FindFirstChild(name)
             if folder then
-                for _, child in ipairs(folder:GetChildren()) do
-                    checkModel(child)
-                end
+                for _, child in ipairs(folder:GetChildren()) do checkModel(child) end
             end
         end
-        
-        -- Scan workspace for NPCs (in folders with relevant names)
         for _, obj in ipairs(workspace:GetChildren()) do
             checkModel(obj)
             if obj:IsA("Folder") then
@@ -291,9 +280,7 @@ local function GetNearestTarget(targetType)
                 if string.find(lname, "enem") or string.find(lname, "npc") or 
                    string.find(lname, "mob") or string.find(lname, "monster") or
                    string.find(lname, "boss") or string.find(lname, "unit") then
-                    for _, child in ipairs(obj:GetChildren()) do
-                        checkModel(child)
-                    end
+                    for _, child in ipairs(obj:GetChildren()) do checkModel(child) end
                 end
             end
         end
@@ -346,7 +333,7 @@ pcall(function()
 end)
 
 -- =============================================
--- SORU AIM
+-- SORU AIM (auto teleport on Flashstep, no button)
 -- =============================================
 local SoruRemote = nil
 local SoruCooldown = 0
@@ -408,12 +395,11 @@ if player.Character then
 end
 
 -- =============================================
--- FAST ATTACK + HITBOX EXPANDER
+-- FAST ATTACK (no hitbox expansion)
 -- =============================================
 local FastAttack = (function()
     local module = {}
     local RegisterAttack, RegisterHit
-    local expandedParts = {}
     
     task.spawn(function()
         local modules = ReplicatedStorage:WaitForChild("Modules", 10)
@@ -433,7 +419,6 @@ local FastAttack = (function()
                 if hum and hum.Health > 0 then table.insert(list, plr.Character) end
             end
         end
-        
         local folderNames = {"Enemies", "Enemy", "NPCs", "NPC", "Monsters", "Monster", "Mobs", "Mob", "Units", "Bosses", "Boss"}
         for _, name in ipairs(folderNames) do
             local folder = workspace:FindFirstChild(name)
@@ -489,40 +474,6 @@ local FastAttack = (function()
         end)
     end
     
-    local function expandChar(char)
-        if not char then return end
-        local parts = {"Head","HumanoidRootPart","UpperTorso","LowerTorso","Torso",
-            "LeftUpperArm","LeftLowerArm","LeftHand","RightUpperArm","RightLowerArm","RightHand",
-            "LeftUpperLeg","LeftLowerLeg","LeftFoot","RightUpperLeg","RightLowerLeg","RightFoot"}
-        for _, name in ipairs(parts) do
-            local part = char:FindFirstChild(name)
-            if part and part:IsA("BasePart") then
-                if not expandedParts[part] then
-                    expandedParts[part] = {size = part.Size, trans = part.Transparency,
-                        collide = part.CanCollide, massless = part.Massless}
-                end
-                part.Size = Vector3.new(Features.HitboxSize, Features.HitboxSize, Features.HitboxSize)
-                part.Transparency = 0.7
-                part.CanCollide = false
-                part.Massless = true
-            end
-        end
-    end
-    
-    local function restoreAll()
-        for part, data in pairs(expandedParts) do
-            pcall(function()
-                if part and part.Parent then
-                    part.Size = data.size
-                    part.Transparency = data.trans
-                    part.CanCollide = data.collide
-                    part.Massless = data.massless
-                end
-            end)
-        end
-        expandedParts = {}
-    end
-    
     local conn = nil
     local lastAttack = 0
     
@@ -530,9 +481,6 @@ local FastAttack = (function()
         if state and not conn then
             conn = RunService.Heartbeat:Connect(function()
                 if not Features.FastAttack then return end
-                local enemies = getEnemies()
-                for _, enemy in ipairs(enemies) do expandChar(enemy) end
-                
                 local delay = 0.5 / math.max(Features.FastSpeed, 1)
                 if tick() - lastAttack >= delay then
                     lastAttack = tick()
@@ -543,7 +491,6 @@ local FastAttack = (function()
         elseif not state and conn then
             conn:Disconnect()
             conn = nil
-            restoreAll()
         end
     end
     
@@ -786,7 +733,7 @@ local Title = Text(Top, "IVORY", 14, true)
 Title.Position = UDim2.new(0, 12, 0, 1)
 Title.Size = UDim2.new(0, 100, 0, 18)
 
-local SubTitle = Text(Top, "HUB v8.1", 7, false)
+local SubTitle = Text(Top, "HUB v8.2", 7, false)
 SubTitle.TextColor3 = COLORS.GRAY
 SubTitle.Position = UDim2.new(0, 13, 0, 20)
 SubTitle.Size = UDim2.new(0, 60, 0, 12)
@@ -890,7 +837,8 @@ local function Button(parent, text, cb)
     btn.TextSize = 10
     btn.Font = Enum.Font.GothamMedium
     btn.AutoButtonColor = false
-    btn.Parent = parent    Corner(btn, 8)
+    btn.Parent = parent
+    Corner(btn, 8)
     Stroke(btn)
     btn.MouseButton1Click:Connect(cb)
     return btn
@@ -1044,7 +992,7 @@ local ConfigPage = CreatePage("Config")
 
 -- MAIN
 Section(MainPage, "IVORY HUB")
-local mt = Text(MainPage, "IVORY HUB v8.1", 16, true)
+local mt = Text(MainPage, "IVORY HUB v8.2", 16, true)
 mt.Size = UDim2.new(1, 0, 0, 24)
 mt.TextXAlignment = Enum.TextXAlignment.Center
 mt.TextColor3 = COLORS.WHITE
@@ -1063,7 +1011,6 @@ end)
 Section(CombatPage, "SORU")
 Toggle(CombatPage, "Enable Soru Aimbot", Features.SoruAim, function(s)
     Features.SoruAim = s
-    if SoruBtn then SoruBtn.Visible = s end
     SaveConfig()
 end)
 CycleButton(CombatPage, "Soru Target", {"Both", "Players", "NPCs"}, Features.SoruTarget, function(v)
@@ -1100,10 +1047,6 @@ Slider(FastPage, "Attack Speed", Features.FastSpeed, 1, 30, function(v)
 end, "x")
 Slider(FastPage, "Attack Range", Features.FastRange, 5, 100, function(v)
     Features.FastRange = v
-    SaveConfig()
-end, " studs")
-Slider(FastPage, "Hitbox Size", Features.HitboxSize, 3, 50, function(v)
-    Features.HitboxSize = v
     SaveConfig()
 end, " studs")
 
@@ -1166,7 +1109,7 @@ blockLayout.Parent = blockContainer
 
 local SKILLS = {"Z", "X", "C", "V", "F", "Tap", "M1"}
 
--- CREATE MACRO BUTTON FIRST (before AddBlock uses it)
+-- CREATE MACRO BUTTON FIRST
 local MacroBtn = Instance.new("TextButton")
 MacroBtn.Size = UDim2.fromOffset(60, 28)
 MacroBtn.Position = UDim2.new(0.5, -30, 0.85, 0)
@@ -1342,51 +1285,6 @@ MacroBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- SORU BUTTON
-local SoruBtn = Instance.new("TextButton")
-SoruBtn.Size = UDim2.fromOffset(60, 60)
-SoruBtn.Position = UDim2.new(0.85, -30, 0.7, -30)
-SoruBtn.BackgroundColor3 = COLORS.BLACK
-SoruBtn.BackgroundTransparency = 0.2
-SoruBtn.Text = "SORU"
-SoruBtn.TextColor3 = COLORS.WHITE
-SoruBtn.TextSize = 14
-SoruBtn.Font = Enum.Font.GothamBold
-SoruBtn.BorderSizePixel = 0
-SoruBtn.Visible = Features.SoruAim
-SoruBtn.Parent = Gui
-Corner(SoruBtn, 30)
-Stroke(SoruBtn)
-
-local soruDrag = {dragging = false, startPos = nil, startMouse = nil}
-SoruBtn.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        soruDrag.dragging = true
-        soruDrag.startMouse = input.Position
-        soruDrag.startPos = SoruBtn.Position
-    end
-end)
-SoruBtn.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        soruDrag.dragging = false
-    end
-end)
-UserInputService.InputChanged:Connect(function(input)
-    if soruDrag.dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local delta = input.Position - soruDrag.startMouse
-        SoruBtn.Position = UDim2.new(soruDrag.startPos.X.Scale, soruDrag.startPos.X.Offset + delta.X, soruDrag.startPos.Y.Scale, soruDrag.startPos.Y.Offset + delta.Y)
-    end
-end)
-SoruBtn.MouseButton1Click:Connect(function()
-    DoSoruTeleport()
-    SoruBtn.BackgroundColor3 = COLORS.GREEN
-    SoruBtn.BackgroundTransparency = 0
-    task.delay(0.3, function()
-        SoruBtn.BackgroundColor3 = COLORS.BLACK
-        SoruBtn.BackgroundTransparency = 0.2
-    end)
-end)
-
 -- VISUALS
 Section(VisualPage, "ESP")
 Toggle(VisualPage, "Enable ESP", Features.ESP, function(s)
@@ -1537,8 +1435,8 @@ Close.MouseButton1Click:Connect(function()
 end)
 
 print("========================================")
-print("        IVORY HUB v8.1 LOADED")
+print("        IVORY HUB v8.2 LOADED")
 print("========================================")
-print("Silent Aim, Soru, Fast Attack, ESP, Macro")
-print("Config: Save / Load / Reset")
+print("No Soru button - Soru auto-teleports")
+print("No hitbox expander - Fast Attack only")
 print("========================================")
