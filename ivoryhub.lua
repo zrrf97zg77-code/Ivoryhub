@@ -1,8 +1,8 @@
 -- =============================================
--- IVORY HUB v9.2 - FIXED FOV LOCK
+-- IVORY HUB v9.3 - FIXED SILENT AIM + CLEAN ESP
 -- =============================================
 
-print("🦷 Ivory Hub v9.2 loading...")
+print("🦷 Ivory Hub v9.3 loading...")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -248,7 +248,7 @@ local function isCombatNPC(model, hum, root)
 end
 
 -- =============================================
--- TARGET FINDER (strips stale targets)
+-- TARGET FINDER
 -- =============================================
 local function GetNearestTarget(targetType, mode, maxDist)
     local char = player.Character
@@ -320,7 +320,7 @@ local function GetNearestTarget(targetType, mode, maxDist)
 end
 
 -- =============================================
--- SILENT AIM (FIXED - clears when no target)
+-- SILENT AIM (FIXED - doesn't break aim)
 -- =============================================
 local TargetPos = nil
 
@@ -339,10 +339,8 @@ pcall(function()
                     TargetPos = t.Position
                     if key == "Hit" then return CFrame.new(TargetPos) end
                     if key == "Target" then return nil end
-                else
-                    -- IMPORTANT: clear target when nobody's in range/FOV
-                    TargetPos = nil
                 end
+                -- DO NOT clear TargetPos here. Let the loop handle it.
             end
         end
         return oldIndex(self, key)
@@ -365,13 +363,20 @@ pcall(function()
     setreadonly(mt, true)
 end)
 
--- Reset TargetPos when Silent Aim is disabled
+-- Background loop: clear TargetPos only when no target is found
 task.spawn(function()
     while Gui and Gui.Parent do
         if not Features.SilentAim then
             TargetPos = nil
+        else
+            local t = GetNearestTarget(Features.SilentAimTarget, Features.SilentAimMode, Features.SilentAimDistance)
+            if t then
+                TargetPos = t.Position
+            else
+                TargetPos = nil
+            end
         end
-        task.wait(0.1)
+        task.wait(0.05)
     end
 end)
 
@@ -522,7 +527,7 @@ local FastAttack = (function()
 end)()
 
 -- =============================================
--- ESP
+-- ESP (Clean box + name + distance + HP %)
 -- =============================================
 local ESPData = {}
 
@@ -530,36 +535,53 @@ local function CreateESP(target)
     if ESPData[target] then return end
     local char = target.Character
     if not char then return end
-    local head = char:FindFirstChild("Head")
-    if not head then return end
+    local root = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("UpperTorso")
+    if not root then return end
     
     local gui = Instance.new("BillboardGui")
     gui.Name = "IvoryESP"
-    gui.Adornee = head
-    gui.Size = UDim2.new(0, 200, 0, 80)
+    gui.Adornee = root
+    gui.Size = UDim2.new(0, 200, 0, 100)
     gui.StudsOffset = Vector3.new(0, 3, 0)
     gui.AlwaysOnTop = true
-    gui.Parent = head
+    gui.Parent = root
     
-    local corners = {}
-    local cs, ct = 12, 2
-    local function mkC(x, y, w, h)
-        local c = Instance.new("Frame")
-        c.Size = UDim2.new(0, w, 0, h)
-        c.Position = UDim2.new(0, x, 0, y)
-        c.BackgroundColor3 = COLORS.ACCENT
-        c.BorderSizePixel = 0
-        c.Parent = gui
-        table.insert(corners, c)
-    end
-    mkC(20, 20, cs, ct); mkC(20, 20, ct, cs)
-    mkC(200-20-cs, 20, cs, ct); mkC(200-20-ct, 20, ct, cs)
-    mkC(20, 80-20-ct, cs, ct); mkC(20, 80-20-cs, ct, cs)
-    mkC(200-20-cs, 80-20-ct, cs, ct); mkC(200-20-ct, 80-20-cs, ct, cs)
+    -- Outline box
+    local box = Instance.new("Frame")
+    box.Name = "Box"
+    box.Size = UDim2.new(0, 50, 0, 70)
+    box.Position = UDim2.new(0.5, -25, 0.5, -35)
+    box.BackgroundTransparency = 1
+    box.BorderSizePixel = 0
+    box.Parent = gui
+    local boxStroke = Instance.new("UIStroke")
+    boxStroke.Color = COLORS.ACCENT
+    boxStroke.Thickness = 1.5
+    boxStroke.Parent = box
     
+    -- Health bar (top of box)
+    local healthBg = Instance.new("Frame")
+    healthBg.Name = "HealthBg"
+    healthBg.Size = UDim2.new(0, 50, 0, 4)
+    healthBg.Position = UDim2.new(0.5, -25, 0.5, -44)
+    healthBg.BackgroundColor3 = Color3.fromRGB(20,20,20)
+    healthBg.BorderSizePixel = 0
+    healthBg.Parent = gui
+    Corner(healthBg, 2)
+    
+    local healthFill = Instance.new("Frame")
+    healthFill.Name = "HealthFill"
+    healthFill.Size = UDim2.new(1, 0, 1, 0)
+    healthFill.BackgroundColor3 = COLORS.GREEN
+    healthFill.BorderSizePixel = 0
+    healthFill.Parent = healthBg
+    Corner(healthFill, 2)
+    
+    -- Name (above box)
     local nameL = Instance.new("TextLabel")
-    nameL.Size = UDim2.new(1, -40, 0, 16)
-    nameL.Position = UDim2.new(0, 20, 0, 2)
+    nameL.Name = "Name"
+    nameL.Size = UDim2.new(1, -20, 0, 16)
+    nameL.Position = UDim2.new(0, 10, 0, 0)
     nameL.BackgroundTransparency = 1
     nameL.Text = target.Name or "NPC"
     nameL.TextColor3 = COLORS.WHITE
@@ -570,35 +592,46 @@ local function CreateESP(target)
     nameL.TextXAlignment = Enum.TextXAlignment.Center
     nameL.Parent = gui
     
-    local healthBg = Instance.new("Frame")
-    healthBg.Size = UDim2.new(1, -40, 0, 3)
-    healthBg.Position = UDim2.new(0, 20, 1, -18)
-    healthBg.BackgroundColor3 = Color3.fromRGB(20,20,20)
-    healthBg.BorderSizePixel = 0
-    healthBg.Parent = gui
-    Corner(healthBg, 2)
+    -- HP % text (bottom of box)
+    local healthText = Instance.new("TextLabel")
+    healthText.Name = "HealthText"
+    healthText.Size = UDim2.new(0, 50, 0, 14)
+    healthText.Position = UDim2.new(0.5, -25, 0.5, 37)
+    healthText.BackgroundTransparency = 1
+    healthText.Text = "100%"
+    healthText.TextColor3 = COLORS.GREEN
+    healthText.TextStrokeTransparency = 0
+    healthText.TextStrokeColor3 = Color3.new(0,0,0)
+    healthText.TextSize = 11
+    healthText.Font = Enum.Font.GothamBold
+    healthText.TextXAlignment = Enum.TextXAlignment.Center
+    healthText.Parent = gui
     
-    local healthFill = Instance.new("Frame")
-    healthFill.Size = UDim2.new(1, 0, 1, 0)
-    healthFill.BackgroundColor3 = COLORS.GREEN
-    healthFill.BorderSizePixel = 0
-    healthFill.Parent = healthBg
-    Corner(healthFill, 2)
-    
+    -- Distance (below HP %)
     local distL = Instance.new("TextLabel")
-    distL.Size = UDim2.new(1, 0, 0, 12)
-    distL.Position = UDim2.new(0, 0, 1, -14)
+    distL.Name = "Distance"
+    distL.Size = UDim2.new(0, 80, 0, 14)
+    distL.Position = UDim2.new(0.5, -40, 1, -14)
     distL.BackgroundTransparency = 1
     distL.Text = "0m"
     distL.TextColor3 = COLORS.GRAY
     distL.TextStrokeTransparency = 0
     distL.TextStrokeColor3 = Color3.new(0,0,0)
-    distL.TextSize = 10
+    distL.TextSize = 11
     distL.Font = Enum.Font.Gotham
     distL.TextXAlignment = Enum.TextXAlignment.Center
     distL.Parent = gui
     
-    ESPData[target] = {gui=gui, name=nameL, dist=distL, healthBg=healthBg, healthFill=healthFill, corners=corners}
+    ESPData[target] = {
+        gui = gui,
+        box = box,
+        boxStroke = boxStroke,
+        name = nameL,
+        dist = distL,
+        healthBg = healthBg,
+        healthFill = healthFill,
+        healthText = healthText,
+    }
 end
 
 local function UpdateESP()
@@ -615,13 +648,19 @@ local function UpdateESP()
         d.dist.Text = math.floor((root.Position - cam.CFrame.Position).Magnitude) .. "m"
         local hp = hum.Health / hum.MaxHealth
         d.healthFill.Size = UDim2.new(hp, 0, 1, 0)
-        if hp > 0.5 then d.healthFill.BackgroundColor3 = COLORS.GREEN
-        elseif hp > 0.25 then d.healthFill.BackgroundColor3 = COLORS.YELLOW
-        else d.healthFill.BackgroundColor3 = COLORS.RED end
+        d.healthText.Text = math.floor(hp * 100) .. "%"
+        local col
+        if hp > 0.5 then col = COLORS.GREEN
+        elseif hp > 0.25 then col = COLORS.YELLOW
+        else col = COLORS.RED end
+        d.healthFill.BackgroundColor3 = col
+        d.healthText.TextColor3 = col
+        d.box.Visible = Features.ESPBox
+        d.boxStroke.Visible = Features.ESPBox
         d.name.Visible = Features.ESPName
         d.healthBg.Visible = Features.ESPHealth
+        d.healthText.Visible = Features.ESPHealth
         d.dist.Visible = Features.ESPDistance
-        for _, c in ipairs(d.corners) do c.Visible = Features.ESPBox end
     end
     
     if Features.ESPPlayers then
@@ -1026,7 +1065,7 @@ local ConfigPage = CreatePage("Config")
 local CreditsPage = CreatePage("Credits")
 
 Section(MainPage, "IVORY HUB")
-local mt = Text(MainPage, "IVORY HUB v9.2", 18, true)
+local mt = Text(MainPage, "IVORY HUB v9.3", 18, true)
 mt.Size = UDim2.new(1, 0, 0, 26)
 mt.TextXAlignment = Enum.TextXAlignment.Center
 mt.TextColor3 = COLORS.WHITE
@@ -1040,7 +1079,6 @@ msub.TextColor3 = COLORS.GRAY
 Section(CombatPage, "SILENT AIM")
 Toggle(CombatPage, "Enable Silent Aim", Features.SilentAim, function(s)
     Features.SilentAim = s
-    if not s then TargetPos = nil end
     SaveConfig()
 end)
 CycleButton(CombatPage, "Target", {"Both","Players","NPCs"}, Features.SilentAimTarget, function(v)
@@ -1349,9 +1387,9 @@ end)
 
 Section(VisualPage, "ESP")
 Toggle(VisualPage, "Enable ESP", Features.ESP, function(s) Features.ESP = s SaveConfig() end)
-Toggle(VisualPage, "Box (Corners)", Features.ESPBox, function(s) Features.ESPBox = s SaveConfig() end)
+Toggle(VisualPage, "Box", Features.ESPBox, function(s) Features.ESPBox = s SaveConfig() end)
 Toggle(VisualPage, "Name", Features.ESPName, function(s) Features.ESPName = s SaveConfig() end)
-Toggle(VisualPage, "Health Bar", Features.ESPHealth, function(s) Features.ESPHealth = s SaveConfig() end)
+Toggle(VisualPage, "Health %", Features.ESPHealth, function(s) Features.ESPHealth = s SaveConfig() end)
 Toggle(VisualPage, "Distance", Features.ESPDistance, function(s) Features.ESPDistance = s SaveConfig() end)
 Toggle(VisualPage, "Players", Features.ESPPlayers, function(s) Features.ESPPlayers = s SaveConfig() end)
 Toggle(VisualPage, "NPCs", Features.ESPNPCs, function(s) Features.ESPNPCs = s SaveConfig() end)
@@ -1363,7 +1401,7 @@ Button(ConfigPage, "Reset Config", function() ResetConfig() end)
 Button(ConfigPage, "Unload UI", function() SaveConfig() Gui:Destroy() end)
 
 Section(CreditsPage, "IVORY HUB")
-local cT = Text(CreditsPage, "Ivory Hub v9.2", 16, true)
+local cT = Text(CreditsPage, "Ivory Hub v9.3", 16, true)
 cT.Size = UDim2.new(1, 0, 0, 24)
 cT.TextXAlignment = Enum.TextXAlignment.Center
 cT.TextColor3 = COLORS.WHITE
@@ -1512,5 +1550,5 @@ Close.MouseButton1Click:Connect(function()
 end)
 
 print("========================================")
-print("        IVORY HUB v9.2 LOADED")
+print("        IVORY HUB v9.3 LOADED")
 print("========================================")
