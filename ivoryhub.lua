@@ -1,10 +1,9 @@
 -- =============================================
--- IVORY HUB v8.0 - FULL BUILD
--- Silent Aim (Players/NPCs/Both), Soru, ESP, Macro,
--- Fast Attack + Hitbox Expander, Config System
+-- IVORY HUB v8.1 - FULL BUILD + FIXES
+-- Fixed: NPC Silent Aim / Soru, Macro button visibility
 -- =============================================
 
-print("🦷 Ivory Hub v8.0 loading...")
+print("🦷 Ivory Hub v8.1 loading...")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -224,7 +223,7 @@ end
 RunService.RenderStepped:Connect(function() pcall(UpdateFOVCircle) end)
 
 -- =============================================
--- TARGET FINDER
+-- TARGET FINDER (FIXED for NPCs)
 -- =============================================
 local function GetNearestTarget(targetType)
     local char = player.Character
@@ -234,6 +233,7 @@ local function GetNearestTarget(targetType)
     
     local best, bestDist = nil, math.huge
     
+    -- Players
     if targetType == "Players" or targetType == "Both" then
         for _, plr in pairs(Players:GetPlayers()) do
             if plr ~= player and plr.Character then
@@ -252,21 +252,47 @@ local function GetNearestTarget(targetType)
         end
     end
     
+    -- NPCs (robust detection)
     if targetType == "NPCs" or targetType == "Both" then
-        local enemies = Workspace:FindFirstChild("Enemies")
-        if enemies then
-            for _, npc in pairs(enemies:GetChildren()) do
-                if npc:IsA("Model") then
-                    local hum = npc:FindFirstChildOfClass("Humanoid")
-                    local hrp = npc:FindFirstChild("HumanoidRootPart")
-                    if hum and hum.Health > 0 and hrp then
-                        if isInFOV(hrp) then
-                            local dist = (hrp.Position - root.Position).Magnitude
-                            if dist < bestDist and dist <= Features.MaxRange then
-                                bestDist = dist
-                                best = hrp
-                            end
-                        end
+        local function checkModel(model)
+            if not model or not model:IsA("Model") then return end
+            if model == char then return end
+            if Players:GetPlayerFromCharacter(model) then return end
+            
+            local hum = model:FindFirstChildOfClass("Humanoid")
+            local hrp = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("UpperTorso") or model.PrimaryPart
+            if hum and hum.Health > 0 and hrp then
+                if isInFOV(hrp) then
+                    local dist = (hrp.Position - root.Position).Magnitude
+                    if dist < bestDist and dist <= Features.MaxRange then
+                        bestDist = dist
+                        best = hrp
+                    end
+                end
+            end
+        end
+        
+        -- Known folders
+        local folderNames = {"Enemies", "Enemy", "NPCs", "NPC", "Monsters", "Monster", "Mobs", "Mob", "Units", "Bosses", "Boss"}
+        for _, name in ipairs(folderNames) do
+            local folder = workspace:FindFirstChild(name)
+            if folder then
+                for _, child in ipairs(folder:GetChildren()) do
+                    checkModel(child)
+                end
+            end
+        end
+        
+        -- Scan workspace for NPCs (in folders with relevant names)
+        for _, obj in ipairs(workspace:GetChildren()) do
+            checkModel(obj)
+            if obj:IsA("Folder") then
+                local lname = string.lower(obj.Name)
+                if string.find(lname, "enem") or string.find(lname, "npc") or 
+                   string.find(lname, "mob") or string.find(lname, "monster") or
+                   string.find(lname, "boss") or string.find(lname, "unit") then
+                    for _, child in ipairs(obj:GetChildren()) do
+                        checkModel(child)
                     end
                 end
             end
@@ -407,12 +433,16 @@ local FastAttack = (function()
                 if hum and hum.Health > 0 then table.insert(list, plr.Character) end
             end
         end
-        local enemiesFolder = workspace:FindFirstChild("Enemies")
-        if enemiesFolder then
-            for _, npc in pairs(enemiesFolder:GetChildren()) do
-                if npc:IsA("Model") then
-                    local hum = npc:FindFirstChildOfClass("Humanoid")
-                    if hum and hum.Health > 0 then table.insert(list, npc) end
+        
+        local folderNames = {"Enemies", "Enemy", "NPCs", "NPC", "Monsters", "Monster", "Mobs", "Mob", "Units", "Bosses", "Boss"}
+        for _, name in ipairs(folderNames) do
+            local folder = workspace:FindFirstChild(name)
+            if folder then
+                for _, npc in pairs(folder:GetChildren()) do
+                    if npc:IsA("Model") then
+                        local hum = npc:FindFirstChildOfClass("Humanoid")
+                        if hum and hum.Health > 0 then table.insert(list, npc) end
+                    end
                 end
             end
         end
@@ -629,33 +659,36 @@ local function UpdateESP()
     end
     
     if Features.ESPNPCs then
-        local enemies = Workspace:FindFirstChild("Enemies")
-        if enemies then
-            for _, npc in pairs(enemies:GetChildren()) do
-                if npc:IsA("Model") then
-                    local hum = npc:FindFirstChildOfClass("Humanoid")
-                    local root = npc:FindFirstChild("HumanoidRootPart")
-                    if hum and hum.Health > 0 and root then
-                        if not ESPData[npc] then
-                            local fake = {Name = "NPC", Character = npc}
-                            CreateESP(fake)
-                            ESPData[npc] = ESPData[fake]
-                        end
-                        current[npc] = true
-                        local d = ESPData[npc]
-                        if d then
-                            d.gui.Visible = true
-                            d.name.Text = "NPC"
-                            d.dist.Text = math.floor((root.Position - cam.CFrame.Position).Magnitude) .. "m"
-                            local hp = hum.Health / hum.MaxHealth
-                            d.healthFill.Size = UDim2.new(hp, 0, 1, 0)
-                            if hp > 0.5 then d.healthFill.BackgroundColor3 = COLORS.GREEN
-                            elseif hp > 0.25 then d.healthFill.BackgroundColor3 = COLORS.YELLOW
-                            else d.healthFill.BackgroundColor3 = COLORS.RED end
-                            d.box.Visible = Features.ESPBox
-                            d.name.Visible = Features.ESPName
-                            d.healthBg.Visible = Features.ESPHealth
-                            d.dist.Visible = Features.ESPDistance
+        local folderNames = {"Enemies", "Enemy", "NPCs", "NPC", "Monsters", "Monster", "Mobs", "Mob", "Units", "Bosses", "Boss"}
+        for _, name in ipairs(folderNames) do
+            local enemies = Workspace:FindFirstChild(name)
+            if enemies then
+                for _, npc in pairs(enemies:GetChildren()) do
+                    if npc:IsA("Model") then
+                        local hum = npc:FindFirstChildOfClass("Humanoid")
+                        local root = npc:FindFirstChild("HumanoidRootPart")
+                        if hum and hum.Health > 0 and root then
+                            if not ESPData[npc] then
+                                local fake = {Name = "NPC", Character = npc}
+                                CreateESP(fake)
+                                ESPData[npc] = ESPData[fake]
+                            end
+                            current[npc] = true
+                            local d = ESPData[npc]
+                            if d then
+                                d.gui.Visible = true
+                                d.name.Text = "NPC"
+                                d.dist.Text = math.floor((root.Position - cam.CFrame.Position).Magnitude) .. "m"
+                                local hp = hum.Health / hum.MaxHealth
+                                d.healthFill.Size = UDim2.new(hp, 0, 1, 0)
+                                if hp > 0.5 then d.healthFill.BackgroundColor3 = COLORS.GREEN
+                                elseif hp > 0.25 then d.healthFill.BackgroundColor3 = COLORS.YELLOW
+                                else d.healthFill.BackgroundColor3 = COLORS.RED end
+                                d.box.Visible = Features.ESPBox
+                                d.name.Visible = Features.ESPName
+                                d.healthBg.Visible = Features.ESPHealth
+                                d.dist.Visible = Features.ESPDistance
+                            end
                         end
                     end
                 end
@@ -753,7 +786,7 @@ local Title = Text(Top, "IVORY", 14, true)
 Title.Position = UDim2.new(0, 12, 0, 1)
 Title.Size = UDim2.new(0, 100, 0, 18)
 
-local SubTitle = Text(Top, "HUB v8.0", 7, false)
+local SubTitle = Text(Top, "HUB v8.1", 7, false)
 SubTitle.TextColor3 = COLORS.GRAY
 SubTitle.Position = UDim2.new(0, 13, 0, 20)
 SubTitle.Size = UDim2.new(0, 60, 0, 12)
@@ -857,8 +890,7 @@ local function Button(parent, text, cb)
     btn.TextSize = 10
     btn.Font = Enum.Font.GothamMedium
     btn.AutoButtonColor = false
-    btn.Parent = parent
-    Corner(btn, 8)
+    btn.Parent = parent    Corner(btn, 8)
     Stroke(btn)
     btn.MouseButton1Click:Connect(cb)
     return btn
@@ -1012,7 +1044,7 @@ local ConfigPage = CreatePage("Config")
 
 -- MAIN
 Section(MainPage, "IVORY HUB")
-local mt = Text(MainPage, "IVORY HUB v8.0", 16, true)
+local mt = Text(MainPage, "IVORY HUB v8.1", 16, true)
 mt.Size = UDim2.new(1, 0, 0, 24)
 mt.TextXAlignment = Enum.TextXAlignment.Center
 mt.TextColor3 = COLORS.WHITE
@@ -1134,6 +1166,21 @@ blockLayout.Parent = blockContainer
 
 local SKILLS = {"Z", "X", "C", "V", "F", "Tap", "M1"}
 
+-- CREATE MACRO BUTTON FIRST (before AddBlock uses it)
+local MacroBtn = Instance.new("TextButton")
+MacroBtn.Size = UDim2.fromOffset(60, 28)
+MacroBtn.Position = UDim2.new(0.5, -30, 0.85, 0)
+MacroBtn.BackgroundColor3 = COLORS.RED
+MacroBtn.Text = "MACRO"
+MacroBtn.TextColor3 = COLORS.WHITE
+MacroBtn.TextSize = 12
+MacroBtn.Font = Enum.Font.GothamBold
+MacroBtn.BorderSizePixel = 0
+MacroBtn.Visible = false
+MacroBtn.Parent = Gui
+Corner(MacroBtn, 8)
+Stroke(MacroBtn)
+
 local function AddBlock()
     local idx = #MacroBlocks + 1
     local block = Instance.new("Frame")
@@ -1249,7 +1296,7 @@ local function AddBlock()
         Hold = function() return hVal end,
         Delay = function() return dVal end,
     })
-    if Features.Macro and MacroBtn then MacroBtn.Visible = true end
+    if Features.Macro and MacroBtn and MacroBtn.Parent then MacroBtn.Visible = true end
 end
 
 addBtn.MouseButton1Click:Connect(AddBlock)
@@ -1263,21 +1310,7 @@ end)
 
 for i = 1, 3 do AddBlock() end
 
--- MACRO BUTTON
-local MacroBtn = Instance.new("TextButton")
-MacroBtn.Size = UDim2.fromOffset(60, 28)
-MacroBtn.Position = UDim2.new(0.5, -30, 0.85, 0)
-MacroBtn.BackgroundColor3 = COLORS.RED
-MacroBtn.Text = "MACRO"
-MacroBtn.TextColor3 = COLORS.WHITE
-MacroBtn.TextSize = 12
-MacroBtn.Font = Enum.Font.GothamBold
-MacroBtn.BorderSizePixel = 0
-MacroBtn.Visible = Features.Macro
-MacroBtn.Parent = Gui
-Corner(MacroBtn, 8)
-Stroke(MacroBtn)
-
+-- Macro button drag
 local macroDrag = {dragging = false, startPos = nil, startMouse = nil}
 MacroBtn.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -1446,6 +1479,20 @@ for _, data in ipairs(Tabs) do
 end
 SelectTab(Tabs[1].button, Tabs[1].page)
 
+-- Keep macro button in sync
+task.spawn(function()
+    while Gui and Gui.Parent do
+        if MacroBtn then
+            if Features.Macro and #MacroBlocks > 0 then
+                MacroBtn.Visible = true
+            else
+                MacroBtn.Visible = false
+            end
+        end
+        task.wait(0.3)
+    end
+end)
+
 -- DRAGGING
 local Dragging, DragStart, StartPosition = false, nil, nil
 Top.InputBegan:Connect(function(input)
@@ -1490,7 +1537,7 @@ Close.MouseButton1Click:Connect(function()
 end)
 
 print("========================================")
-print("        IVORY HUB v8.0 LOADED")
+print("        IVORY HUB v8.1 LOADED")
 print("========================================")
 print("Silent Aim, Soru, Fast Attack, ESP, Macro")
 print("Config: Save / Load / Reset")
