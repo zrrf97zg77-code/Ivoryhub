@@ -1,8 +1,8 @@
 -- =============================================
--- IVORY HUB v9.4 - FIXED ESP + SORU AIR + MAIN TAB
+-- IVORY HUB v9.5 - MACRO TOGGLE FIX + 10 BLOCKS
 -- =============================================
 
-print("🦷 Ivory Hub v9.4 loading...")
+print("🦷 Ivory Hub v9.5 loading...")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -377,7 +377,7 @@ task.spawn(function()
 end)
 
 -- =============================================
--- SORU (expanded animation detection for air)
+-- SORU
 -- =============================================
 local SoruRemote = nil
 local SoruCooldown = 0
@@ -421,11 +421,10 @@ local function MonitorFlashstep(char)
         if tick() < SoruCooldown then return end
         local n = string.lower(track.Name or "")
         local id = tostring(track.Animation and track.Animation.AnimationId or "")
-        -- Expanded detection: soru, flashstep, dash, dodge, skywalk, geppo + known IDs
         if string.find(n, "flashstep") or string.find(n, "soru") or
            string.find(n, "dash") or string.find(n, "dodge") or
            string.find(n, "skywalk") or string.find(n, "geppo") or
-           string.find(n, "flash") or string.find(n, "soru") or
+           string.find(n, "flash") or
            string.find(id, "17555632156") or string.find(id, "616006778") or
            string.find(id, "1846164274") or string.find(id, "1846163351") or
            string.find(id, "11420797633") then
@@ -528,7 +527,7 @@ local FastAttack = (function()
 end)()
 
 -- =============================================
--- ESP (distance-scaled, compact)
+-- ESP
 -- =============================================
 local ESPData = {}
 
@@ -547,7 +546,6 @@ local function CreateESP(target)
     gui.AlwaysOnTop = true
     gui.Parent = head
     
-    -- Compact box (children scale with gui)
     local box = Instance.new("Frame")
     box.Name = "Box"
     box.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -561,7 +559,6 @@ local function CreateESP(target)
     stroke.Thickness = 1.2
     stroke.Parent = box
     
-    -- Name (above)
     local nameL = Instance.new("TextLabel")
     nameL.Name = "Name"
     nameL.Size = UDim2.new(1, 0, 0, 14)
@@ -576,7 +573,6 @@ local function CreateESP(target)
     nameL.TextXAlignment = Enum.TextXAlignment.Center
     nameL.Parent = gui
     
-    -- HP % (below)
     local hpText = Instance.new("TextLabel")
     hpText.Name = "HPText"
     hpText.Size = UDim2.new(1, 0, 0, 12)
@@ -591,7 +587,6 @@ local function CreateESP(target)
     hpText.TextXAlignment = Enum.TextXAlignment.Center
     hpText.Parent = gui
     
-    -- Distance (bottom)
     local distL = Instance.new("TextLabel")
     distL.Name = "Distance"
     distL.Size = UDim2.new(1, 0, 0, 12)
@@ -606,7 +601,6 @@ local function CreateESP(target)
     distL.TextXAlignment = Enum.TextXAlignment.Center
     distL.Parent = gui
     
-    -- Health bar (top of box)
     local healthBg = Instance.new("Frame")
     healthBg.Name = "HealthBg"
     healthBg.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -647,18 +641,14 @@ local function UpdateESP()
     
     local function apply(d, name, root, hum)
         d.gui.Visible = true
-        
-        -- Dynamic scaling based on distance (keeps ESP readable but not huge)
         local dist = (root.Position - cam.CFrame.Position).Magnitude
         local scale = math.clamp(500 / math.max(dist, 1), 0.5, 1.6)
         d.box.Size = UDim2.new(0, 40 * scale, 0, 55 * scale)
         d.healthBg.Size = UDim2.new(0, 40 * scale, 0, 3)
         d.healthBg.Position = UDim2.new(0.5, 0, 0.5, (-27 * scale))
-        d.name.Size = UDim2.new(1, 0, 0, 14)
         d.name.Position = UDim2.new(0, 0, 0.5, (-45 * scale))
         d.hpText.Position = UDim2.new(0, 0, 0.5, (27 * scale))
         d.dist.Position = UDim2.new(0, 0, 0.5, (40 * scale))
-        
         d.name.Text = name
         d.dist.Text = math.floor(dist) .. "m"
         local hp = hum.Health / hum.MaxHealth
@@ -734,6 +724,7 @@ RunService.Heartbeat:Connect(function() pcall(UpdateESP) end)
 -- =============================================
 local MacroBlocks = {}
 local MacroRunning = false
+local MacroThread = nil
 
 local function PressKey(key)
     if key == "M1" then
@@ -750,24 +741,67 @@ local function PressKey(key)
     end
 end
 
+-- Cancellable wait - returns true if completed, false if macro stopped
+local function cancellableWait(seconds)
+    if seconds <= 0 then return true end
+    local start = tick()
+    while tick() - start < seconds do
+        if not MacroRunning then return false end
+        task.wait(0.02)
+    end
+    return true
+end
+
+local function StopMacro()
+    MacroRunning = false
+    if MacroThread then
+        pcall(function() task.cancel(MacroThread) end)
+        MacroThread = nil
+    end
+    -- Release any held keys
+    for _, k in ipairs({"Z","X","C","V","F"}) do
+        pcall(function()
+            VIM:SendKeyEvent(false, Enum.KeyCode[k], false)
+        end)
+    end
+end
+
 local function ExecuteMacro()
-    if not Features.Macro or #MacroBlocks == 0 or MacroRunning then return end
+    if #MacroBlocks == 0 then return end
     MacroRunning = true
-    task.spawn(function()
+    MacroThread = task.spawn(function()
         for _, b in pairs(MacroBlocks) do
-            if not Features.Macro then break end
-            PressKey(b.Skill)
-            if b.Hold > 0 then
-                local kc = Enum.KeyCode[b.Skill]
+            if not MacroRunning then break end
+            local skill = b.Skill()
+            local hold = b.Hold()
+            local delay = b.Delay()
+
+            if skill == "M1" then
+                VIM:SendMouseButtonEvent(Enum.UserInputType.MouseButton1, 0, 0, true)
+                if not cancellableWait(math.max(hold, 0.05)) then
+                    VIM:SendMouseButtonEvent(Enum.UserInputType.MouseButton1, 0, 0, false)
+                    break
+                end
+                VIM:SendMouseButtonEvent(Enum.UserInputType.MouseButton1, 0, 0, false)
+            else
+                local kc = Enum.KeyCode[skill]
                 if kc then
                     VIM:SendKeyEvent(true, kc, false)
-                    task.wait(b.Hold)
+                    local waitTime = math.max(hold, 0.05)
+                    if not cancellableWait(waitTime) then
+                        VIM:SendKeyEvent(false, kc, false)
+                        break
+                    end
                     VIM:SendKeyEvent(false, kc, false)
                 end
             end
-            if b.Delay > 0 then task.wait(b.Delay) end
+
+            if delay > 0 then
+                if not cancellableWait(delay) then break end
+            end
         end
         MacroRunning = false
+        MacroThread = nil
     end)
 end
 
@@ -1079,9 +1113,9 @@ local VisualPage = CreatePage("Visual")
 local ConfigPage = CreatePage("Config")
 local CreditsPage = CreatePage("Credits")
 
--- MAIN PAGE (more info)
+-- MAIN
 Section(MainPage, "IVORY HUB")
-local mt = Text(MainPage, "IVORY HUB v9.4", 18, true)
+local mt = Text(MainPage, "IVORY HUB v9.5", 18, true)
 mt.Size = UDim2.new(1, 0, 0, 26)
 mt.TextXAlignment = Enum.TextXAlignment.Center
 mt.TextColor3 = COLORS.WHITE
@@ -1135,7 +1169,7 @@ task.spawn(function()
 end)
 
 Section(MainPage, "TIP")
-local tipLbl = Text(MainPage, "Hold down the I button to drag UI", 10, false)
+local tipLbl = Text(MainPage, "Hold the I button to drag the UI", 10, false)
 tipLbl.Size = UDim2.new(1, -10, 0, 16)
 tipLbl.Position = UDim2.new(0, 5, 0, 200)
 tipLbl.TextColor3 = COLORS.GRAY
@@ -1197,10 +1231,15 @@ Section(MacroPage, "MACRO")
 Toggle(MacroPage, "Enable Macro", Features.Macro, function(s)
     Features.Macro = s
     if not s then
-        MacroRunning = false
+        StopMacro()
         if MacroBtn then MacroBtn.Visible = false end
     else
-        if MacroBtn and #MacroBlocks > 0 then MacroBtn.Visible = true end
+        if MacroBtn then
+            MacroBtn.Visible = true
+            MacroBtn.Text = "MACRO\nOFF"
+            MacroBtn.BackgroundColor3 = Color3.fromRGB(15,15,15)
+            MacroBtn.TextColor3 = COLORS.WHITE
+        end
     end
     SaveConfig()
 end)
@@ -1236,7 +1275,7 @@ Corner(clearBtn, 8)
 Stroke(clearBtn, Color3.fromRGB(35,35,35), 1)
 
 local blockContainer = Instance.new("ScrollingFrame")
-blockContainer.Size = UDim2.new(1, -10, 0, 200)
+blockContainer.Size = UDim2.new(1, -10, 0, 280)
 blockContainer.BackgroundTransparency = 1
 blockContainer.BorderSizePixel = 0
 blockContainer.ScrollBarThickness = 3
@@ -1252,19 +1291,20 @@ blockLayout.Parent = blockContainer
 
 local SKILLS = {"Z","X","C","V","F","Tap","M1"}
 
+-- Macro button (created before AddBlock)
 local MacroBtn = Instance.new("TextButton")
-MacroBtn.Size = UDim2.fromOffset(60, 30)
-MacroBtn.Position = UDim2.new(0.5, -30, 0.85, 0)
-MacroBtn.BackgroundColor3 = COLORS.ACCENT
-MacroBtn.Text = "MACRO"
+MacroBtn.Size = UDim2.fromOffset(80, 80)
+MacroBtn.Position = UDim2.new(0.5, -40, 0.7, 0)
+MacroBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+MacroBtn.Text = "MACRO\nOFF"
 MacroBtn.TextColor3 = COLORS.WHITE
-MacroBtn.TextSize = 12
+MacroBtn.TextSize = 11
 MacroBtn.Font = Enum.Font.GothamBold
 MacroBtn.BorderSizePixel = 0
 MacroBtn.Visible = false
 MacroBtn.Parent = Gui
-Corner(MacroBtn, 8)
-Stroke(MacroBtn, COLORS.WHITE, 1.5)
+Corner(MacroBtn, 999)
+Stroke(MacroBtn, Color3.fromRGB(60,60,60), 1.5)
 
 local function AddBlock()
     local idx = #MacroBlocks + 1
@@ -1423,6 +1463,11 @@ clearBtn.MouseButton1Click:Connect(function()
     if MacroBtn then MacroBtn.Visible = false end
 end)
 
+-- Add 10 default blocks
+task.wait(0.1)
+for i = 1, 10 do AddBlock() end
+
+-- Macro button drag
 local mdrag = {d = false, sp = nil, sm = nil}
 MacroBtn.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -1440,18 +1485,25 @@ UserInputService.InputChanged:Connect(function(input)
         MacroBtn.Position = UDim2.new(mdrag.sp.X.Scale, mdrag.sp.X.Offset + delta.X, mdrag.sp.Y.Scale, mdrag.sp.Y.Offset + delta.Y)
     end
 end)
+
+-- Macro button ON/OFF toggle
 MacroBtn.MouseButton1Click:Connect(function()
-    if Features.Macro and #MacroBlocks > 0 then
+    if not Features.Macro then return end
+    if MacroRunning then
+        StopMacro()
+        MacroBtn.BackgroundColor3 = Color3.fromRGB(15,15,15)
+        MacroBtn.Text = "MACRO\nOFF"
+        MacroBtn.TextColor3 = COLORS.WHITE
+    else
+        if #MacroBlocks == 0 then return end
         ExecuteMacro()
         MacroBtn.BackgroundColor3 = COLORS.GREEN
-        MacroBtn.Text = "▶"
-        task.delay(0.5, function()
-            MacroBtn.BackgroundColor3 = COLORS.ACCENT
-            MacroBtn.Text = "MACRO"
-        end)
+        MacroBtn.Text = "MACRO\nON"
+        MacroBtn.TextColor3 = COLORS.BLACK
     end
 end)
 
+-- VISUAL
 Section(VisualPage, "ESP")
 Toggle(VisualPage, "Enable ESP", Features.ESP, function(s) Features.ESP = s SaveConfig() end)
 Toggle(VisualPage, "Box", Features.ESPBox, function(s) Features.ESPBox = s SaveConfig() end)
@@ -1461,13 +1513,14 @@ Toggle(VisualPage, "Distance", Features.ESPDistance, function(s) Features.ESPDis
 Toggle(VisualPage, "Players", Features.ESPPlayers, function(s) Features.ESPPlayers = s SaveConfig() end)
 Toggle(VisualPage, "NPCs", Features.ESPNPCs, function(s) Features.ESPNPCs = s SaveConfig() end)
 
+-- CONFIG
 Section(ConfigPage, "CONFIG")
 Button(ConfigPage, "Save Config", function() SaveConfig() end)
 Button(ConfigPage, "Load Config", function() LoadConfig() end)
 Button(ConfigPage, "Reset Config", function() ResetConfig() end)
 Button(ConfigPage, "Unload UI", function() SaveConfig() Gui:Destroy() end)
 
--- CREDITS (with thanks message)
+-- CREDITS
 Section(CreditsPage, "⭐ THANK YOU ⭐")
 local ty = Text(CreditsPage, "Thanks for the support!", 14, true)
 ty.Size = UDim2.new(1, 0, 0, 22)
@@ -1511,6 +1564,7 @@ end
 card("IVORY", "Ivory999", 85)
 card("RAYO", "Rayo06996", 155)
 
+-- TABS
 local Tabs = {
     {name="MAIN", icon="🏠", page=MainPage},
     {name="COMBAT", icon="⚔️", page=CombatPage},
@@ -1572,13 +1626,17 @@ for _, d in ipairs(Tabs) do
 end
 SelectTab(Tabs[1].button, Tabs[1].page, Tabs[1].accent)
 
+-- Macro button visibility sync
 task.spawn(function()
     while Gui and Gui.Parent do
-        if MacroBtn then MacroBtn.Visible = Features.Macro and #MacroBlocks > 0 end
-        task.wait(0.3)
+        if MacroBtn then
+            MacroBtn.Visible = Features.Macro
+        end
+        task.wait(0.2)
     end
 end)
 
+-- UI drag
 local Drag, DStart, SPos = false, nil, nil
 Top.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -1614,11 +1672,14 @@ end)
 
 Close.MouseButton1Click:Connect(function()
     SaveConfig()
+    StopMacro()
     TweenIt(Main, {Size = UDim2.new(0, 0, 0, 0)})
     task.wait(.3)
     Gui:Destroy()
 end)
 
 print("========================================")
-print("        IVORY HUB v9.4 LOADED")
+print("        IVORY HUB v9.5 LOADED")
+print("========================================")
+print("Macro toggle + 10 default blocks")
 print("========================================")
