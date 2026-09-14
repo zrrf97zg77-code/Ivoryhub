@@ -1,8 +1,8 @@
 -- =============================================
--- IVORY HUB v9.6 - ESP FIX + MACRO WEAPON PICKER
+-- IVORY HUB v10.0 - HORIZONTAL UI + FIXED FAST + MACRO
 -- =============================================
 
-print("🦷 Ivory Hub v9.6 loading...")
+print("🦷 Ivory Hub v10.0 loading...")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -110,21 +110,15 @@ pcall(function()
     end
 end)
 
-local _saveScheduled = false
 local function SaveConfig()
-    if _saveScheduled then return end
-    _saveScheduled = true
-    task.delay(0.5, function()
-        _saveScheduled = false
-        local data = ""
-        for k, v in pairs(Features) do
-            local val = tostring(v)
-            if type(v) == "boolean" then val = v and "true" or "false" end
-            data = data .. k .. "=" .. val .. "\n"
-        end
-        pcall(function()
-            if writefile then writefile(CONFIG_FILE, data) end
-        end)
+    local data = ""
+    for k, v in pairs(Features) do
+        local val = tostring(v)
+        if type(v) == "boolean" then val = v and "true" or "false" end
+        data = data .. k .. "=" .. val .. "\n"
+    end
+    pcall(function()
+        if writefile then writefile(CONFIG_FILE, data) end
     end)
 end
 
@@ -390,10 +384,7 @@ task.spawn(function()
         if remotes then SoruRemote = remotes:FindFirstChild("CommF_") end
         if not SoruRemote then
             for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
-                if obj.Name == "CommF_" then
-                    SoruRemote = obj
-                    break
-                end
+                if obj.Name == "CommF_" then SoruRemote = obj break end
             end
         end
     end)
@@ -442,11 +433,14 @@ player.CharacterAdded:Connect(function(c) task.wait(0.5) MonitorFlashstep(c) end
 if player.Character then task.wait(0.5) MonitorFlashstep(player.Character) end
 
 -- =============================================
--- FAST ATTACK
+-- FAST ATTACK (FIXED - 25 studs, NPCs + players)
 -- =============================================
 local FastAttack = (function()
     local module = {}
     local RegisterAttack, RegisterHit
+    local RANGE = 25
+    local SPEED = 0.08
+
     task.spawn(function()
         local modules = ReplicatedStorage:WaitForChild("Modules", 10)
         if not modules then return end
@@ -455,72 +449,90 @@ local FastAttack = (function()
         RegisterAttack = net:WaitForChild("RE/RegisterAttack", 10)
         RegisterHit = net:WaitForChild("RE/RegisterHit", 10)
     end)
-    local function getEnemies()
+
+    local function getTargets()
         local list = {}
+        local myChar = player.Character
+        if not myChar then return list end
+        local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+        if not myRoot then return list end
+
+        -- Players
         for _, plr in pairs(Players:GetPlayers()) do
             if plr ~= player and plr.Character then
                 local hum = plr.Character:FindFirstChildOfClass("Humanoid")
-                if hum and hum.Health > 0 then table.insert(list, plr.Character) end
+                local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+                if hum and hum.Health > 0 and hrp then
+                    local dist = (hrp.Position - myRoot.Position).Magnitude
+                    if dist <= RANGE then
+                        table.insert(list, {model = plr.Character, root = hrp, dist = dist})
+                    end
+                end
             end
         end
+
+        -- NPCs
         local fns = {"Enemies","Enemy","Monsters","Monster","Mobs","Mob","Bosses","Boss"}
         for _, name in ipairs(fns) do
-            local f = workspace:FindFirstChild(name)
-            if f then
-                for _, npc in pairs(f:GetChildren()) do
+            local folder = workspace:FindFirstChild(name)
+            if folder then
+                for _, npc in pairs(folder:GetChildren()) do
                     if npc:IsA("Model") then
                         local hum = npc:FindFirstChildOfClass("Humanoid")
                         local hrp = npc:FindFirstChild("HumanoidRootPart")
-                        if hum and hrp and isCombatNPC(npc, hum, hrp) then
-                            table.insert(list, npc)
+                        if hum and hum.Health > 0 and hrp and isCombatNPC(npc, hum, hrp) then
+                            local dist = (hrp.Position - myRoot.Position).Magnitude
+                            if dist <= RANGE then
+                                table.insert(list, {model = npc, root = hrp, dist = dist})
+                            end
                         end
                     end
                 end
             end
         end
+
         return list
     end
-    local function getNearest()
-        local myChar = player.Character
-        if not myChar then return nil end
-        local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-        if not myRoot then return nil end
-        local n, nd = nil, 25
-        for _, e in ipairs(getEnemies()) do
-            local er = e:FindFirstChild("HumanoidRootPart")
-            if er then
-                local d = (er.Position - myRoot.Position).Magnitude
-                if d < nd then nd = d n = e end
-            end
-        end
-        return n
-    end
-    local function fire(t)
+
+    local function fire(target)
         if not RegisterAttack or not RegisterHit then return end
         pcall(function()
             RegisterAttack:FireServer()
-            if t then
-                local tr = t:FindFirstChild("HumanoidRootPart")
-                local th = t:FindFirstChild("Head") or tr
-                if tr and th then
-                    local hd = {}
-                    for _, p in pairs(t:GetChildren()) do
-                        if p:IsA("BasePart") then table.insert(hd, {t, p}) end
+            if target then
+                local targetModel = target.model
+                local targetRoot = target.root
+                local targetHead = targetModel:FindFirstChild("Head") or targetRoot
+                if targetRoot and targetHead then
+                    local hitData = {}
+                    for _, part in pairs(targetModel:GetChildren()) do
+                        if part:IsA("BasePart") then
+                            table.insert(hitData, {targetModel, part})
+                        end
                     end
-                    RegisterHit:FireServer(th, hd, {}, tostring(math.random(1, 100000)))
+                    local sessionId = tostring(math.random(1, 100000))
+                    RegisterHit:FireServer(targetHead, hitData, {}, sessionId)
                 end
             end
         end)
     end
+
     local conn, last = nil, 0
     function module:SetEnabled(state)
         if state and not conn then
             conn = RunService.Heartbeat:Connect(function()
                 if not Features.FastAttack then return end
-                local d = 0.5 / 10
-                if tick() - last >= d then
-                    last = tick()
-                    fire(getNearest())
+                if tick() - last < SPEED then return end
+                last = tick()
+                local targets = getTargets()
+                if #targets == 0 then
+                    -- Still fire attack remote so fruit M1 registers
+                    fire(nil)
+                    return
+                end
+                -- Sort by nearest
+                table.sort(targets, function(a, b) return a.dist < b.dist end)
+                for _, t in ipairs(targets) do
+                    fire(t)
                 end
             end)
         elseif not state and conn then
@@ -532,19 +544,13 @@ local FastAttack = (function()
 end)()
 
 -- =============================================
--- ESP (REWRITTEN)
+-- ESP
 -- =============================================
 local ESPData = {}
 
-local function GetChar(target)
-    if target:IsA("Player") then return target.Character end
-    if target:IsA("Model") then return target end
-    return nil
-end
-
 local function CreateESP(target, displayName)
     if ESPData[target] then return end
-    local char = GetChar(target)
+    local char = target:IsA("Player") and target.Character or target
     if not char then return end
     local head = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
     if not head then return end
@@ -558,7 +564,6 @@ local function CreateESP(target, displayName)
     gui.Parent = head
 
     local box = Instance.new("Frame")
-    box.Name = "Box"
     box.AnchorPoint = Vector2.new(0.5, 0.5)
     box.Position = UDim2.new(0.5, 0, 0.5, 0)
     box.Size = UDim2.new(0, 40, 0, 50)
@@ -571,7 +576,6 @@ local function CreateESP(target, displayName)
     stroke.Parent = box
 
     local nameL = Instance.new("TextLabel")
-    nameL.Name = "Name"
     nameL.Size = UDim2.new(1, 0, 0, 14)
     nameL.Position = UDim2.new(0, 0, 0.5, -45)
     nameL.BackgroundTransparency = 1
@@ -585,7 +589,6 @@ local function CreateESP(target, displayName)
     nameL.Parent = gui
 
     local hpText = Instance.new("TextLabel")
-    hpText.Name = "HPText"
     hpText.Size = UDim2.new(1, 0, 0, 12)
     hpText.Position = UDim2.new(0, 0, 0.5, 27)
     hpText.BackgroundTransparency = 1
@@ -599,7 +602,6 @@ local function CreateESP(target, displayName)
     hpText.Parent = gui
 
     local distL = Instance.new("TextLabel")
-    distL.Name = "Distance"
     distL.Size = UDim2.new(1, 0, 0, 12)
     distL.Position = UDim2.new(0, 0, 0.5, 40)
     distL.BackgroundTransparency = 1
@@ -613,7 +615,6 @@ local function CreateESP(target, displayName)
     distL.Parent = gui
 
     local healthBg = Instance.new("Frame")
-    healthBg.Name = "HealthBg"
     healthBg.AnchorPoint = Vector2.new(0.5, 0.5)
     healthBg.Size = UDim2.new(0, 40, 0, 3)
     healthBg.Position = UDim2.new(0.5, 0, 0.5, -27)
@@ -623,7 +624,6 @@ local function CreateESP(target, displayName)
     Corner(healthBg, 2)
 
     local healthFill = Instance.new("Frame")
-    healthFill.Name = "HealthFill"
     healthFill.Size = UDim2.new(1, 0, 1, 0)
     healthFill.BackgroundColor3 = COLORS.GREEN
     healthFill.BorderSizePixel = 0
@@ -639,9 +639,7 @@ end
 
 local function UpdateESP()
     if not Features.ESP then
-        for _, d in pairs(ESPData) do
-            pcall(function() d.gui.Visible = false end)
-        end
+        for _, d in pairs(ESPData) do pcall(function() d.gui.Visible = false end) end
         return
     end
     local current = {}
@@ -694,7 +692,7 @@ local function UpdateESP()
     end
 
     if Features.ESPNPCs then
-        local fns = {"Enemies","Enemy","Monsters","Monster","Mobs","Mob","Bosses","Boss","NPCs","NPC"}
+        local fns = {"Enemies","Enemy","Monsters","Monster","Mobs","Mob","Bosses","Boss"}
         for _, name in ipairs(fns) do
             local folder = Workspace:FindFirstChild(name)
             if folder then
@@ -730,6 +728,15 @@ local MacroBlocks = {}
 local MacroRunning = false
 local MacroThread = nil
 
+-- Skill sets per weapon type
+local WEAPON_SKILLS = {
+    Melee = {"Z","X","C","M1"},
+    Fruit = {"Z","X","C","V","F","M1"},
+    Sword = {"Z","X","M1"},
+    Gun   = {"Z","X","M1"},
+}
+local WEAPON_TYPES = {"Melee", "Fruit", "Sword", "Gun"}
+
 local function cancellableWait(seconds)
     if seconds <= 0 then return true end
     local start = tick()
@@ -746,7 +753,7 @@ local function StopMacro()
         pcall(function() task.cancel(MacroThread) end)
         MacroThread = nil
     end
-    for _, k in ipairs({"Z","X","C","V","F","One","Two","Three","Four"}) do
+    for _, k in ipairs({"Z","X","C","V","F"}) do
         pcall(function()
             VIM:SendKeyEvent(false, Enum.KeyCode[k], false)
         end)
@@ -754,11 +761,6 @@ local function StopMacro()
     pcall(function()
         VIM:SendMouseButtonEvent(Enum.UserInputType.MouseButton1, 0, 0, false)
     end)
-    if MacroBtn then
-        MacroBtn.BackgroundColor3 = Color3.fromRGB(15,15,15)
-        MacroBtn.Text = "MACRO\nOFF"
-        MacroBtn.TextColor3 = COLORS.WHITE
-    end
 end
 
 local function EquipWeapon(weaponType)
@@ -788,15 +790,17 @@ local function ExecuteMacro()
             local hold   = b.Hold()
             local delay  = b.Delay()
 
+            -- Equip weapon if changed
             if weapon ~= lastWeapon then
                 EquipWeapon(weapon)
                 lastWeapon = weapon
                 if not cancellableWait(0.15) then break end
             end
 
+            -- Fire skill
             if skill == "M1" then
                 VIM:SendMouseButtonEvent(Enum.UserInputType.MouseButton1, 0, 0, true)
-                if not cancellableWait(math.max(hold, 0.05)) then
+                if not cancellableWait(math.max(hold, 0.08)) then
                     VIM:SendMouseButtonEvent(Enum.UserInputType.MouseButton1, 0, 0, false)
                     break
                 end
@@ -805,8 +809,7 @@ local function ExecuteMacro()
                 local kc = Enum.KeyCode[skill]
                 if kc then
                     VIM:SendKeyEvent(true, kc, false)
-                    local waitTime = math.max(hold, 0.05)
-                    if not cancellableWait(waitTime) then
+                    if not cancellableWait(math.max(hold, 0.05)) then
                         VIM:SendKeyEvent(false, kc, false)
                         break
                     end
@@ -814,22 +817,18 @@ local function ExecuteMacro()
                 end
             end
 
+            -- Delay between actions
             if delay > 0 then
                 if not cancellableWait(delay) then break end
             end
         end
         MacroRunning = false
         MacroThread = nil
-        if MacroBtn then
-            MacroBtn.BackgroundColor3 = Color3.fromRGB(15,15,15)
-            MacroBtn.Text = "MACRO\nOFF"
-            MacroBtn.TextColor3 = COLORS.WHITE
-        end
     end)
 end
 
 -- =============================================
--- UI
+-- UI (HORIZONTAL LAYOUT)
 -- =============================================
 local ToggleBtn = Instance.new("TextButton")
 ToggleBtn.Size = UDim2.fromOffset(42,42)
@@ -845,9 +844,10 @@ ToggleBtn.AutoButtonColor = false
 ToggleBtn.Parent = Gui
 Corner(ToggleBtn, 10)
 
+-- HORIZONTAL MAIN FRAME (wider than tall)
 local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0, 400, 0, 440)
-Main.Position = UDim2.new(0.5, -200, 0.5, -220)
+Main.Size = UDim2.new(0, 500, 0, 280)
+Main.Position = UDim2.new(0.5, -250, 0.5, -140)
 Main.BackgroundColor3 = COLORS.BLACK
 Main.BorderSizePixel = 0
 Main.Visible = false
@@ -855,8 +855,9 @@ Main.Parent = Gui
 Corner(Main, 14)
 Stroke(Main, COLORS.ACCENT, 1.5)
 
+-- TOP BAR (spans full width)
 local Top = Instance.new("Frame")
-Top.Size = UDim2.new(1, 0, 0, 44)
+Top.Size = UDim2.new(1, 0, 0, 40)
 Top.BackgroundColor3 = COLORS.DARK
 Top.BorderSizePixel = 0
 Top.Parent = Main
@@ -870,13 +871,13 @@ headerLine.BackgroundTransparency = 0.5
 headerLine.BorderSizePixel = 0
 headerLine.Parent = Top
 
-local Title = Text(Top, "IVORY", 18, true)
-Title.Position = UDim2.new(0, 15, 0, 4)
-Title.Size = UDim2.new(0, 100, 0, 22)
+local Title = Text(Top, "IVORY", 16, true)
+Title.Position = UDim2.new(0, 15, 0, 2)
+Title.Size = UDim2.new(0, 100, 0, 20)
 
-local SubTitle = Text(Top, "HUB", 9, false)
+local SubTitle = Text(Top, "HUB", 8, false)
 SubTitle.TextColor3 = COLORS.ACCENT
-SubTitle.Position = UDim2.new(0, 16, 0, 26)
+SubTitle.Position = UDim2.new(0, 16, 0, 22)
 SubTitle.Size = UDim2.new(0, 60, 0, 12)
 
 local Close = Instance.new("TextButton")
@@ -910,33 +911,36 @@ ToggleBtn.MouseButton1Click:Connect(function()
         {BackgroundColor3 = COLORS.BLACK, TextColor3 = COLORS.WHITE})
 end)
 
+-- HORIZONTAL SIDEBAR (tabs across top)
 local Sidebar = Instance.new("Frame")
-Sidebar.Size = UDim2.new(0, 95, 1, -54)
-Sidebar.Position = UDim2.new(0, 8, 0, 50)
+Sidebar.Size = UDim2.new(1, -16, 0, 34)
+Sidebar.Position = UDim2.new(0, 8, 0, 46)
 Sidebar.BackgroundColor3 = COLORS.DARK
 Sidebar.BorderSizePixel = 0
 Sidebar.Parent = Main
-Corner(Sidebar, 12)
+Corner(Sidebar, 10)
 Stroke(Sidebar)
 
 local TabLayout = Instance.new("UIListLayout")
 TabLayout.Padding = UDim.new(0, 4)
+TabLayout.FillDirection = Enum.FillDirection.Horizontal
+TabLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 TabLayout.SortOrder = Enum.SortOrder.LayoutOrder
 TabLayout.Parent = Sidebar
 
-local Pad = Instance.new("UIPadding")
-Pad.PaddingTop = UDim.new(0, 8)
-Pad.PaddingLeft = UDim.new(0, 5)
-Pad.PaddingRight = UDim.new(0, 5)
-Pad.Parent = Sidebar
+local TabPad = Instance.new("UIPadding")
+TabPad.PaddingLeft = UDim.new(0, 4)
+TabPad.PaddingRight = UDim.new(0, 4)
+TabPad.Parent = Sidebar
 
+-- CONTENT (below tabs)
 local Content = Instance.new("Frame")
-Content.Size = UDim2.new(1, -111, 1, -54)
-Content.Position = UDim2.new(0, 103, 0, 50)
+Content.Size = UDim2.new(1, -16, 1, -92)
+Content.Position = UDim2.new(0, 8, 0, 84)
 Content.BackgroundColor3 = COLORS.DARK
 Content.BorderSizePixel = 0
 Content.Parent = Main
-Corner(Content, 12)
+Corner(Content, 10)
 Stroke(Content)
 
 local Pages = {}
@@ -972,7 +976,7 @@ end
 
 local function Button(parent, text, cb)
     local b = Instance.new("TextButton")
-    b.Size = UDim2.new(1, 0, 0, 28)
+    b.Size = UDim2.new(1, 0, 0, 26)
     b.BackgroundColor3 = COLORS.CARD
     b.BorderSizePixel = 0
     b.Text = text
@@ -991,7 +995,7 @@ local function CycleButton(parent, text, options, default, cb)
     local idx = 1
     for i, o in ipairs(options) do if o == default then idx = i break end end
     local b = Instance.new("TextButton")
-    b.Size = UDim2.new(1, 0, 0, 28)
+    b.Size = UDim2.new(1, 0, 0, 26)
     b.BackgroundColor3 = COLORS.CARD
     b.BorderSizePixel = 0
     b.Text = text .. ": " .. options[idx]
@@ -1013,7 +1017,7 @@ end
 local function Toggle(parent, text, default, cb)
     local state = default or false
     local h = Instance.new("Frame")
-    h.Size = UDim2.new(1, 0, 0, 28)
+    h.Size = UDim2.new(1, 0, 0, 26)
     h.BackgroundColor3 = COLORS.CARD
     h.BorderSizePixel = 0
     h.Parent = parent
@@ -1137,36 +1141,21 @@ local CreditsPage = CreatePage("Credits")
 
 -- MAIN
 Section(MainPage, "IVORY HUB")
-local mt = Text(MainPage, "IVORY HUB v9.6", 18, true)
-mt.Size = UDim2.new(1, 0, 0, 26)
+local mt = Text(MainPage, "IVORY HUB v10.0", 16, true)
+mt.Size = UDim2.new(1, 0, 0, 24)
 mt.TextXAlignment = Enum.TextXAlignment.Center
 mt.TextColor3 = COLORS.WHITE
 
 local msub = Text(MainPage, "Blox Fruits PVP Hub", 10, false)
 msub.Size = UDim2.new(1, 0, 0, 16)
-msub.Position = UDim2.new(0, 0, 0, 28)
+msub.Position = UDim2.new(0, 0, 0, 26)
 msub.TextXAlignment = Enum.TextXAlignment.Center
 msub.TextColor3 = COLORS.GRAY
-
-Section(MainPage, "QUICK INFO")
-local infoLines = {
-    "• Silent Aim: locks to nearest target",
-    "• Soru: auto-teleports on dash",
-    "• Fast Attack: spams M1 on enemies",
-    "• ESP: shows name, HP%, distance",
-    "• Use CONFIG tab to save/load",
-}
-for i, line in ipairs(infoLines) do
-    local l = Text(MainPage, line, 10, false)
-    l.Size = UDim2.new(1, -10, 0, 16)
-    l.Position = UDim2.new(0, 5, 0, 60 + (i-1) * 18)
-    l.TextColor3 = COLORS.WHITE
-end
 
 Section(MainPage, "STATUS")
 local statusLbl = Text(MainPage, "Active: None", 10, false)
 statusLbl.Size = UDim2.new(1, -10, 0, 16)
-statusLbl.Position = UDim2.new(0, 5, 0, 165)
+statusLbl.Position = UDim2.new(0, 5, 0, 60)
 statusLbl.TextColor3 = COLORS.GREEN
 
 task.spawn(function()
@@ -1191,48 +1180,27 @@ task.spawn(function()
 end)
 
 Section(MainPage, "TIP")
-local tipLbl = Text(MainPage, "Hold the I button to drag the UI", 10, false)
+local tipLbl = Text(MainPage, "Hold the I button to drag UI", 10, false)
 tipLbl.Size = UDim2.new(1, -10, 0, 16)
-tipLbl.Position = UDim2.new(0, 5, 0, 200)
+tipLbl.Position = UDim2.new(0, 5, 0, 85)
 tipLbl.TextColor3 = COLORS.GRAY
 
 -- COMBAT
 Section(CombatPage, "SILENT AIM")
-Toggle(CombatPage, "Enable Silent Aim", Features.SilentAim, function(s)
-    Features.SilentAim = s
-    SaveConfig()
-end)
-CycleButton(CombatPage, "Target", {"Both","Players","NPCs"}, Features.SilentAimTarget, function(v)
-    Features.SilentAimTarget = v SaveConfig()
-end)
-CycleButton(CombatPage, "Mode", {"360","FOV"}, Features.SilentAimMode, function(v)
-    Features.SilentAimMode = v SaveConfig()
-end)
-Slider(CombatPage, "Aim Distance", Features.SilentAimDistance, 0, 2000, function(v)
-    Features.SilentAimDistance = v SaveConfig()
-end, "m")
+Toggle(CombatPage, "Enable Silent Aim", Features.SilentAim, function(s) Features.SilentAim = s SaveConfig() end)
+CycleButton(CombatPage, "Target", {"Both","Players","NPCs"}, Features.SilentAimTarget, function(v) Features.SilentAimTarget = v SaveConfig() end)
+CycleButton(CombatPage, "Mode", {"360","FOV"}, Features.SilentAimMode, function(v) Features.SilentAimMode = v SaveConfig() end)
+Slider(CombatPage, "Aim Distance", Features.SilentAimDistance, 0, 2000, function(v) Features.SilentAimDistance = v SaveConfig() end, "m")
 
 Section(CombatPage, "SORU")
-Toggle(CombatPage, "Enable Soru", Features.SoruAim, function(s)
-    Features.SoruAim = s SaveConfig()
-end)
-CycleButton(CombatPage, "Soru Target", {"Both","Players","NPCs"}, Features.SoruTarget, function(v)
-    Features.SoruTarget = v SaveConfig()
-end)
-CycleButton(CombatPage, "Soru Mode", {"360","FOV"}, Features.SoruMode, function(v)
-    Features.SoruMode = v SaveConfig()
-end)
+Toggle(CombatPage, "Enable Soru", Features.SoruAim, function(s) Features.SoruAim = s SaveConfig() end)
+CycleButton(CombatPage, "Soru Target", {"Both","Players","NPCs"}, Features.SoruTarget, function(v) Features.SoruTarget = v SaveConfig() end)
+CycleButton(CombatPage, "Soru Mode", {"360","FOV"}, Features.SoruMode, function(v) Features.SoruMode = v SaveConfig() end)
 
 Section(CombatPage, "FOV")
-Toggle(CombatPage, "Show FOV Circle", Features.FOVCircle, function(s)
-    Features.FOVCircle = s SaveConfig()
-end)
-Slider(CombatPage, "FOV Radius", Features.FOVRadius, 10, 500, function(v)
-    Features.FOVRadius = v SaveConfig()
-end)
-CycleButton(CombatPage, "FOV Mode", {"V1","V2"}, Features.FOVMode, function(v)
-    Features.FOVMode = v SaveConfig()
-end)
+Toggle(CombatPage, "Show FOV Circle", Features.FOVCircle, function(s) Features.FOVCircle = s SaveConfig() end)
+Slider(CombatPage, "FOV Radius", Features.FOVRadius, 10, 500, function(v) Features.FOVRadius = v SaveConfig() end)
+CycleButton(CombatPage, "FOV Mode", {"V1","V2"}, Features.FOVMode, function(v) Features.FOVMode = v SaveConfig() end)
 
 -- FAST
 Section(FastPage, "FAST ATTACK")
@@ -1241,6 +1209,10 @@ Toggle(FastPage, "Enable Fast Attack", Features.FastAttack, function(s)
     FastAttack:SetEnabled(s)
     SaveConfig()
 end)
+local fastInfo = Text(FastPage, "Attacks NPCs + Players within 25 studs", 9, false)
+fastInfo.Size = UDim2.new(1, -10, 0, 14)
+fastInfo.TextColor3 = COLORS.GRAY
+fastInfo.TextXAlignment = Enum.TextXAlignment.Center
 
 -- MACRO
 Section(MacroPage, "MACRO")
@@ -1252,7 +1224,7 @@ Toggle(MacroPage, "Enable Macro", Features.Macro, function(s)
     else
         if MacroBtn then
             MacroBtn.Visible = true
-            MacroBtn.Text = "MACRO\nOFF"
+            MacroBtn.Text = "MACRO"
             MacroBtn.BackgroundColor3 = Color3.fromRGB(15,15,15)
             MacroBtn.TextColor3 = COLORS.WHITE
         end
@@ -1261,7 +1233,7 @@ Toggle(MacroPage, "Enable Macro", Features.Macro, function(s)
 end)
 
 local btnRow = Instance.new("Frame")
-btnRow.Size = UDim2.new(1, -10, 0, 28)
+btnRow.Size = UDim2.new(1, -10, 0, 26)
 btnRow.BackgroundTransparency = 1
 btnRow.Parent = MacroPage
 
@@ -1291,7 +1263,7 @@ Corner(clearBtn, 8)
 Stroke(clearBtn, Color3.fromRGB(35,35,35), 1)
 
 local blockContainer = Instance.new("ScrollingFrame")
-blockContainer.Size = UDim2.new(1, -10, 0, 280)
+blockContainer.Size = UDim2.new(1, -10, 0, 140)
 blockContainer.BackgroundTransparency = 1
 blockContainer.BorderSizePixel = 0
 blockContainer.ScrollBarThickness = 3
@@ -1305,17 +1277,14 @@ blockLayout.Padding = UDim.new(0, 5)
 blockLayout.SortOrder = Enum.SortOrder.LayoutOrder
 blockLayout.Parent = blockContainer
 
-local WEAPON_TYPES = {"Melee", "Fruit", "Sword", "Gun"}
-local SKILLS = {"Z","X","C","V","F","M1"}
-
--- Macro floating button (created before AddBlock so it can be referenced)
+-- Macro floating button (created before AddBlock)
 local MacroBtn = Instance.new("TextButton")
 MacroBtn.Size = UDim2.fromOffset(80, 80)
 MacroBtn.Position = UDim2.new(0.5, -40, 0.7, 0)
 MacroBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-MacroBtn.Text = "MACRO\nOFF"
+MacroBtn.Text = "MACRO"
 MacroBtn.TextColor3 = COLORS.WHITE
-MacroBtn.TextSize = 11
+MacroBtn.TextSize = 12
 MacroBtn.Font = Enum.Font.GothamBold
 MacroBtn.BorderSizePixel = 0
 MacroBtn.Visible = false
@@ -1326,7 +1295,7 @@ Stroke(MacroBtn, Color3.fromRGB(60,60,60), 1.5)
 local function AddBlock()
     local idx = #MacroBlocks + 1
     local block = Instance.new("Frame")
-    block.Size = UDim2.new(1, 0, 0, 66)
+    block.Size = UDim2.new(1, 0, 0, 60)
     block.BackgroundColor3 = COLORS.CARD
     block.BorderSizePixel = 0
     block.Parent = blockContainer
@@ -1343,7 +1312,7 @@ local function AddBlock()
     weaponBtn.Size = UDim2.new(0, 70, 0, 20)
     weaponBtn.Position = UDim2.new(0, 40, 0, 3)
     weaponBtn.BackgroundColor3 = COLORS.DARKER
-    weaponBtn.Text = WEAPON_TYPES[1]
+    weaponBtn.Text = "Melee"
     weaponBtn.TextColor3 = COLORS.WHITE
     weaponBtn.TextSize = 10
     weaponBtn.Font = Enum.Font.GothamBold
@@ -1353,17 +1322,14 @@ local function AddBlock()
     Stroke(weaponBtn, COLORS.ACCENT, 1)
 
     local weaponIdx = 1
-    weaponBtn.MouseButton1Click:Connect(function()
-        weaponIdx = weaponIdx % #WEAPON_TYPES + 1
-        weaponBtn.Text = WEAPON_TYPES[weaponIdx]
-    end)
+    local currentSkills = WEAPON_SKILLS[WEAPON_TYPES[1]]
 
     -- SKILL PICKER
     local skillBtn = Instance.new("TextButton")
     skillBtn.Size = UDim2.new(0, 45, 0, 20)
     skillBtn.Position = UDim2.new(0, 115, 0, 3)
     skillBtn.BackgroundColor3 = COLORS.DARKER
-    skillBtn.Text = SKILLS[1]
+    skillBtn.Text = currentSkills[1]
     skillBtn.TextColor3 = COLORS.WHITE
     skillBtn.TextSize = 10
     skillBtn.Font = Enum.Font.GothamBold
@@ -1373,12 +1339,23 @@ local function AddBlock()
     Stroke(skillBtn, COLORS.ACCENT, 1)
 
     local skillIdx = 1
-    skillBtn.MouseButton1Click:Connect(function()
-        skillIdx = skillIdx % #SKILLS + 1
-        skillBtn.Text = SKILLS[skillIdx]
+
+    weaponBtn.MouseButton1Click:Connect(function()
+        weaponIdx = weaponIdx % #WEAPON_TYPES + 1
+        local wType = WEAPON_TYPES[weaponIdx]
+        weaponBtn.Text = wType
+        currentSkills = WEAPON_SKILLS[wType]
+        -- Reset skill to first available for this weapon
+        skillIdx = 1
+        skillBtn.Text = currentSkills[1]
     end)
 
-    -- HOLD
+    skillBtn.MouseButton1Click:Connect(function()
+        skillIdx = skillIdx % #currentSkills + 1
+        skillBtn.Text = currentSkills[skillIdx]
+    end)
+
+    -- HOLD slider
     local hLabel = Text(block, "Hold: 0s", 9, false)
     hLabel.Position = UDim2.new(0, 8, 0, 26)
     hLabel.Size = UDim2.new(0, 60, 0, 14)
@@ -1408,15 +1385,15 @@ local function AddBlock()
     hKnob.Parent = hSlider
     Corner(hKnob, 10)
 
-    -- DELAY
+    -- DELAY slider
     local dLabel = Text(block, "Delay: 0s", 9, false)
-    dLabel.Position = UDim2.new(0, 8, 0, 44)
+    dLabel.Position = UDim2.new(0, 8, 0, 42)
     dLabel.Size = UDim2.new(0, 60, 0, 14)
     dLabel.TextColor3 = COLORS.GRAY
 
     local dSlider = Instance.new("Frame")
     dSlider.Size = UDim2.new(1, -110, 0, 4)
-    dSlider.Position = UDim2.new(0, 72, 0, 49)
+    dSlider.Position = UDim2.new(0, 72, 0, 47)
     dSlider.BackgroundColor3 = Color3.fromRGB(45,45,45)
     dSlider.BorderSizePixel = 0
     dSlider.Parent = block
@@ -1496,7 +1473,7 @@ local function AddBlock()
 
     table.insert(MacroBlocks, {
         Weapon = function() return WEAPON_TYPES[weaponIdx] end,
-        Skill  = function() return SKILLS[skillIdx] end,
+        Skill  = function() return currentSkills[skillIdx] or "Z" end,
         Hold   = function() return hVal end,
         Delay  = function() return dVal end,
     })
@@ -1512,11 +1489,11 @@ clearBtn.MouseButton1Click:Connect(function()
     if MacroBtn then MacroBtn.Visible = false end
 end)
 
--- 10 default blocks
+-- 5 default blocks
 task.wait(0.1)
-for i = 1, 10 do AddBlock() end
+for i = 1, 5 do AddBlock() end
 
--- Macro button drag (with click-vs-drag detection)
+-- Macro button drag + click
 local mdrag = {d = false, sp = nil, sm = nil, moved = false}
 MacroBtn.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -1542,14 +1519,34 @@ end)
 MacroBtn.MouseButton1Click:Connect(function()
     if mdrag.moved then return end
     if not Features.Macro then return end
+
     if MacroRunning then
+        -- STOP
         StopMacro()
+        MacroBtn.Text = "MACRO"
+        MacroBtn.BackgroundColor3 = Color3.fromRGB(15,15,15)
+        MacroBtn.TextColor3 = COLORS.WHITE
     else
+        -- START
         if #MacroBlocks == 0 then return end
         ExecuteMacro()
-        MacroBtn.BackgroundColor3 = COLORS.GREEN
-        MacroBtn.Text = "MACRO\nON"
-        MacroBtn.TextColor3 = COLORS.BLACK
+        MacroBtn.Text = "STOP"
+        MacroBtn.BackgroundColor3 = COLORS.RED
+        MacroBtn.TextColor3 = COLORS.WHITE
+    end
+end)
+
+-- When macro finishes naturally, reset button text
+task.spawn(function()
+    while Gui and Gui.Parent do
+        if MacroBtn and Features.Macro then
+            if not MacroRunning and MacroBtn.Text == "STOP" then
+                MacroBtn.Text = "MACRO"
+                MacroBtn.BackgroundColor3 = Color3.fromRGB(15,15,15)
+                MacroBtn.TextColor3 = COLORS.WHITE
+            end
+        end
+        task.wait(0.2)
     end
 end)
 
@@ -1572,49 +1569,36 @@ Button(ConfigPage, "Unload UI", function() SaveConfig() StopMacro() Gui:Destroy(
 
 -- CREDITS
 Section(CreditsPage, "⭐ THANK YOU ⭐")
-local ty = Text(CreditsPage, "Thanks for the support!", 14, true)
-ty.Size = UDim2.new(1, 0, 0, 22)
-ty.Position = UDim2.new(0, 0, 0, 30)
+local ty = Text(CreditsPage, "Thanks for the support!", 12, true)
+ty.Size = UDim2.new(1, 0, 0, 20)
+ty.Position = UDim2.new(0, 0, 0, 26)
 ty.TextXAlignment = Enum.TextXAlignment.Center
 ty.TextColor3 = COLORS.ACCENT
-
-local ty2 = Text(CreditsPage, "Every use means a lot 🦷", 10, false)
-ty2.Size = UDim2.new(1, 0, 0, 16)
-ty2.Position = UDim2.new(0, 0, 0, 54)
-ty2.TextXAlignment = Enum.TextXAlignment.Center
-ty2.TextColor3 = COLORS.GRAY
 
 Section(CreditsPage, "OWNERS")
 local function card(name, discord, y)
     local crd = Instance.new("Frame")
-    crd.Size = UDim2.new(1, -10, 0, 60)
+    crd.Size = UDim2.new(1, -10, 0, 50)
     crd.Position = UDim2.new(0, 5, 0, y)
     crd.BackgroundColor3 = COLORS.CARD
     crd.BorderSizePixel = 0
     crd.Parent = CreditsPage
     Corner(crd, 10)
     Stroke(crd, COLORS.ACCENT, 1)
-    local ac = Instance.new("Frame")
-    ac.Size = UDim2.new(0, 4, 1, -8)
-    ac.Position = UDim2.new(0, 4, 0, 4)
-    ac.BackgroundColor3 = COLORS.ACCENT
-    ac.BorderSizePixel = 0
-    ac.Parent = crd
-    Corner(ac, 2)
-    local n = Text(crd, name, 14, true)
-    n.Position = UDim2.new(0, 16, 0, 10)
-    n.Size = UDim2.new(1, -20, 0, 18)
+    local n = Text(crd, name, 12, true)
+    n.Position = UDim2.new(0, 12, 0, 6)
+    n.Size = UDim2.new(1, -20, 0, 16)
     n.TextColor3 = COLORS.WHITE
-    local d = Text(crd, "Discord: " .. discord, 10, false)
-    d.Position = UDim2.new(0, 16, 0, 32)
-    d.Size = UDim2.new(1, -20, 0, 16)
+    local d = Text(crd, "Discord: " .. discord, 9, false)
+    d.Position = UDim2.new(0, 12, 0, 26)
+    d.Size = UDim2.new(1, -20, 0, 14)
     d.TextColor3 = COLORS.GRAY
 end
 
-card("IVORY", "Ivory999", 85)
-card("RAYO", "Rayo06996", 155)
+card("IVORY", "Ivory999", 55)
+card("RAYO", "Rayo06996", 110)
 
--- TABS
+-- TABS (horizontal)
 local Tabs = {
     {name="MAIN", icon="🏠", page=MainPage},
     {name="COMBAT", icon="⚔️", page=CombatPage},
@@ -1631,50 +1615,39 @@ local function SelectTab(button, page, accent)
         if d.button then
             TweenIt(d.button, {BackgroundColor3 = COLORS.DARKER}, 0.2)
             d.button.TextColor3 = COLORS.GRAY
-            if d.accent then d.accent.Visible = false end
         end
         d.page.Visible = false
     end
     TweenIt(button, {BackgroundColor3 = COLORS.ACCENT}, 0.2)
     button.TextColor3 = COLORS.WHITE
-    if accent then accent.Visible = true end
     page.Visible = true
     CurrentTab = page
 end
 
 for _, d in ipairs(Tabs) do
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, 0, 0, 30)
+    btn.Size = UDim2.new(0, 62, 1, -6)
     btn.BackgroundColor3 = COLORS.DARKER
     btn.BorderSizePixel = 0
-    btn.Text = "  " .. d.icon .. "  " .. d.name
+    btn.Text = d.icon .. "\n" .. d.name
     btn.TextColor3 = COLORS.GRAY
-    btn.TextSize = 10
+    btn.TextSize = 9
     btn.Font = Enum.Font.GothamBold
-    btn.TextXAlignment = Enum.TextXAlignment.Left
+    btn.TextXAlignment = Enum.TextXAlignment.Center
     btn.AutoButtonColor = false
     btn.Parent = Sidebar
     Corner(btn, 8)
     Stroke(btn, Color3.fromRGB(35,35,35), 1)
-    local ac = Instance.new("Frame")
-    ac.Size = UDim2.new(0, 3, 1, -8)
-    ac.Position = UDim2.new(0, 3, 0, 4)
-    ac.BackgroundColor3 = COLORS.WHITE
-    ac.BorderSizePixel = 0
-    ac.Visible = false
-    ac.Parent = btn
-    Corner(ac, 2)
     d.button = btn
-    d.accent = ac
     btn.MouseEnter:Connect(function()
         if CurrentTab ~= d.page then TweenIt(btn, {BackgroundColor3 = Color3.fromRGB(28,28,28)}, 0.15) end
     end)
     btn.MouseLeave:Connect(function()
         if CurrentTab ~= d.page then TweenIt(btn, {BackgroundColor3 = COLORS.DARKER}, 0.15) end
     end)
-    btn.MouseButton1Click:Connect(function() SelectTab(btn, d.page, ac) end)
+    btn.MouseButton1Click:Connect(function() SelectTab(btn, d.page) end)
 end
-SelectTab(Tabs[1].button, Tabs[1].page, Tabs[1].accent)
+SelectTab(Tabs[1].button, Tabs[1].page)
 
 -- Macro button visibility sync
 task.spawn(function()
@@ -1709,10 +1682,10 @@ Minimize.MouseButton1Click:Connect(function()
     if Min then
         Sidebar.Visible = false
         Content.Visible = false
-        TweenIt(Main, {Size = UDim2.new(0, 400, 0, 44)})
+        TweenIt(Main, {Size = UDim2.new(0, 500, 0, 40)})
         Minimize.Text = "+"
     else
-        TweenIt(Main, {Size = UDim2.new(0, 400, 0, 440)})
+        TweenIt(Main, {Size = UDim2.new(0, 500, 0, 280)})
         task.wait(.15)
         Sidebar.Visible = true
         Content.Visible = true
@@ -1729,7 +1702,7 @@ Close.MouseButton1Click:Connect(function()
 end)
 
 print("========================================")
-print("        IVORY HUB v9.6 LOADED")
+print("        IVORY HUB v10.0 LOADED")
 print("========================================")
-print("ESP fixed | Macro weapon picker | Fast Attack toggle-only")
+print("Horizontal UI | Fixed Fast Attack | Working Macro")
 print("========================================")
