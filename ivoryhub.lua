@@ -1,8 +1,8 @@
 -- =============================================
--- IVORY HUB v10.1 - MOBILE MACRO (TAP-BASED) + AIMBOT
+-- IVORY HUB v10.2 - FIXED MACRO TAP
 -- =============================================
 
-print("🦷 Ivory Hub v10.1 loading...")
+print("🦷 Ivory Hub v10.2 loading...")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -95,7 +95,6 @@ local Features = {
     FOVRadius = 150,
     FOVMode = "V1",
     Macro = false,
-    MacroAimbot = true,
     MaxRange = 1000,
 }
 
@@ -161,7 +160,6 @@ local function ResetConfig()
     Features.ESPNPCs = true
     Features.FOVRadius = 150
     Features.FOVMode = "V1"
-    Features.MacroAimbot = true
     Features.MaxRange = 1000
     SaveConfig()
 end
@@ -316,7 +314,7 @@ local function GetNearestTarget(targetType, mode, maxDist)
 end
 
 -- =============================================
--- AIM ROTATION (used by macro)
+-- AIM ROTATION
 -- =============================================
 local function FaceTarget(targetHrp)
     if not targetHrp then return end
@@ -739,44 +737,76 @@ RunService.Heartbeat:Connect(function() pcall(UpdateESP) end)
 -- =============================================
 -- MOBILE SKILL BUTTON TAPPING
 -- =============================================
--- Find the actual skill buttons in the player's UI
 local function getSkillButton(key)
     local pg = player:FindFirstChild("PlayerGui")
     if not pg then return nil end
-    local main = pg:FindFirstChild("Main")
-    if not main then return nil end
-    local skills = main:FindFirstChild("Skills")
-    if not skills then return nil end
 
-    for _, container in pairs(skills:GetChildren()) do
-        if container:IsA("GuiObject") then
-            for _, btn in pairs(container:GetChildren()) do
-                if btn:IsA("ImageButton") or btn:IsA("TextButton") then
-                    if btn.Name == key then return btn end
+    -- Try common paths first
+    local main = pg:FindFirstChild("Main")
+    if main then
+        local skills = main:FindFirstChild("Skills")
+        if skills then
+            for _, container in pairs(skills:GetChildren()) do
+                if container:IsA("GuiObject") then
+                    for _, btn in pairs(container:GetChildren()) do
+                        if btn:IsA("ImageButton") or btn:IsA("TextButton") then
+                            if btn.Name == key then return btn end
+                        end
+                    end
                 end
             end
         end
     end
-    return nil
+
+    -- Fallback: search every GuiObject for a matching name, prefer right side
+    local found = nil
+    for _, obj in pairs(pg:GetDescendants()) do
+        if (obj:IsA("ImageButton") or obj:IsA("TextButton")) and obj.Name == key then
+            local pos = obj.AbsolutePosition
+            local vp = Camera.ViewportSize
+            if pos.X > vp.X * 0.5 then
+                return obj
+            end
+            found = found or obj
+        end
+    end
+    return found
 end
 
 local function tapSkillButton(key)
     local btn = getSkillButton(key)
-    if not btn then return false end
+    if not btn then
+        -- Fallback: keyboard event
+        local kc = Enum.KeyCode[key]
+        if kc then
+            pcall(function()
+                VIM:SendKeyEvent(true, kc, false)
+                task.wait(0.05)
+                VIM:SendKeyEvent(false, kc, false)
+            end)
+        end
+        return false
+    end
+
     local pos = btn.AbsolutePosition
     local size = btn.AbsoluteSize
     local centerX = pos.X + size.X / 2
     local centerY = pos.Y + size.Y / 2
+
     pcall(function()
         VIM:SendMouseButtonEvent(centerX, centerY, 0, true, game, 1)
-        task.wait(0.03)
+        task.wait(0.02)
         VIM:SendMouseButtonEvent(centerX, centerY, 0, false, game, 1)
+    end)
+    pcall(function()
+        VIM:SendMouseButtonEvent(centerX, centerY, 0, true, game, 0)
+        task.wait(0.02)
+        VIM:SendMouseButtonEvent(centerX, centerY, 0, false, game, 0)
     end)
     return true
 end
 
 local function tapM1()
-    -- M1 is the main tap area — tap center of screen
     local vp = Camera.ViewportSize
     pcall(function()
         VIM:SendMouseButtonEvent(vp.X * 0.5, vp.Y * 0.5, 0, true, game, 1)
@@ -786,7 +816,7 @@ local function tapM1()
 end
 
 -- =============================================
--- MACRO (TAP-BASED for mobile)
+-- MACRO
 -- =============================================
 local MacroBlocks = {}
 local MacroRunning = false
@@ -822,7 +852,6 @@ local function ExecuteMacro()
     if #MacroBlocks == 0 then return end
     MacroRunning = true
     MacroThread = task.spawn(function()
-        local lastWeapon = nil
         for _, b in pairs(MacroBlocks) do
             if not MacroRunning then break end
             local weapon = b.Weapon()
@@ -830,16 +859,10 @@ local function ExecuteMacro()
             local hold   = b.Hold()
             local delay  = b.Delay()
 
-            -- Macro Aimbot: face nearest target before firing
-            if Features.MacroAimbot then
-                local target = GetNearestTarget("Both", "360", 100)
-                if target then FaceTarget(target) end
-                if not cancellableWait(0.02) then break end
-            end
-
-            -- Skip equipping weapon — user has it out already
-            -- (tapping number keys doesn't work on mobile)
-            lastWeapon = weapon
+            -- Always aim at nearest target before firing
+            local target = GetNearestTarget("Both", "360", 100)
+            if target then FaceTarget(target) end
+            if not cancellableWait(0.05) then break end
 
             -- Fire skill
             if skill == "M1" then
@@ -847,10 +870,9 @@ local function ExecuteMacro()
                 if not cancellableWait(math.max(hold, 0.08)) then break end
             else
                 tapSkillButton(skill)
-                if not cancellableWait(math.max(hold, 0.05)) then break end
+                if not cancellableWait(math.max(hold, 0.08)) then break end
             end
 
-            -- Delay between actions
             if delay > 0 then
                 if not cancellableWait(delay) then break end
             end
@@ -877,7 +899,6 @@ ToggleBtn.AutoButtonColor = false
 ToggleBtn.Parent = Gui
 Corner(ToggleBtn, 10)
 
--- Wider UI for mobile
 local Main = Instance.new("Frame")
 Main.Size = UDim2.new(0, 480, 0, 300)
 Main.Position = UDim2.new(0.5, -240, 0.5, -150)
@@ -943,7 +964,6 @@ ToggleBtn.MouseButton1Click:Connect(function()
         {BackgroundColor3 = COLORS.BLACK, TextColor3 = COLORS.WHITE})
 end)
 
--- SIDEBAR (vertical, on left side)
 local Sidebar = Instance.new("Frame")
 Sidebar.Size = UDim2.new(0, 90, 1, -54)
 Sidebar.Position = UDim2.new(0, 8, 0, 50)
@@ -1167,11 +1187,12 @@ local FastPage = CreatePage("Fast")
 local MacroPage = CreatePage("Macro")
 local VisualPage = CreatePage("Visual")
 local ConfigPage = CreatePage("Config")
-local CreditsPage = CreatePage("Credits")
+local SocialsPage = CreatePage("Socials")
+local AboutPage = CreatePage("About")
 
 -- MAIN
 Section(MainPage, "IVORY HUB")
-local mt = Text(MainPage, "IVORY HUB v10.1", 16, true)
+local mt = Text(MainPage, "IVORY HUB v10.2", 16, true)
 mt.Size = UDim2.new(1, 0, 0, 24)
 mt.TextXAlignment = Enum.TextXAlignment.Center
 mt.TextColor3 = COLORS.WHITE
@@ -1262,11 +1283,6 @@ Toggle(MacroPage, "Enable Macro", Features.Macro, function(s)
     SaveConfig()
 end)
 
-Toggle(MacroPage, "Macro Aimbot", Features.MacroAimbot, function(s)
-    Features.MacroAimbot = s
-    SaveConfig()
-end)
-
 local btnRow = Instance.new("Frame")
 btnRow.Size = UDim2.new(1, -10, 0, 26)
 btnRow.BackgroundTransparency = 1
@@ -1312,7 +1328,6 @@ blockLayout.Padding = UDim.new(0, 5)
 blockLayout.SortOrder = Enum.SortOrder.LayoutOrder
 blockLayout.Parent = blockContainer
 
--- Smaller macro button
 local MacroBtn = Instance.new("TextButton")
 MacroBtn.Size = UDim2.fromOffset(60, 60)
 MacroBtn.Position = UDim2.new(0.5, -30, 0.7, 0)
@@ -1519,9 +1534,6 @@ clearBtn.MouseButton1Click:Connect(function()
     if MacroBtn then MacroBtn.Visible = false end
 end)
 
--- NO default blocks — user must add them
-
--- Macro button drag + click
 local mdrag = {d = false, sp = nil, sm = nil, moved = false}
 MacroBtn.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -1591,38 +1603,90 @@ Button(ConfigPage, "Load Config", function() LoadConfig() end)
 Button(ConfigPage, "Reset Config", function() ResetConfig() end)
 Button(ConfigPage, "Unload UI", function() SaveConfig() StopMacro() Gui:Destroy() end)
 
--- CREDITS
-Section(CreditsPage, "⭐ THANK YOU ⭐")
-local ty = Text(CreditsPage, "Thanks for the support!", 12, true)
-ty.Size = UDim2.new(1, 0, 0, 20)
-ty.Position = UDim2.new(0, 0, 0, 26)
-ty.TextXAlignment = Enum.TextXAlignment.Center
-ty.TextColor3 = COLORS.ACCENT
+-- SOCIALS
+Section(SocialsPage, "⭐ JOIN US ⭐")
+local socialTitle = Text(SocialsPage, "Ivory & Rayo's Discord", 12, true)
+socialTitle.Size = UDim2.new(1, 0, 0, 20)
+socialTitle.Position = UDim2.new(0, 0, 0, 26)
+socialTitle.TextXAlignment = Enum.TextXAlignment.Center
+socialTitle.TextColor3 = COLORS.ACCENT
 
-Section(CreditsPage, "OWNERS")
-local function card(name, discord, y)
+local socialSub = Text(SocialsPage, "Add us for updates & support", 9, false)
+socialSub.Size = UDim2.new(1, 0, 0, 16)
+socialSub.Position = UDim2.new(0, 0, 0, 48)
+socialSub.TextXAlignment = Enum.TextXAlignment.Center
+socialSub.TextColor3 = COLORS.GRAY
+
+local function socialCard(name, discord, y)
     local crd = Instance.new("Frame")
-    crd.Size = UDim2.new(1, -10, 0, 50)
+    crd.Size = UDim2.new(1, -10, 0, 60)
     crd.Position = UDim2.new(0, 5, 0, y)
     crd.BackgroundColor3 = COLORS.CARD
     crd.BorderSizePixel = 0
-    crd.Parent = CreditsPage
+    crd.Parent = SocialsPage
     Corner(crd, 10)
     Stroke(crd, COLORS.ACCENT, 1)
-    local n = Text(crd, name, 12, true)
-    n.Position = UDim2.new(0, 12, 0, 6)
-    n.Size = UDim2.new(1, -20, 0, 16)
+    local n = Text(crd, name, 13, true)
+    n.Position = UDim2.new(0, 12, 0, 8)
+    n.Size = UDim2.new(1, -20, 0, 18)
     n.TextColor3 = COLORS.WHITE
-    local d = Text(crd, "Discord: " .. discord, 9, false)
-    d.Position = UDim2.new(0, 12, 0, 26)
-    d.Size = UDim2.new(1, -20, 0, 14)
+    local d = Text(crd, "Discord: " .. discord, 10, false)
+    d.Position = UDim2.new(0, 12, 0, 30)
+    d.Size = UDim2.new(1, -20, 0, 16)
     d.TextColor3 = COLORS.GRAY
 end
 
-card("IVORY", "Ivory999", 55)
-card("RAYO", "Rayo06996", 110)
+socialCard("IVORY", "Ivory999", 75)
+socialCard("RAYO", "Rayo06996", 145)
 
--- TABS (VERTICAL on the side)
+-- ABOUT
+Section(AboutPage, "📖 ABOUT IVORY HUB")
+
+local aboutLines = {
+    {text = "Ivory Hub is a mobile-optimized PVP script for", size = 10, bold = false, color = COLORS.WHITE},
+    {text = "Blox Fruits built by Ivory and Rayo.", size = 10, bold = false, color = COLORS.WHITE},
+    {text = "", size = 6, bold = false, color = COLORS.WHITE},
+    {text = "FEATURES:", size = 10, bold = true, color = COLORS.ACCENT},
+    {text = "• Silent Aim — hits targets without missing", size = 9, bold = false, color = COLORS.WHITE},
+    {text = "• Soru Aimbot — auto-teleports on dash", size = 9, bold = false, color = COLORS.WHITE},
+    {text = "• Fast Attack — spams M1 at nearby enemies", size = 9, bold = false, color = COLORS.WHITE},
+    {text = "• Macro — records and replays your combo", size = 9, bold = false, color = COLORS.WHITE},
+    {text = "• ESP — see players/NPCs through walls", size = 9, bold = false, color = COLORS.WHITE},
+    {text = "• FOV Circle — visual aim area indicator", size = 9, bold = false, color = COLORS.WHITE},
+    {text = "", size = 6, bold = false, color = COLORS.WHITE},
+    {text = "MACRO GUIDE:", size = 10, bold = true, color = COLORS.ACCENT},
+    {text = "1. Enable Macro in the MACRO tab", size = 9, bold = false, color = COLORS.WHITE},
+    {text = "2. Tap '+ Add Block' to create steps", size = 9, bold = false, color = COLORS.WHITE},
+    {text = "3. Pick weapon (Melee/Fruit/Sword/Gun)", size = 9, bold = false, color = COLORS.WHITE},
+    {text = "4. Pick skill (Z/X/C/V/F/M1)", size = 9, bold = false, color = COLORS.WHITE},
+    {text = "5. Set Hold (how long) and Delay (wait)", size = 9, bold = false, color = COLORS.WHITE},
+    {text = "6. Tap the MACRO button to start", size = 9, bold = false, color = COLORS.WHITE},
+    {text = "7. Tap STOP to cancel, tap again to replay", size = 9, bold = false, color = COLORS.WHITE},
+    {text = "", size = 6, bold = false, color = COLORS.WHITE},
+    {text = "TIPS:", size = 10, bold = true, color = COLORS.ACCENT},
+    {text = "• Hold duration = how long the key stays held", size = 9, bold = false, color = COLORS.WHITE},
+    {text = "• Delay = wait time before the next action", size = 9, bold = false, color = COLORS.WHITE},
+    {text = "• Macro always aims at nearest enemy", size = 9, bold = false, color = COLORS.WHITE},
+    {text = "", size = 6, bold = false, color = COLORS.WHITE},
+    {text = "CONFIG:", size = 10, bold = true, color = COLORS.ACCENT},
+    {text = "• Save/Load/Reset in the CONFIG tab", size = 9, bold = false, color = COLORS.WHITE},
+    {text = "• Settings save automatically per change", size = 9, bold = false, color = COLORS.WHITE},
+    {text = "", size = 6, bold = false, color = COLORS.WHITE},
+    {text = "VERSION: v10.2", size = 10, bold = true, color = COLORS.ACCENT},
+    {text = "Thanks for using Ivory Hub 🦷", size = 10, bold = false, color = COLORS.WHITE},
+}
+
+local yOffset = 30
+for _, line in ipairs(aboutLines) do
+    local lbl = Text(AboutPage, line.text, line.size, line.bold)
+    lbl.Size = UDim2.new(1, -10, 0, line.size + 6)
+    lbl.Position = UDim2.new(0, 5, 0, yOffset)
+    lbl.TextColor3 = line.color
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    yOffset = yOffset + line.size + 6
+end
+
+-- TABS
 local Tabs = {
     {name="MAIN", icon="🏠", page=MainPage},
     {name="COMBAT", icon="⚔️", page=CombatPage},
@@ -1630,7 +1694,8 @@ local Tabs = {
     {name="MACRO", icon="🎮", page=MacroPage},
     {name="VISUAL", icon="👁️", page=VisualPage},
     {name="CONFIG", icon="⚙️", page=ConfigPage},
-    {name="CREDITS", icon="⭐", page=CreditsPage},
+    {name="SOCIALS", icon="💬", page=SocialsPage},
+    {name="ABOUT", icon="📖", page=AboutPage},
 }
 local CurrentTab
 
@@ -1673,7 +1738,6 @@ for _, d in ipairs(Tabs) do
 end
 SelectTab(Tabs[1].button, Tabs[1].page)
 
--- Macro button visibility sync
 task.spawn(function()
     while Gui and Gui.Parent do
         if MacroBtn then
@@ -1683,7 +1747,7 @@ task.spawn(function()
     end
 end)
 
--- UI drag
+-- UI DRAG
 local Drag, DStart, SPos = false, nil, nil
 Top.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -1726,7 +1790,7 @@ Close.MouseButton1Click:Connect(function()
 end)
 
 print("========================================")
-print("        IVORY HUB v10.1 LOADED")
+print("        IVORY HUB v10.2 LOADED")
 print("========================================")
-print("Tap-based macro | Sidebar tabs | No default blocks")
+print("Tap-based macro | Always-on aimbot | Socials + About tabs")
 print("========================================")
