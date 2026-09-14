@@ -1,8 +1,8 @@
 -- =============================================
--- IVORY HUB v10.0 - HORIZONTAL UI + FIXED FAST + MACRO
+-- IVORY HUB v10.1 - MOBILE MACRO (TAP-BASED) + AIMBOT
 -- =============================================
 
-print("🦷 Ivory Hub v10.0 loading...")
+print("🦷 Ivory Hub v10.1 loading...")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -95,6 +95,7 @@ local Features = {
     FOVRadius = 150,
     FOVMode = "V1",
     Macro = false,
+    MacroAimbot = true,
     MaxRange = 1000,
 }
 
@@ -160,6 +161,7 @@ local function ResetConfig()
     Features.ESPNPCs = true
     Features.FOVRadius = 150
     Features.FOVMode = "V1"
+    Features.MacroAimbot = true
     Features.MaxRange = 1000
     SaveConfig()
 end
@@ -314,6 +316,23 @@ local function GetNearestTarget(targetType, mode, maxDist)
 end
 
 -- =============================================
+-- AIM ROTATION (used by macro)
+-- =============================================
+local function FaceTarget(targetHrp)
+    if not targetHrp then return end
+    local char = player.Character
+    if not char then return end
+    local myHrp = char:FindFirstChild("HumanoidRootPart")
+    if not myHrp then return end
+    pcall(function()
+        local look = (Vector3.new(targetHrp.Position.X, myHrp.Position.Y, targetHrp.Position.Z) - myHrp.Position).Unit
+        if look.Magnitude > 0.001 then
+            myHrp.CFrame = CFrame.lookAt(myHrp.Position, myHrp.Position + look)
+        end
+    end)
+end
+
+-- =============================================
 -- SILENT AIM
 -- =============================================
 local TargetPos = nil
@@ -433,7 +452,7 @@ player.CharacterAdded:Connect(function(c) task.wait(0.5) MonitorFlashstep(c) end
 if player.Character then task.wait(0.5) MonitorFlashstep(player.Character) end
 
 -- =============================================
--- FAST ATTACK (FIXED - 25 studs, NPCs + players)
+-- FAST ATTACK
 -- =============================================
 local FastAttack = (function()
     local module = {}
@@ -457,7 +476,6 @@ local FastAttack = (function()
         local myRoot = myChar:FindFirstChild("HumanoidRootPart")
         if not myRoot then return list end
 
-        -- Players
         for _, plr in pairs(Players:GetPlayers()) do
             if plr ~= player and plr.Character then
                 local hum = plr.Character:FindFirstChildOfClass("Humanoid")
@@ -471,7 +489,6 @@ local FastAttack = (function()
             end
         end
 
-        -- NPCs
         local fns = {"Enemies","Enemy","Monsters","Monster","Mobs","Mob","Bosses","Boss"}
         for _, name in ipairs(fns) do
             local folder = workspace:FindFirstChild(name)
@@ -525,11 +542,9 @@ local FastAttack = (function()
                 last = tick()
                 local targets = getTargets()
                 if #targets == 0 then
-                    -- Still fire attack remote so fruit M1 registers
                     fire(nil)
                     return
                 end
-                -- Sort by nearest
                 table.sort(targets, function(a, b) return a.dist < b.dist end)
                 for _, t in ipairs(targets) do
                     fire(t)
@@ -722,13 +737,61 @@ end
 RunService.Heartbeat:Connect(function() pcall(UpdateESP) end)
 
 -- =============================================
--- MACRO
+-- MOBILE SKILL BUTTON TAPPING
+-- =============================================
+-- Find the actual skill buttons in the player's UI
+local function getSkillButton(key)
+    local pg = player:FindFirstChild("PlayerGui")
+    if not pg then return nil end
+    local main = pg:FindFirstChild("Main")
+    if not main then return nil end
+    local skills = main:FindFirstChild("Skills")
+    if not skills then return nil end
+
+    for _, container in pairs(skills:GetChildren()) do
+        if container:IsA("GuiObject") then
+            for _, btn in pairs(container:GetChildren()) do
+                if btn:IsA("ImageButton") or btn:IsA("TextButton") then
+                    if btn.Name == key then return btn end
+                end
+            end
+        end
+    end
+    return nil
+end
+
+local function tapSkillButton(key)
+    local btn = getSkillButton(key)
+    if not btn then return false end
+    local pos = btn.AbsolutePosition
+    local size = btn.AbsoluteSize
+    local centerX = pos.X + size.X / 2
+    local centerY = pos.Y + size.Y / 2
+    pcall(function()
+        VIM:SendMouseButtonEvent(centerX, centerY, 0, true, game, 1)
+        task.wait(0.03)
+        VIM:SendMouseButtonEvent(centerX, centerY, 0, false, game, 1)
+    end)
+    return true
+end
+
+local function tapM1()
+    -- M1 is the main tap area — tap center of screen
+    local vp = Camera.ViewportSize
+    pcall(function()
+        VIM:SendMouseButtonEvent(vp.X * 0.5, vp.Y * 0.5, 0, true, game, 1)
+        task.wait(0.03)
+        VIM:SendMouseButtonEvent(vp.X * 0.5, vp.Y * 0.5, 0, false, game, 1)
+    end)
+end
+
+-- =============================================
+-- MACRO (TAP-BASED for mobile)
 -- =============================================
 local MacroBlocks = {}
 local MacroRunning = false
 local MacroThread = nil
 
--- Skill sets per weapon type
 local WEAPON_SKILLS = {
     Melee = {"Z","X","C","M1"},
     Fruit = {"Z","X","C","V","F","M1"},
@@ -753,29 +816,6 @@ local function StopMacro()
         pcall(function() task.cancel(MacroThread) end)
         MacroThread = nil
     end
-    for _, k in ipairs({"Z","X","C","V","F"}) do
-        pcall(function()
-            VIM:SendKeyEvent(false, Enum.KeyCode[k], false)
-        end)
-    end
-    pcall(function()
-        VIM:SendMouseButtonEvent(Enum.UserInputType.MouseButton1, 0, 0, false)
-    end)
-end
-
-local function EquipWeapon(weaponType)
-    local keyMap = {
-        Melee = Enum.KeyCode.One,
-        Sword = Enum.KeyCode.Two,
-        Gun   = Enum.KeyCode.Three,
-        Fruit = Enum.KeyCode.Four,
-    }
-    local kc = keyMap[weaponType]
-    if kc then
-        VIM:SendKeyEvent(true, kc, false)
-        task.wait(0.05)
-        VIM:SendKeyEvent(false, kc, false)
-    end
 end
 
 local function ExecuteMacro()
@@ -790,31 +830,24 @@ local function ExecuteMacro()
             local hold   = b.Hold()
             local delay  = b.Delay()
 
-            -- Equip weapon if changed
-            if weapon ~= lastWeapon then
-                EquipWeapon(weapon)
-                lastWeapon = weapon
-                if not cancellableWait(0.15) then break end
+            -- Macro Aimbot: face nearest target before firing
+            if Features.MacroAimbot then
+                local target = GetNearestTarget("Both", "360", 100)
+                if target then FaceTarget(target) end
+                if not cancellableWait(0.02) then break end
             end
+
+            -- Skip equipping weapon — user has it out already
+            -- (tapping number keys doesn't work on mobile)
+            lastWeapon = weapon
 
             -- Fire skill
             if skill == "M1" then
-                VIM:SendMouseButtonEvent(Enum.UserInputType.MouseButton1, 0, 0, true)
-                if not cancellableWait(math.max(hold, 0.08)) then
-                    VIM:SendMouseButtonEvent(Enum.UserInputType.MouseButton1, 0, 0, false)
-                    break
-                end
-                VIM:SendMouseButtonEvent(Enum.UserInputType.MouseButton1, 0, 0, false)
+                tapM1()
+                if not cancellableWait(math.max(hold, 0.08)) then break end
             else
-                local kc = Enum.KeyCode[skill]
-                if kc then
-                    VIM:SendKeyEvent(true, kc, false)
-                    if not cancellableWait(math.max(hold, 0.05)) then
-                        VIM:SendKeyEvent(false, kc, false)
-                        break
-                    end
-                    VIM:SendKeyEvent(false, kc, false)
-                end
+                tapSkillButton(skill)
+                if not cancellableWait(math.max(hold, 0.05)) then break end
             end
 
             -- Delay between actions
@@ -828,7 +861,7 @@ local function ExecuteMacro()
 end
 
 -- =============================================
--- UI (HORIZONTAL LAYOUT)
+-- UI
 -- =============================================
 local ToggleBtn = Instance.new("TextButton")
 ToggleBtn.Size = UDim2.fromOffset(42,42)
@@ -844,10 +877,10 @@ ToggleBtn.AutoButtonColor = false
 ToggleBtn.Parent = Gui
 Corner(ToggleBtn, 10)
 
--- HORIZONTAL MAIN FRAME (wider than tall)
+-- Wider UI for mobile
 local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0, 500, 0, 280)
-Main.Position = UDim2.new(0.5, -250, 0.5, -140)
+Main.Size = UDim2.new(0, 480, 0, 300)
+Main.Position = UDim2.new(0.5, -240, 0.5, -150)
 Main.BackgroundColor3 = COLORS.BLACK
 Main.BorderSizePixel = 0
 Main.Visible = false
@@ -855,9 +888,8 @@ Main.Parent = Gui
 Corner(Main, 14)
 Stroke(Main, COLORS.ACCENT, 1.5)
 
--- TOP BAR (spans full width)
 local Top = Instance.new("Frame")
-Top.Size = UDim2.new(1, 0, 0, 40)
+Top.Size = UDim2.new(1, 0, 0, 44)
 Top.BackgroundColor3 = COLORS.DARK
 Top.BorderSizePixel = 0
 Top.Parent = Main
@@ -871,13 +903,13 @@ headerLine.BackgroundTransparency = 0.5
 headerLine.BorderSizePixel = 0
 headerLine.Parent = Top
 
-local Title = Text(Top, "IVORY", 16, true)
-Title.Position = UDim2.new(0, 15, 0, 2)
-Title.Size = UDim2.new(0, 100, 0, 20)
+local Title = Text(Top, "IVORY", 18, true)
+Title.Position = UDim2.new(0, 15, 0, 4)
+Title.Size = UDim2.new(0, 100, 0, 22)
 
-local SubTitle = Text(Top, "HUB", 8, false)
+local SubTitle = Text(Top, "HUB", 9, false)
 SubTitle.TextColor3 = COLORS.ACCENT
-SubTitle.Position = UDim2.new(0, 16, 0, 22)
+SubTitle.Position = UDim2.new(0, 16, 0, 26)
 SubTitle.Size = UDim2.new(0, 60, 0, 12)
 
 local Close = Instance.new("TextButton")
@@ -911,36 +943,34 @@ ToggleBtn.MouseButton1Click:Connect(function()
         {BackgroundColor3 = COLORS.BLACK, TextColor3 = COLORS.WHITE})
 end)
 
--- HORIZONTAL SIDEBAR (tabs across top)
+-- SIDEBAR (vertical, on left side)
 local Sidebar = Instance.new("Frame")
-Sidebar.Size = UDim2.new(1, -16, 0, 34)
-Sidebar.Position = UDim2.new(0, 8, 0, 46)
+Sidebar.Size = UDim2.new(0, 90, 1, -54)
+Sidebar.Position = UDim2.new(0, 8, 0, 50)
 Sidebar.BackgroundColor3 = COLORS.DARK
 Sidebar.BorderSizePixel = 0
 Sidebar.Parent = Main
-Corner(Sidebar, 10)
+Corner(Sidebar, 12)
 Stroke(Sidebar)
 
 local TabLayout = Instance.new("UIListLayout")
-TabLayout.Padding = UDim.new(0, 4)
-TabLayout.FillDirection = Enum.FillDirection.Horizontal
-TabLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+TabLayout.Padding = UDim.new(0, 3)
 TabLayout.SortOrder = Enum.SortOrder.LayoutOrder
 TabLayout.Parent = Sidebar
 
-local TabPad = Instance.new("UIPadding")
-TabPad.PaddingLeft = UDim.new(0, 4)
-TabPad.PaddingRight = UDim.new(0, 4)
-TabPad.Parent = Sidebar
+local Pad = Instance.new("UIPadding")
+Pad.PaddingTop = UDim.new(0, 6)
+Pad.PaddingLeft = UDim.new(0, 4)
+Pad.PaddingRight = UDim.new(0, 4)
+Pad.Parent = Sidebar
 
--- CONTENT (below tabs)
 local Content = Instance.new("Frame")
-Content.Size = UDim2.new(1, -16, 1, -92)
-Content.Position = UDim2.new(0, 8, 0, 84)
+Content.Size = UDim2.new(1, -106, 1, -54)
+Content.Position = UDim2.new(0, 98, 0, 50)
 Content.BackgroundColor3 = COLORS.DARK
 Content.BorderSizePixel = 0
 Content.Parent = Main
-Corner(Content, 10)
+Corner(Content, 12)
 Stroke(Content)
 
 local Pages = {}
@@ -1141,7 +1171,7 @@ local CreditsPage = CreatePage("Credits")
 
 -- MAIN
 Section(MainPage, "IVORY HUB")
-local mt = Text(MainPage, "IVORY HUB v10.0", 16, true)
+local mt = Text(MainPage, "IVORY HUB v10.1", 16, true)
 mt.Size = UDim2.new(1, 0, 0, 24)
 mt.TextXAlignment = Enum.TextXAlignment.Center
 mt.TextColor3 = COLORS.WHITE
@@ -1232,6 +1262,11 @@ Toggle(MacroPage, "Enable Macro", Features.Macro, function(s)
     SaveConfig()
 end)
 
+Toggle(MacroPage, "Macro Aimbot", Features.MacroAimbot, function(s)
+    Features.MacroAimbot = s
+    SaveConfig()
+end)
+
 local btnRow = Instance.new("Frame")
 btnRow.Size = UDim2.new(1, -10, 0, 26)
 btnRow.BackgroundTransparency = 1
@@ -1240,7 +1275,7 @@ btnRow.Parent = MacroPage
 local addBtn = Instance.new("TextButton")
 addBtn.Size = UDim2.new(0.48, -4, 1, 0)
 addBtn.BackgroundColor3 = COLORS.CARD
-addBtn.Text = "+ Add"
+addBtn.Text = "+ Add Block"
 addBtn.TextColor3 = COLORS.WHITE
 addBtn.TextSize = 10
 addBtn.Font = Enum.Font.GothamBold
@@ -1253,7 +1288,7 @@ local clearBtn = Instance.new("TextButton")
 clearBtn.Size = UDim2.new(0.48, -4, 1, 0)
 clearBtn.Position = UDim2.new(0.52, 4, 0, 0)
 clearBtn.BackgroundColor3 = COLORS.CARD
-clearBtn.Text = "Clear"
+clearBtn.Text = "Clear All"
 clearBtn.TextColor3 = COLORS.WHITE
 clearBtn.TextSize = 10
 clearBtn.Font = Enum.Font.GothamBold
@@ -1277,14 +1312,14 @@ blockLayout.Padding = UDim.new(0, 5)
 blockLayout.SortOrder = Enum.SortOrder.LayoutOrder
 blockLayout.Parent = blockContainer
 
--- Macro floating button (created before AddBlock)
+-- Smaller macro button
 local MacroBtn = Instance.new("TextButton")
-MacroBtn.Size = UDim2.fromOffset(80, 80)
-MacroBtn.Position = UDim2.new(0.5, -40, 0.7, 0)
+MacroBtn.Size = UDim2.fromOffset(60, 60)
+MacroBtn.Position = UDim2.new(0.5, -30, 0.7, 0)
 MacroBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 MacroBtn.Text = "MACRO"
 MacroBtn.TextColor3 = COLORS.WHITE
-MacroBtn.TextSize = 12
+MacroBtn.TextSize = 10
 MacroBtn.Font = Enum.Font.GothamBold
 MacroBtn.BorderSizePixel = 0
 MacroBtn.Visible = false
@@ -1307,7 +1342,6 @@ local function AddBlock()
     num.Size = UDim2.new(0, 30, 0, 14)
     num.TextColor3 = COLORS.ACCENT
 
-    -- WEAPON PICKER
     local weaponBtn = Instance.new("TextButton")
     weaponBtn.Size = UDim2.new(0, 70, 0, 20)
     weaponBtn.Position = UDim2.new(0, 40, 0, 3)
@@ -1324,7 +1358,6 @@ local function AddBlock()
     local weaponIdx = 1
     local currentSkills = WEAPON_SKILLS[WEAPON_TYPES[1]]
 
-    -- SKILL PICKER
     local skillBtn = Instance.new("TextButton")
     skillBtn.Size = UDim2.new(0, 45, 0, 20)
     skillBtn.Position = UDim2.new(0, 115, 0, 3)
@@ -1345,7 +1378,6 @@ local function AddBlock()
         local wType = WEAPON_TYPES[weaponIdx]
         weaponBtn.Text = wType
         currentSkills = WEAPON_SKILLS[wType]
-        -- Reset skill to first available for this weapon
         skillIdx = 1
         skillBtn.Text = currentSkills[1]
     end)
@@ -1355,7 +1387,6 @@ local function AddBlock()
         skillBtn.Text = currentSkills[skillIdx]
     end)
 
-    -- HOLD slider
     local hLabel = Text(block, "Hold: 0s", 9, false)
     hLabel.Position = UDim2.new(0, 8, 0, 26)
     hLabel.Size = UDim2.new(0, 60, 0, 14)
@@ -1385,7 +1416,6 @@ local function AddBlock()
     hKnob.Parent = hSlider
     Corner(hKnob, 10)
 
-    -- DELAY slider
     local dLabel = Text(block, "Delay: 0s", 9, false)
     dLabel.Position = UDim2.new(0, 8, 0, 42)
     dLabel.Size = UDim2.new(0, 60, 0, 14)
@@ -1489,9 +1519,7 @@ clearBtn.MouseButton1Click:Connect(function()
     if MacroBtn then MacroBtn.Visible = false end
 end)
 
--- 5 default blocks
-task.wait(0.1)
-for i = 1, 5 do AddBlock() end
+-- NO default blocks — user must add them
 
 -- Macro button drag + click
 local mdrag = {d = false, sp = nil, sm = nil, moved = false}
@@ -1519,15 +1547,12 @@ end)
 MacroBtn.MouseButton1Click:Connect(function()
     if mdrag.moved then return end
     if not Features.Macro then return end
-
     if MacroRunning then
-        -- STOP
         StopMacro()
         MacroBtn.Text = "MACRO"
         MacroBtn.BackgroundColor3 = Color3.fromRGB(15,15,15)
         MacroBtn.TextColor3 = COLORS.WHITE
     else
-        -- START
         if #MacroBlocks == 0 then return end
         ExecuteMacro()
         MacroBtn.Text = "STOP"
@@ -1536,7 +1561,6 @@ MacroBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- When macro finishes naturally, reset button text
 task.spawn(function()
     while Gui and Gui.Parent do
         if MacroBtn and Features.Macro then
@@ -1598,7 +1622,7 @@ end
 card("IVORY", "Ivory999", 55)
 card("RAYO", "Rayo06996", 110)
 
--- TABS (horizontal)
+-- TABS (VERTICAL on the side)
 local Tabs = {
     {name="MAIN", icon="🏠", page=MainPage},
     {name="COMBAT", icon="⚔️", page=CombatPage},
@@ -1610,7 +1634,7 @@ local Tabs = {
 }
 local CurrentTab
 
-local function SelectTab(button, page, accent)
+local function SelectTab(button, page)
     for _, d in ipairs(Tabs) do
         if d.button then
             TweenIt(d.button, {BackgroundColor3 = COLORS.DARKER}, 0.2)
@@ -1626,14 +1650,14 @@ end
 
 for _, d in ipairs(Tabs) do
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 62, 1, -6)
+    btn.Size = UDim2.new(1, 0, 0, 26)
     btn.BackgroundColor3 = COLORS.DARKER
     btn.BorderSizePixel = 0
-    btn.Text = d.icon .. "\n" .. d.name
+    btn.Text = "  " .. d.icon .. " " .. d.name
     btn.TextColor3 = COLORS.GRAY
     btn.TextSize = 9
     btn.Font = Enum.Font.GothamBold
-    btn.TextXAlignment = Enum.TextXAlignment.Center
+    btn.TextXAlignment = Enum.TextXAlignment.Left
     btn.AutoButtonColor = false
     btn.Parent = Sidebar
     Corner(btn, 8)
@@ -1682,10 +1706,10 @@ Minimize.MouseButton1Click:Connect(function()
     if Min then
         Sidebar.Visible = false
         Content.Visible = false
-        TweenIt(Main, {Size = UDim2.new(0, 500, 0, 40)})
+        TweenIt(Main, {Size = UDim2.new(0, 480, 0, 44)})
         Minimize.Text = "+"
     else
-        TweenIt(Main, {Size = UDim2.new(0, 500, 0, 280)})
+        TweenIt(Main, {Size = UDim2.new(0, 480, 0, 300)})
         task.wait(.15)
         Sidebar.Visible = true
         Content.Visible = true
@@ -1702,7 +1726,7 @@ Close.MouseButton1Click:Connect(function()
 end)
 
 print("========================================")
-print("        IVORY HUB v10.0 LOADED")
+print("        IVORY HUB v10.1 LOADED")
 print("========================================")
-print("Horizontal UI | Fixed Fast Attack | Working Macro")
+print("Tap-based macro | Sidebar tabs | No default blocks")
 print("========================================")
