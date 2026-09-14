@@ -1,8 +1,8 @@
 -- =============================================
--- IVORY HUB v10.2 - FIXED MACRO TAP
+-- IVORY HUB v10.3 - MULTI-METHOD MACRO TAP
 -- =============================================
 
-print("🦷 Ivory Hub v10.2 loading...")
+print("🦷 Ivory Hub v10.3 loading...")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -735,13 +735,21 @@ end
 RunService.Heartbeat:Connect(function() pcall(UpdateESP) end)
 
 -- =============================================
--- MOBILE SKILL BUTTON TAPPING
+-- MOBILE SKILL BUTTON TAPPING (MULTI-METHOD)
 -- =============================================
-local function getSkillButton(key)
+-- Cache of skill buttons to avoid rescanning
+local skillButtonCache = {}
+
+local function findSkillButton(key)
+    -- Return cached if valid
+    local cached = skillButtonCache[key]
+    if cached and cached.Parent then return cached end
+    skillButtonCache[key] = nil
+
     local pg = player:FindFirstChild("PlayerGui")
     if not pg then return nil end
 
-    -- Try common paths first
+    -- Common Blox Fruits paths
     local main = pg:FindFirstChild("Main")
     if main then
         local skills = main:FindFirstChild("Skills")
@@ -749,8 +757,9 @@ local function getSkillButton(key)
             for _, container in pairs(skills:GetChildren()) do
                 if container:IsA("GuiObject") then
                     for _, btn in pairs(container:GetChildren()) do
-                        if btn:IsA("ImageButton") or btn:IsA("TextButton") then
-                            if btn.Name == key then return btn end
+                        if (btn:IsA("ImageButton") or btn:IsA("TextButton")) and btn.Name == key then
+                            skillButtonCache[key] = btn
+                            return btn
                         end
                     end
                 end
@@ -758,52 +767,68 @@ local function getSkillButton(key)
         end
     end
 
-    -- Fallback: search every GuiObject for a matching name, prefer right side
-    local found = nil
+    -- Wide search — prefer right-side buttons
+    local fallback = nil
     for _, obj in pairs(pg:GetDescendants()) do
         if (obj:IsA("ImageButton") or obj:IsA("TextButton")) and obj.Name == key then
             local pos = obj.AbsolutePosition
             local vp = Camera.ViewportSize
-            if pos.X > vp.X * 0.5 then
+            if pos.X > vp.X * 0.5 and pos.Y > 100 then
+                skillButtonCache[key] = obj
                 return obj
             end
-            found = found or obj
+            fallback = fallback or obj
         end
     end
-    return found
+    if fallback then skillButtonCache[key] = fallback end
+    return fallback
 end
 
 local function tapSkillButton(key)
-    local btn = getSkillButton(key)
-    if not btn then
-        -- Fallback: keyboard event
-        local kc = Enum.KeyCode[key]
-        if kc then
-            pcall(function()
-                VIM:SendKeyEvent(true, kc, false)
-                task.wait(0.05)
-                VIM:SendKeyEvent(false, kc, false)
-            end)
-        end
-        return false
+    local btn = findSkillButton(key)
+
+    if btn then
+        -- Method 1: fire the actual mouse click events
+        pcall(function()
+            if btn.MouseButton1Down then
+                local v1 = btn.MouseButton1Down:Fire()
+                task.wait(0.02)
+                local v2 = btn.MouseButton1Up:Fire()
+                btn.MouseButton1Click:Fire()
+            end
+        end)
+
+        -- Method 2: fire Activated (mobile button)
+        pcall(function()
+            if btn.Activated then
+                btn.Activated:Fire()
+            end
+        end)
+
+        -- Method 3: VIM touch at button position
+        local pos = btn.AbsolutePosition
+        local size = btn.AbsoluteSize
+        local cx = pos.X + size.X / 2
+        local cy = pos.Y + size.Y / 2
+        pcall(function()
+            VIM:SendMouseButtonEvent(cx, cy, 0, true, game, 1)
+            task.wait(0.02)
+            VIM:SendMouseButtonEvent(cx, cy, 0, false, game, 1)
+        end)
+
+        return true
     end
 
-    local pos = btn.AbsolutePosition
-    local size = btn.AbsoluteSize
-    local centerX = pos.X + size.X / 2
-    local centerY = pos.Y + size.Y / 2
-
-    pcall(function()
-        VIM:SendMouseButtonEvent(centerX, centerY, 0, true, game, 1)
-        task.wait(0.02)
-        VIM:SendMouseButtonEvent(centerX, centerY, 0, false, game, 1)
-    end)
-    pcall(function()
-        VIM:SendMouseButtonEvent(centerX, centerY, 0, true, game, 0)
-        task.wait(0.02)
-        VIM:SendMouseButtonEvent(centerX, centerY, 0, false, game, 0)
-    end)
-    return true
+    -- Method 4: keyboard fallback
+    local kc = Enum.KeyCode[key]
+    if kc then
+        pcall(function()
+            VIM:SendKeyEvent(true, kc, false)
+            task.wait(0.05)
+            VIM:SendKeyEvent(false, kc, false)
+        end)
+    end
+    return false
 end
 
 local function tapM1()
@@ -870,7 +895,7 @@ local function ExecuteMacro()
                 if not cancellableWait(math.max(hold, 0.08)) then break end
             else
                 tapSkillButton(skill)
-                if not cancellableWait(math.max(hold, 0.08)) then break end
+                if not cancellableWait(math.max(hold, 0.1)) then break end
             end
 
             if delay > 0 then
@@ -1192,7 +1217,7 @@ local AboutPage = CreatePage("About")
 
 -- MAIN
 Section(MainPage, "IVORY HUB")
-local mt = Text(MainPage, "IVORY HUB v10.2", 16, true)
+local mt = Text(MainPage, "IVORY HUB v10.3", 16, true)
 mt.Size = UDim2.new(1, 0, 0, 24)
 mt.TextXAlignment = Enum.TextXAlignment.Center
 mt.TextColor3 = COLORS.WHITE
@@ -1579,8 +1604,7 @@ task.spawn(function()
             if not MacroRunning and MacroBtn.Text == "STOP" then
                 MacroBtn.Text = "MACRO"
                 MacroBtn.BackgroundColor3 = Color3.fromRGB(15,15,15)
-                MacroBtn.TextColor3 = COLORS.WHITE
-            end
+                MacroBtn.TextColor3 = COLORS.WHITE            end
         end
         task.wait(0.2)
     end
@@ -1672,7 +1696,7 @@ local aboutLines = {
     {text = "• Save/Load/Reset in the CONFIG tab", size = 9, bold = false, color = COLORS.WHITE},
     {text = "• Settings save automatically per change", size = 9, bold = false, color = COLORS.WHITE},
     {text = "", size = 6, bold = false, color = COLORS.WHITE},
-    {text = "VERSION: v10.2", size = 10, bold = true, color = COLORS.ACCENT},
+    {text = "VERSION: v10.3", size = 10, bold = true, color = COLORS.ACCENT},
     {text = "Thanks for using Ivory Hub 🦷", size = 10, bold = false, color = COLORS.WHITE},
 }
 
@@ -1790,7 +1814,7 @@ Close.MouseButton1Click:Connect(function()
 end)
 
 print("========================================")
-print("        IVORY HUB v10.2 LOADED")
+print("        IVORY HUB v10.3 LOADED")
 print("========================================")
-print("Tap-based macro | Always-on aimbot | Socials + About tabs")
+print("Multi-method tap: MouseButton1Click.Fire() + Activated.Fire() + VIM touch")
 print("========================================")
