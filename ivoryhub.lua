@@ -1,3 +1,534 @@
+-- =============================================
+-- IVORY HUB v10.5 - SIDEBAR ON LEFT
+-- =============================================
+
+print("🦷 Ivory Hub v10.5 loading...")
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CoreGui = game:GetService("CoreGui")
+local Workspace = game:GetService("Workspace")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local VIM = VirtualInputManager
+
+local player = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local mouse = player:GetMouse()
+
+local parent = gethui and gethui() or CoreGui
+local old = parent:FindFirstChild("IvoryHub")
+if old then old:Destroy() end
+
+local Gui = Instance.new("ScreenGui")
+Gui.Name = "IvoryHub"
+Gui.ResetOnSpawn = false
+Gui.IgnoreGuiInset = true
+Gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+Gui.Parent = parent
+
+local COLORS = {
+    BLACK = Color3.fromRGB(7,7,7),
+    DARK = Color3.fromRGB(13,13,13),
+    DARKER = Color3.fromRGB(19,19,19),
+    CARD = Color3.fromRGB(22,22,22),
+    WHITE = Color3.fromRGB(245,245,245),
+    GRAY = Color3.fromRGB(145,145,145),
+    RED = Color3.fromRGB(255,50,50),
+    GREEN = Color3.fromRGB(50,255,50),
+    YELLOW = Color3.fromRGB(255,200,0),
+    ACCENT = Color3.fromRGB(255,50,50),
+}
+
+local function Corner(o, r)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, r)
+    c.Parent = o
+end
+
+local function Stroke(o, c, t)
+    local s = Instance.new("UIStroke")
+    s.Color = c or Color3.fromRGB(40,40,40)
+    s.Thickness = t or 1
+    s.Parent = o
+    return s
+end
+
+local function TweenIt(o, p, t)
+    TweenService:Create(o, TweenInfo.new(t or 0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), p):Play()
+end
+
+local function Text(parent, text, size, bold)
+    local t = Instance.new("TextLabel")
+    t.BackgroundTransparency = 1
+    t.Text = text
+    t.TextColor3 = COLORS.WHITE
+    t.TextSize = size
+    t.Font = bold and Enum.Font.GothamBold or Enum.Font.Gotham
+    t.TextXAlignment = Enum.TextXAlignment.Left
+    t.Parent = parent
+    return t
+end
+
+local Features = {
+    SilentAim = false,
+    SilentAimTarget = "Both",
+    SilentAimMode = "360",
+    SilentAimDistance = 500,
+    SoruAim = false,
+    SoruTarget = "Both",
+    SoruMode = "360",
+    ESP = false,
+    ESPBox = true,
+    ESPName = true,
+    ESPHealth = true,
+    ESPDistance = true,
+    ESPPlayers = true,
+    ESPNPCs = true,
+    FastAttack = false,
+    FOVCircle = false,
+    FOVRadius = 150,
+    FOVMode = "V1",
+    Macro = false,
+    MaxRange = 1000,
+}
+
+local CONFIG_FOLDER = "IvoryHub"
+local CONFIG_FILE = CONFIG_FOLDER .. "/config.txt"
+
+pcall(function()
+    if isfolder and makefolder and not isfolder(CONFIG_FOLDER) then
+        makefolder(CONFIG_FOLDER)
+    end
+end)
+
+local function SaveConfig()
+    local data = ""
+    for k, v in pairs(Features) do
+        local val = tostring(v)
+        if type(v) == "boolean" then val = v and "true" or "false" end
+        data = data .. k .. "=" .. val .. "\n"
+    end
+    pcall(function()
+        if writefile then writefile(CONFIG_FILE, data) end
+    end)
+end
+
+local function LoadConfig()
+    local loaded = {}
+    pcall(function()
+        if readfile and isfile and isfile(CONFIG_FILE) then
+            local content = readfile(CONFIG_FILE)
+            for line in string.gmatch(content, "[^\r\n]+") do
+                local k, v = string.match(line, "^([^=]+)=(.*)$")
+                if k and v then
+                    if v == "true" then loaded[k] = true
+                    elseif v == "false" then loaded[k] = false
+                    elseif tonumber(v) then loaded[k] = tonumber(v)
+                    else loaded[k] = v end
+                end
+            end
+        end
+    end)
+    for k, v in pairs(loaded) do
+        if Features[k] ~= nil and type(v) ~= "boolean" then Features[k] = v end
+    end
+end
+
+local function ResetConfig()
+    for k, v in pairs(Features) do
+        if type(v) == "boolean" then Features[k] = false end
+    end
+    Features.SilentAimTarget = "Both"
+    Features.SilentAimMode = "360"
+    Features.SilentAimDistance = 500
+    Features.SoruTarget = "Both"
+    Features.SoruMode = "360"
+    Features.ESPBox = true
+    Features.ESPName = true
+    Features.ESPHealth = true
+    Features.ESPDistance = true
+    Features.ESPPlayers = true
+    Features.ESPNPCs = true
+    Features.FOVRadius = 150
+    Features.FOVMode = "V1"
+    Features.MaxRange = 1000
+    SaveConfig()
+end
+
+LoadConfig()
+
+local FOVGui = nil
+local FOVRing = nil
+
+local function getFOVCenter()
+    if Features.FOVMode == "V2" then
+        return UserInputService:GetMouseLocation()
+    end
+    return Camera.ViewportSize / 2
+end
+
+local function isInFOV(hrp)
+    if not hrp then return false end
+    local sp, on = Camera:WorldToViewportPoint(hrp.Position)
+    if not on then return false end
+    local c = getFOVCenter()
+    return (Vector2.new(sp.X, sp.Y) - c).Magnitude <= Features.FOVRadius
+end
+
+local function UpdateFOVCircle()
+    if Features.FOVCircle then
+        if not FOVGui or not FOVGui.Parent then
+            FOVGui = Instance.new("ScreenGui")
+            FOVGui.Name = "IvoryFOV"
+            FOVGui.ResetOnSpawn = false
+            FOVGui.IgnoreGuiInset = true
+            FOVGui.DisplayOrder = 1
+            FOVGui.Parent = Gui
+            FOVRing = Instance.new("Frame")
+            FOVRing.AnchorPoint = Vector2.new(0.5, 0.5)
+            FOVRing.BackgroundTransparency = 1
+            FOVRing.BorderSizePixel = 0
+            FOVRing.ZIndex = 100
+            FOVRing.Parent = FOVGui
+            Corner(FOVRing, 999)
+            local s = Instance.new("UIStroke")
+            s.Thickness = 2
+            s.Color = COLORS.ACCENT
+            s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+            s.Parent = FOVRing
+        end
+        if FOVRing then
+            local c = getFOVCenter()
+            local d = math.floor(Features.FOVRadius * 2)
+            FOVRing.Position = UDim2.new(0, c.X, 0, c.Y)
+            FOVRing.Size = UDim2.fromOffset(d, d)
+            FOVRing.Visible = true
+        end
+    elseif FOVRing then
+        FOVRing.Visible = false
+    end
+end
+
+RunService.RenderStepped:Connect(function() pcall(UpdateFOVCircle) end)
+
+local function isCombatNPC(model, hum, root)
+    if not model or not hum or not root then return false end
+    if hum.Health <= 0 then return false end
+    local n = string.lower(model.Name)
+    local block = {"shop","seller","dealer","quest","trainer","teacher","merchant",
+        "gacha","title","dialog","manager","vendor","guide","helper","boat","customer",
+        "spawn","luxury","bartender","captain","toribro","indra","nami","ability",
+        "sword dealer","weapon","blox fruit","crew","quest giver","town","citizen"}
+    for _, w in ipairs(block) do
+        if string.find(n, w, 1, true) then return false end
+    end
+    if model:FindFirstChildWhichIsA("ProximityPrompt", true) then return false end
+    if model:FindFirstChildWhichIsA("ClickDetector", true) then return false end
+    if hum.MaxHealth < 100 then return false end
+    return true
+end
+
+local function GetNearestTarget(targetType, mode, maxDist)
+    local char = player.Character
+    if not char then return nil end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
+
+    local best, bestDist = nil, math.huge
+    local maxRange = maxDist or Features.MaxRange or 1000
+
+    if targetType == "Players" or targetType == "Both" then
+        for _, plr in pairs(Players:GetPlayers()) do
+            if plr ~= player and plr.Character then
+                local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+                local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+                if hum and hum.Health > 0 and hrp then
+                    local dist = (hrp.Position - root.Position).Magnitude
+                    if dist <= maxRange then
+                        if mode == "FOV" then
+                            if isInFOV(hrp) and dist < bestDist then
+                                bestDist = dist
+                                best = hrp
+                            end
+                        else
+                            if dist < bestDist then
+                                bestDist = dist
+                                best = hrp
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    if targetType == "NPCs" or targetType == "Both" then
+        local fns = {"Enemies","Enemy","Monsters","Monster","Mobs","Mob","Bosses","Boss"}
+        for _, name in ipairs(fns) do
+            local folder = workspace:FindFirstChild(name)
+            if folder then
+                for _, npc in pairs(folder:GetChildren()) do
+                    if npc:IsA("Model") then
+                        local hum = npc:FindFirstChildOfClass("Humanoid")
+                        local hrp = npc:FindFirstChild("HumanoidRootPart")
+                        if hum and hrp and isCombatNPC(npc, hum, hrp) then
+                            local dist = (hrp.Position - root.Position).Magnitude
+                            if dist <= maxRange then
+                                if mode == "FOV" then
+                                    if isInFOV(hrp) and dist < bestDist then
+                                        bestDist = dist
+                                        best = hrp
+                                    end
+                                else
+                                    if dist < bestDist then
+                                        bestDist = dist
+                                        best = hrp
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return best
+end
+
+local function FaceTarget(targetHrp)
+    if not targetHrp then return end
+    local char = player.Character
+    if not char then return end
+    local myHrp = char:FindFirstChild("HumanoidRootPart")
+    if not myHrp then return end
+    pcall(function()
+        local look = (Vector3.new(targetHrp.Position.X, myHrp.Position.Y, targetHrp.Position.Z) - myHrp.Position).Unit
+        if look.Magnitude > 0.001 then
+            myHrp.CFrame = CFrame.lookAt(myHrp.Position, myHrp.Position + look)
+        end
+    end)
+end
+
+local TargetPos = nil
+
+pcall(function()
+    local mt = getrawmetatable(game)
+    if not mt then return end
+    local oldIndex = mt.__index
+    local oldNamecall = mt.__namecall
+    setreadonly(mt, false)
+
+    mt.__index = function(self, key)
+        if not checkcaller() and self == mouse and Features.SilentAim then
+            if key == "Hit" or key == "Target" then
+                local t = GetNearestTarget(Features.SilentAimTarget, Features.SilentAimMode, Features.SilentAimDistance)
+                if t then
+                    TargetPos = t.Position
+                    if key == "Hit" then return CFrame.new(TargetPos) end
+                    if key == "Target" then return nil end
+                end
+            end
+        end
+        return oldIndex(self, key)
+    end
+
+    mt.__namecall = function(self, ...)
+        local args = {...}
+        local method = getnamecallmethod()
+        if not checkcaller() and Features.SilentAim and TargetPos then
+            if method == "FireServer" or method == "InvokeServer" then
+                for i, v in ipairs(args) do
+                    if typeof(v) == "Vector3" then args[i] = TargetPos
+                    elseif typeof(v) == "CFrame" then args[i] = CFrame.new(TargetPos) end
+                end
+                return oldNamecall(self, unpack(args))
+            end
+        end
+        return oldNamecall(self, ...)
+    end
+    setreadonly(mt, true)
+end)
+
+task.spawn(function()
+    while Gui and Gui.Parent do
+        if not Features.SilentAim then
+            TargetPos = nil
+        else
+            local t = GetNearestTarget(Features.SilentAimTarget, Features.SilentAimMode, Features.SilentAimDistance)
+            if t then
+                TargetPos = t.Position
+            else
+                TargetPos = nil
+            end
+        end
+        task.wait(0.05)
+    end
+end)
+
+local SoruRemote = nil
+local SoruCooldown = 0
+
+task.spawn(function()
+    pcall(function()
+        local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+        if remotes then SoruRemote = remotes:FindFirstChild("CommF_") end
+        if not SoruRemote then
+            for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
+                if obj.Name == "CommF_" then SoruRemote = obj break end
+            end
+        end
+    end)
+end)
+
+local function DoSoruTeleport()
+    if not Features.SoruAim then return end
+    if tick() < SoruCooldown then return end
+    local target = GetNearestTarget(Features.SoruTarget, Features.SoruMode, Features.MaxRange)
+    if not target then return end
+    local char = player.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    pcall(function()
+        if SoruRemote then
+            SoruRemote:InvokeServer("Soru", target.Position)
+        else
+            hrp.CFrame = CFrame.new(target.Position + Vector3.new(0, 2, 0))
+        end
+        SoruCooldown = tick() + 0.8
+    end)
+end
+
+local function MonitorFlashstep(char)
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+    hum.AnimationPlayed:Connect(function(track)
+        if not Features.SoruAim then return end
+        if tick() < SoruCooldown then return end
+        local n = string.lower(track.Name or "")
+        local id = tostring(track.Animation and track.Animation.AnimationId or "")
+        if string.find(n, "flashstep") or string.find(n, "soru") or
+           string.find(n, "dash") or string.find(n, "dodge") or
+           string.find(n, "skywalk") or string.find(n, "geppo") or
+           string.find(n, "flash") or
+           string.find(id, "17555632156") or string.find(id, "616006778") or
+           string.find(id, "1846164274") or string.find(id, "1846163351") or
+           string.find(id, "11420797633") then
+            DoSoruTeleport()
+        end
+    end)
+end
+
+player.CharacterAdded:Connect(function(c) task.wait(0.5) MonitorFlashstep(c) end)
+if player.Character then task.wait(0.5) MonitorFlashstep(player.Character) end
+
+local FastAttack = (function()
+    local module = {}
+    local RegisterAttack, RegisterHit
+    local RANGE = 25
+    local SPEED = 0.08
+
+    task.spawn(function()
+        local modules = ReplicatedStorage:WaitForChild("Modules", 10)
+        if not modules then return end
+        local net = modules:WaitForChild("Net", 10)
+        if not net then return end
+        RegisterAttack = net:WaitForChild("RE/RegisterAttack", 10)
+        RegisterHit = net:WaitForChild("RE/RegisterHit", 10)
+    end)
+
+    local function getTargets()
+        local list = {}
+        local myChar = player.Character
+        if not myChar then return list end
+        local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+        if not myRoot then return list end
+
+        for _, plr in pairs(Players:GetPlayers()) do
+            if plr ~= player and plr.Character then
+                local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+                local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+                if hum and hum.Health > 0 and hrp then
+                    local dist = (hrp.Position - myRoot.Position).Magnitude
+                    if dist <= RANGE then
+                        table.insert(list, {model = plr.Character, root = hrp, dist = dist})
+                    end
+                end
+            end
+        end
+
+        local fns = {"Enemies","Enemy","Monsters","Monster","Mobs","Mob","Bosses","Boss"}
+        for _, name in ipairs(fns) do
+            local folder = workspace:FindFirstChild(name)
+            if folder then
+                for _, npc in pairs(folder:GetChildren()) do
+                    if npc:IsA("Model") then
+                        local hum = npc:FindFirstChildOfClass("Humanoid")
+                        local hrp = npc:FindFirstChild("HumanoidRootPart")
+                        if hum and hum.Health > 0 and hrp and isCombatNPC(npc, hum, hrp) then
+                            local dist = (hrp.Position - myRoot.Position).Magnitude
+                            if dist <= RANGE then
+                                table.insert(list, {model = npc, root = hrp, dist = dist})
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
+        return list
+    end
+
+    local function fire(target)
+        if not RegisterAttack or not RegisterHit then return end
+        pcall(function()
+            RegisterAttack:FireServer()
+            if target then
+                local targetModel = target.model
+                local targetRoot = target.root
+                local targetHead = targetModel:FindFirstChild("Head") or targetRoot
+                if targetRoot and targetHead then
+                    local hitData = {}
+                    for _, part in pairs(targetModel:GetChildren()) do
+                        if part:IsA("BasePart") then
+                            table.insert(hitData, {targetModel, part})
+                        end
+                    end
+                    local sessionId = tostring(math.random(1, 100000))
+                    RegisterHit:FireServer(targetHead, hitData, {}, sessionId)
+                end
+            end
+        end)
+    end
+
+    local conn, last = nil, 0
+    function module:SetEnabled(state)
+        if state and not conn then
+            conn = RunService.Heartbeat:Connect(function()
+                if not Features.FastAttack then return end
+                if tick() - last < SPEED then return end
+                last = tick()
+                local targets = getTargets()
+                if #targets == 0 then
+                    fire(nil)
+                    return
+                end
+                table.sort(targets, function(a, b) return a.dist < b.dist end)
+                for _, t in ipairs(targets) do
+                    fire(t)
+                end
+            end)
+        elseif not state and conn then
+            conn:Disconnect()
+            conn = nil
+        end
+    end
+    return module
+end)()
+
 local ESPData = {}
 
 local function CreateESP(target, displayName)
@@ -241,7 +772,6 @@ local function tapSkillButton(key)
         end)
         return true
     end
-
     local kc = Enum.KeyCode[key]
     if kc then
         pcall(function()
@@ -402,8 +932,9 @@ ToggleBtn.MouseButton1Click:Connect(function()
         {BackgroundColor3 = COLORS.BLACK, TextColor3 = COLORS.WHITE})
 end)
 
+-- SIDEBAR ON THE LEFT (VERTICAL)
 local Sidebar = Instance.new("Frame")
-Sidebar.Size = UDim2.new(0, 90, 1, -54)
+Sidebar.Size = UDim2.new(0, 95, 1, -54)
 Sidebar.Position = UDim2.new(0, 8, 0, 50)
 Sidebar.BackgroundColor3 = COLORS.DARK
 Sidebar.BorderSizePixel = 0
@@ -423,8 +954,8 @@ Pad.PaddingRight = UDim.new(0, 4)
 Pad.Parent = Sidebar
 
 local Content = Instance.new("Frame")
-Content.Size = UDim2.new(1, -106, 1, -54)
-Content.Position = UDim2.new(0, 98, 0, 50)
+Content.Size = UDim2.new(1, -111, 1, -54)
+Content.Position = UDim2.new(0, 103, 0, 50)
 Content.BackgroundColor3 = COLORS.DARK
 Content.BorderSizePixel = 0
 Content.Parent = Main
@@ -628,7 +1159,7 @@ local SocialsPage = CreatePage("Socials")
 local AboutPage = CreatePage("About")
 
 Section(MainPage, "IVORY HUB")
-local mt = Text(MainPage, "IVORY HUB v10.4", 16, true)
+local mt = Text(MainPage, "IVORY HUB v10.5", 16, true)
 mt.Size = UDim2.new(1, 0, 0, 24)
 mt.TextXAlignment = Enum.TextXAlignment.Center
 mt.TextColor3 = COLORS.WHITE
@@ -1092,7 +1623,16 @@ local aboutLines = {
     {text = "6. Tap the MACRO button to start", size = 9, bold = false, color = COLORS.WHITE},
     {text = "7. Tap STOP to cancel, tap again to replay", size = 9, bold = false, color = COLORS.WHITE},
     {text = "", size = 6, bold = false, color = COLORS.WHITE},
-    {text = "VERSION: v10.4", size = 10, bold = true, color = COLORS.ACCENT},
+    {text = "TIPS:", size = 10, bold = true, color = COLORS.ACCENT},
+    {text = "• Hold duration = how long the key stays held", size = 9, bold = false, color = COLORS.WHITE},
+    {text = "• Delay = wait time before the next action", size = 9, bold = false, color = COLORS.WHITE},
+    {text = "• Macro always aims at nearest enemy", size = 9, bold = false, color = COLORS.WHITE},
+    {text = "", size = 6, bold = false, color = COLORS.WHITE},
+    {text = "CONFIG:", size = 10, bold = true, color = COLORS.ACCENT},
+    {text = "• Save/Load/Reset in the CONFIG tab", size = 9, bold = false, color = COLORS.WHITE},
+    {text = "• Settings save automatically per change", size = 9, bold = false, color = COLORS.WHITE},
+    {text = "", size = 6, bold = false, color = COLORS.WHITE},
+    {text = "VERSION: v10.5", size = 10, bold = true, color = COLORS.ACCENT},
     {text = "Thanks for using Ivory Hub 🦷", size = 10, bold = false, color = COLORS.WHITE},
 }
 
@@ -1202,7 +1742,7 @@ Close.MouseButton1Click:Connect(function()
 end)
 
 print("========================================")
-print("        IVORY HUB v10.4 LOADED")
+print("        IVORY HUB v10.5 LOADED")
 print("========================================")
-print("Silent Aim | Soru | Fast Attack | ESP | Macro")
+print("Sidebar on the left | All features working")
 print("========================================")
