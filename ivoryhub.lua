@@ -1,8 +1,8 @@
 -- =============================================
--- IVORY HUB v10.5 - SIDEBAR ON LEFT
+-- IVORY HUB v10.6 - MACRO VIA TOOL REMOTES
 -- =============================================
 
-print("🦷 Ivory Hub v10.5 loading...")
+print("🦷 Ivory Hub v10.6 loading...")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -704,74 +704,47 @@ end
 
 RunService.Heartbeat:Connect(function() pcall(UpdateESP) end)
 
-local skillButtonCache = {}
-
-local function findSkillButton(key)
-    local cached = skillButtonCache[key]
-    if cached and cached.Parent then return cached end
-    skillButtonCache[key] = nil
-
-    local pg = player:FindFirstChild("PlayerGui")
-    if not pg then return nil end
-
-    local main = pg:FindFirstChild("Main")
-    if main then
-        local skills = main:FindFirstChild("Skills")
-        if skills then
-            for _, container in pairs(skills:GetChildren()) do
-                if container:IsA("GuiObject") then
-                    for _, btn in pairs(container:GetChildren()) do
-                        if (btn:IsA("ImageButton") or btn:IsA("TextButton")) and btn.Name == key then
-                            skillButtonCache[key] = btn
-                            return btn
-                        end
-                    end
-                end
-            end
-        end
-    end
-
-    local fallback = nil
-    for _, obj in pairs(pg:GetDescendants()) do
-        if (obj:IsA("ImageButton") or obj:IsA("TextButton")) and obj.Name == key then
-            local pos = obj.AbsolutePosition
-            local vp = Camera.ViewportSize
-            if pos.X > vp.X * 0.5 and pos.Y > 100 then
-                skillButtonCache[key] = obj
-                return obj
-            end
-            fallback = fallback or obj
-        end
-    end
-    if fallback then skillButtonCache[key] = fallback end
-    return fallback
-end
-
+-- =============================================
+-- MACRO SKILL TAP - VIA TOOL REMOTE
+-- =============================================
 local function tapSkillButton(key)
-    local btn = findSkillButton(key)
-    if btn then
-        pcall(function()
-            if btn.MouseButton1Down then
-                btn.MouseButton1Down:Fire()
-                task.wait(0.02)
-                btn.MouseButton1Up:Fire()
-                btn.MouseButton1Click:Fire()
+    local char = player.Character
+    if not char then return false end
+    local tool = char:FindFirstChildOfClass("Tool")
+    if not tool then
+        -- Also check backpack
+        local backpack = player:FindFirstChild("Backpack")
+        if backpack then
+            tool = backpack:FindFirstChildOfClass("Tool")
+        end
+    end
+    if not tool then return false end
+
+    -- Method 1: Try tool's RemoteEvent
+    local remote = tool:FindFirstChild("RemoteEvent")
+                or tool:FindFirstChild("RemoteFunction")
+                or tool:FindFirstChild("Remote")
+    if not remote then
+        for _, child in pairs(tool:GetDescendants()) do
+            if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
+                remote = child
+                break
             end
-        end)
+        end
+    end
+
+    if remote then
         pcall(function()
-            if btn.Activated then btn.Activated:Fire() end
-        end)
-        local pos = btn.AbsolutePosition
-        local size = btn.AbsoluteSize
-        local cx = pos.X + size.X / 2
-        local cy = pos.Y + size.Y / 2
-        pcall(function()
-            VIM:SendMouseButtonEvent(cx, cy, 0, true, game, 1)
-            task.wait(0.02)
-            VIM:SendMouseButtonEvent(cx, cy, 0, false, game, 1)
+            if remote:IsA("RemoteFunction") then
+                remote:InvokeServer(key)
+            else
+                remote:FireServer(key)
+            end
         end)
         return true
     end
+
+    -- Method 2: Keyboard event fallback
     local kc = Enum.KeyCode[key]
     if kc then
         pcall(function()
@@ -784,6 +757,27 @@ local function tapSkillButton(key)
 end
 
 local function tapM1()
+    local char = player.Character
+    if not char then return end
+    local tool = char:FindFirstChildOfClass("Tool")
+
+    -- Try tool remote for M1
+    if tool then
+        local remote = tool:FindFirstChild("RemoteEvent")
+                    or tool:FindFirstChild("RemoteFunction")
+        if remote then
+            pcall(function()
+                if remote:IsA("RemoteFunction") then
+                    remote:InvokeServer("M1")
+                else
+                    remote:FireServer("M1")
+                end
+            end)
+            return
+        end
+    end
+
+    -- Fallback: tap screen center
     local vp = Camera.ViewportSize
     pcall(function()
         VIM:SendMouseButtonEvent(vp.X * 0.5, vp.Y * 0.5, 0, true, game, 1)
@@ -853,6 +847,9 @@ local function ExecuteMacro()
     end)
 end
 
+-- =============================================
+-- UI
+-- =============================================
 local ToggleBtn = Instance.new("TextButton")
 ToggleBtn.Size = UDim2.fromOffset(42,42)
 ToggleBtn.Position = UDim2.new(0, 15, 0.5, -21)
@@ -932,7 +929,6 @@ ToggleBtn.MouseButton1Click:Connect(function()
         {BackgroundColor3 = COLORS.BLACK, TextColor3 = COLORS.WHITE})
 end)
 
--- SIDEBAR ON THE LEFT (VERTICAL)
 local Sidebar = Instance.new("Frame")
 Sidebar.Size = UDim2.new(0, 95, 1, -54)
 Sidebar.Position = UDim2.new(0, 8, 0, 50)
@@ -1159,7 +1155,7 @@ local SocialsPage = CreatePage("Socials")
 local AboutPage = CreatePage("About")
 
 Section(MainPage, "IVORY HUB")
-local mt = Text(MainPage, "IVORY HUB v10.5", 16, true)
+local mt = Text(MainPage, "IVORY HUB v10.6", 16, true)
 mt.Size = UDim2.new(1, 0, 0, 24)
 mt.TextXAlignment = Enum.TextXAlignment.Center
 mt.TextColor3 = COLORS.WHITE
@@ -1623,16 +1619,11 @@ local aboutLines = {
     {text = "6. Tap the MACRO button to start", size = 9, bold = false, color = COLORS.WHITE},
     {text = "7. Tap STOP to cancel, tap again to replay", size = 9, bold = false, color = COLORS.WHITE},
     {text = "", size = 6, bold = false, color = COLORS.WHITE},
-    {text = "TIPS:", size = 10, bold = true, color = COLORS.ACCENT},
-    {text = "• Hold duration = how long the key stays held", size = 9, bold = false, color = COLORS.WHITE},
-    {text = "• Delay = wait time before the next action", size = 9, bold = false, color = COLORS.WHITE},
-    {text = "• Macro always aims at nearest enemy", size = 9, bold = false, color = COLORS.WHITE},
-    {text = "", size = 6, bold = false, color = COLORS.WHITE},
     {text = "CONFIG:", size = 10, bold = true, color = COLORS.ACCENT},
     {text = "• Save/Load/Reset in the CONFIG tab", size = 9, bold = false, color = COLORS.WHITE},
     {text = "• Settings save automatically per change", size = 9, bold = false, color = COLORS.WHITE},
     {text = "", size = 6, bold = false, color = COLORS.WHITE},
-    {text = "VERSION: v10.5", size = 10, bold = true, color = COLORS.ACCENT},
+    {text = "VERSION: v10.6", size = 10, bold = true, color = COLORS.ACCENT},
     {text = "Thanks for using Ivory Hub 🦷", size = 10, bold = false, color = COLORS.WHITE},
 }
 
@@ -1742,7 +1733,7 @@ Close.MouseButton1Click:Connect(function()
 end)
 
 print("========================================")
-print("        IVORY HUB v10.5 LOADED")
+print("        IVORY HUB v10.6 LOADED")
 print("========================================")
-print("Sidebar on the left | All features working")
+print("Macro uses tool remotes | Sidebar on left")
 print("========================================")
