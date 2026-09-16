@@ -1572,3 +1572,81 @@ local Tabs = {
     {name="ABOUT", icon="📖", page=AboutPage},
 }
 local Current
+local function SelectTab(button, page)
+    for _, d in ipairs(Tabs) do
+        if d.button then
+            TweenIt(d.button, {BackgroundColor3 = COLORS.DARKER}, 0.2)
+            d.button.TextColor3 = COLORS.GRAY
+        end
+        d.page.Visible = false
+    end
+    TweenIt(button, {BackgroundColor3 = COLORS.ACCENT}, 0.2)
+    button.TextColor3 = COLORS.WHITE
+    page.Visible = true
+    CurrentTab = page
+end
+
+for _, d in ipairs(Tabs) do
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 0, 26)
+    btn.BackgroundColor3 = COLORS.DARKER
+    btn.BorderSizePixel = 0
+    btn.Text = "  " .. d.icon .. " " .. d.name
+    btn.TextColor3 = COLORS.GRAY
+    btn.TextSize = 9
+    btn.Font = Enum.Font.GothamBold
+    btn.TextXAlignment = Enum.TextXAlignment.Left
+    btn.AutoButtonColor = false
+    btn.Parent = Sidebar
+    Corner(btn, 8)
+    Stroke(btn, Color3.fromRGB(35,35,35), 1)
+    d.button = btn
+    btn.MouseButton1Click:Connect(function() SelectTab(btn, d.page) end)
+end
+SelectTab(Tabs[1].button, Tabs[1].page)
+
+local Drag, DStart, SPos = false, nil, nil
+Top.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        Drag = true DStart = input.Position SPos = Main.Position
+    end
+end)
+Top.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then Drag = false end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if Drag and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local d = input.Position - DStart
+        Main.Position = UDim2.new(SPos.X.Scale, SPos.X.Offset + d.X, SPos.Y.Scale, SPos.Y.Offset + d.Y)
+    end
+end)
+
+local Min = false
+Minimize.MouseButton1Click:Connect(function()
+    Min = not Min
+    if Min then
+        Sidebar.Visible = false
+        Content.Visible = false
+        TweenIt(Main, {Size = UDim2.new(0, 500, 0, 44)})
+        Minimize.Text = "+"
+    else
+        TweenIt(Main, {Size = UDim2.new(0, 500, 0, 340)})
+        task.wait(.15)
+        Sidebar.Visible = true
+        Content.Visible = true
+        Minimize.Text = "—"
+    end
+end)
+
+Close.MouseButton1Click:Connect(function()
+    SaveConfig()
+    SaveMacroConfig()
+    StopMacro()
+    TweenIt(Main, {Size = UDim2.new(0, 0, 0, 0)})
+    task.wait(.3)
+    Gui:Destroy()
+end)
+
+print("========================================")
+print("        IVORY HUB v10.9 LOADED")
+print("========================================")
