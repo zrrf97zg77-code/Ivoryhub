@@ -1,8 +1,8 @@
 -- =============================================
--- IVORY HUB v10.7 - WITH MACRO
+-- IVORY HUB v10.8 - FULL MACRO EDITOR
 -- =============================================
 
-print("🦷 Ivory Hub v10.7 loading...")
+print("🦷 Ivory Hub v10.8 loading...")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -95,8 +95,12 @@ local Features = {
     MaxRange = 1000,
 }
 
+-- =============================================
+-- CONFIG
+-- =============================================
 local CONFIG_FOLDER = "IvoryHub"
 local CONFIG_FILE = CONFIG_FOLDER .. "/config.txt"
+local MACRO_FILE = CONFIG_FOLDER .. "/macro.txt"
 
 pcall(function()
     if isfolder and makefolder and not isfolder(CONFIG_FOLDER) then
@@ -160,6 +164,9 @@ end
 
 LoadConfig()
 
+-- =============================================
+-- FOV
+-- =============================================
 local FOVGui = nil
 local FOVRing = nil
 
@@ -529,6 +536,9 @@ local FastAttack = (function()
     return module
 end)()
 
+-- =============================================
+-- ESP
+-- =============================================
 local ESPData = {}
 
 local function CreateESP(target, displayName)
@@ -698,16 +708,26 @@ end
 RunService.Heartbeat:Connect(function() pcall(UpdateESP) end)
 
 -- =============================================
--- MACRO SYSTEM
+-- MACRO SYSTEM - 10 SLOTS, FULLY CUSTOMIZABLE
 -- =============================================
-local MacroSlots = {
-    {slot = 1, key = "Z", delay = 0.30},
-    {slot = 1, key = "X", delay = 0.30},
-    {slot = 2, key = "Z", delay = 0.30},
-    {slot = 2, key = "X", delay = 0.30},
-    {slot = 3, key = "Z", delay = 0.30},
-    {slot = 3, key = "X", delay = 0.30},
+local WEAPON_TYPES = {"Melee", "Fruit", "Sword", "Gun"}
+local SLOT_FOR_WEAPON = {
+    Melee = 1,
+    Fruit = 2,
+    Sword = 3,
+    Gun = 4,
 }
+local SKILL_OPTIONS = {"Z", "X", "C", "V", "F", "M1", "OFF"}
+
+-- 10 slots, each: {weapon, skill, delay}
+local MacroSlots = {}
+for i = 1, 10 do
+    MacroSlots[i] = {
+        weapon = "Melee",
+        skill = (i == 1 and "Z") or (i == 2 and "X") or "OFF",
+        delay = 0.30,
+    }
+end
 
 local SLOT_KEYS = {
     [1] = Enum.KeyCode.One,
@@ -719,6 +739,35 @@ local SLOT_KEYS = {
 local MacroRunning = false
 local MacroThread = nil
 
+-- Save/load macro config
+local function SaveMacroConfig()
+    local data = ""
+    for i, slot in ipairs(MacroSlots) do
+        data = data .. i .. "|" .. slot.weapon .. "|" .. slot.skill .. "|" .. slot.delay .. "\n"
+    end
+    pcall(function()
+        if writefile then writefile(MACRO_FILE, data) end
+    end)
+end
+
+local function LoadMacroConfig()
+    pcall(function()
+        if readfile and isfile and isfile(MACRO_FILE) then
+            local content = readfile(MACRO_FILE)
+            for line in string.gmatch(content, "[^\r\n]+") do
+                local i, w, s, d = string.match(line, "^(%d+)|([^|]+)|([^|]+)|([%d%.]+)$")
+                if i and tonumber(i) and MacroSlots[tonumber(i)] then
+                    MacroSlots[tonumber(i)].weapon = w
+                    MacroSlots[tonumber(i)].skill = s
+                    MacroSlots[tonumber(i)].delay = tonumber(d) or 0.30
+                end
+            end
+        end
+    end)
+end
+
+LoadMacroConfig()
+
 local function pressKey(kc)
     if not kc then return end
     pcall(function()
@@ -728,7 +777,7 @@ local function pressKey(kc)
     end)
 end
 
-local function equipSlot(slotNum)
+local function equipWeaponSlot(slotNum)
     local kc = SLOT_KEYS[slotNum]
     if not kc then return end
     pressKey(kc)
@@ -744,18 +793,30 @@ local function ExecuteMacro()
     if MacroRunning then return end
     MacroRunning = true
     MacroThread = task.spawn(function()
-        local lastSlot = nil
+        local lastWeapon = nil
         while MacroRunning do
-            for _, item in ipairs(MacroSlots) do
+            for i, item in ipairs(MacroSlots) do
                 if not MacroRunning then break end
-                if item.key and item.key ~= "OFF" then
-                    if item.slot ~= lastSlot then
-                        equipSlot(item.slot)
-                        lastSlot = item.slot
+                if item.skill and item.skill ~= "OFF" then
+                    -- Swap weapon if needed
+                    if item.weapon ~= lastWeapon then
+                        local slotNum = SLOT_FOR_WEAPON[item.weapon] or 1
+                        equipWeaponSlot(slotNum)
+                        lastWeapon = item.weapon
                     end
-                    local kc = Enum.KeyCode[item.key]
-                    if kc then pressKey(kc) end
-                    task.wait(item.delay or 0.3)
+                    -- Fire skill
+                    if item.skill == "M1" then
+                        local vp = Camera.ViewportSize
+                        pcall(function()
+                            VIM:SendMouseButtonEvent(vp.X * 0.5, vp.Y * 0.5, 0, true, game, 1)
+                            task.wait(0.05)
+                            VIM:SendMouseButtonEvent(vp.X * 0.5, vp.Y * 0.5, 0, false, game, 1)
+                        end)
+                    else
+                        local kc = Enum.KeyCode[item.skill]
+                        if kc then pressKey(kc) end
+                    end
+                    task.wait(item.delay or 0.30)
                 end
             end
         end
@@ -857,8 +918,8 @@ ToggleBtn.Parent = Gui
 Corner(ToggleBtn, 10)
 
 local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0, 480, 0, 300)
-Main.Position = UDim2.new(0.5, -240, 0.5, -150)
+Main.Size = UDim2.new(0, 500, 0, 340)
+Main.Position = UDim2.new(0.5, -250, 0.5, -170)
 Main.BackgroundColor3 = COLORS.BLACK
 Main.BorderSizePixel = 0
 Main.Visible = false
@@ -964,7 +1025,7 @@ local function CreatePage(name)
     page.CanvasSize = UDim2.new(0, 0, 0, 0)
     page.Parent = Content
     local l = Instance.new("UIListLayout")
-    l.Padding = UDim.new(0, 5)
+    l.Padding = UDim.new(0, 4)
     l.SortOrder = Enum.SortOrder.LayoutOrder
     l.Parent = page
     l:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
@@ -1111,7 +1172,7 @@ local function Slider(parent, text, default, minVal, maxVal, cb, suffix)
         local r = (cv - minVal) / (maxVal - minVal)
         fill.Size = UDim2.new(r, 0, 1, 0)
         knob.Position = UDim2.new(r, -9, 0.5, -9)
-        lbl.Text = text .. ": " .. tostring(math.floor(cv)) .. (suffix or "")
+        lbl.Text = text .. ": " .. tostring(math.floor(cv * 100) / 100) .. (suffix or "")
         if cb then cb(cv) end
     end
     local fullBar = Instance.new("TextButton")
@@ -1147,7 +1208,7 @@ local SocialsPage = CreatePage("Socials")
 local AboutPage = CreatePage("About")
 
 Section(MainPage, "IVORY HUB")
-local mt = Text(MainPage, "IVORY HUB v10.7", 16, true)
+local mt = Text(MainPage, "IVORY HUB v10.8", 16, true)
 mt.Size = UDim2.new(1, 0, 0, 24)
 mt.TextXAlignment = Enum.TextXAlignment.Center
 mt.TextColor3 = COLORS.WHITE
@@ -1218,6 +1279,9 @@ fastInfo.Size = UDim2.new(1, -10, 0, 14)
 fastInfo.TextColor3 = COLORS.GRAY
 fastInfo.TextXAlignment = Enum.TextXAlignment.Center
 
+-- =============================================
+-- MACRO PAGE - 10 slots, each with weapon/skill/delay
+-- =============================================
 Section(MacroPage, "MACRO")
 Toggle(MacroPage, "Enable Macro", Features.Macro, function(s)
     Features.Macro = s
@@ -1225,18 +1289,154 @@ Toggle(MacroPage, "Enable Macro", Features.Macro, function(s)
     SaveConfig()
 end)
 
-local macroInfo = Text(MacroPage, "Tap the MACRO button on screen to start/stop.\nDrag it anywhere.", 9, false)
-macroInfo.Size = UDim2.new(1, -10, 0, 28)
-macroInfo.Position = UDim2.new(0, 5, 0, 0)
+local macroInfo = Text(MacroPage, "Tap the MACRO button on screen to start/stop.", 9, false)
+macroInfo.Size = UDim2.new(1, -10, 0, 14)
 macroInfo.TextColor3 = COLORS.GRAY
-macroInfo.TextWrapped = true
+macroInfo.TextXAlignment = Enum.TextXAlignment.Center
 
 Section(MacroPage, "SLOTS")
-local slotInfo = Text(MacroPage, "Default: Slot1 Z, Slot1 X, Slot2 Z, Slot2 X, Slot3 Z, Slot3 X\nEdit MacroSlots in code to customize.", 9, false)
-slotInfo.Size = UDim2.new(1, -10, 0, 30)
-slotInfo.Position = UDim2.new(0, 5, 0, 0)
-slotInfo.TextColor3 = COLORS.GRAY
-slotInfo.TextWrapped = true
+
+-- Create 10 slot editors
+local slotUI = {}
+
+for i = 1, 10 do
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1, -10, 0, 26)
+    row.BackgroundColor3 = COLORS.CARD
+    row.BorderSizePixel = 0
+    row.Parent = MacroPage
+    Corner(row, 6)
+    Stroke(row, Color3.fromRGB(35,35,35), 1)
+
+    local numL = Text(row, "#" .. i, 9, true)
+    numL.Position = UDim2.new(0, 6, 0, 0)
+    numL.Size = UDim2.new(0, 22, 1, 0)
+    numL.TextColor3 = COLORS.ACCENT
+
+    -- Weapon button
+    local weaponBtn = Instance.new("TextButton")
+    weaponBtn.Size = UDim2.new(0, 60, 0, 20)
+    weaponBtn.Position = UDim2.new(0, 30, 0.5, -10)
+    weaponBtn.BackgroundColor3 = COLORS.DARKER
+    weaponBtn.Text = MacroSlots[i].weapon
+    weaponBtn.TextColor3 = COLORS.WHITE
+    weaponBtn.TextSize = 9
+    weaponBtn.Font = Enum.Font.GothamMedium
+    weaponBtn.BorderSizePixel = 0
+    weaponBtn.Parent = row
+    Corner(weaponBtn, 5)
+    Stroke(weaponBtn, Color3.fromRGB(60,60,60), 1)
+
+    -- Skill button
+    local skillBtn = Instance.new("TextButton")
+    skillBtn.Size = UDim2.new(0, 42, 0, 20)
+    skillBtn.Position = UDim2.new(0, 94, 0.5, -10)
+    skillBtn.BackgroundColor3 = COLORS.DARKER
+    skillBtn.Text = MacroSlots[i].skill
+    skillBtn.TextColor3 = COLORS.WHITE
+    skillBtn.TextSize = 9
+    skillBtn.Font = Enum.Font.GothamMedium
+    skillBtn.BorderSizePixel = 0
+    skillBtn.Parent = row
+    Corner(skillBtn, 5)
+    Stroke(skillBtn, Color3.fromRGB(60,60,60), 1)
+
+    -- Delay label
+    local delayLbl = Text(row, string.format("%.2fs", MacroSlots[i].delay), 9, false)
+    delayLbl.Position = UDim2.new(0, 142, 0, 0)
+    delayLbl.Size = UDim2.new(0, 48, 1, 0)
+    delayLbl.TextColor3 = COLORS.GRAY
+
+    -- Delay slider (thin bar)
+    local dBar = Instance.new("Frame")
+    dBar.Size = UDim2.new(0, 90, 0, 3)
+    dBar.Position = UDim2.new(1, -100, 0.5, -1.5)
+    dBar.BackgroundColor3 = Color3.fromRGB(45,45,45)
+    dBar.BorderSizePixel = 0
+    dBar.Parent = row
+    Corner(dBar, 2)
+
+    local dFill = Instance.new("Frame")
+    dFill.Size = UDim2.new((MacroSlots[i].delay - 0.05) / (2.0 - 0.05), 0, 1, 0)
+    dFill.BackgroundColor3 = COLORS.ACCENT
+    dFill.BorderSizePixel = 0
+    dFill.Parent = dBar
+    Corner(dFill, 2)
+
+    local dKnob = Instance.new("TextButton")
+    dKnob.Size = UDim2.new(0, 8, 0, 8)
+    dKnob.Position = UDim2.new((MacroSlots[i].delay - 0.05) / (2.0 - 0.05), -4, 0.5, -4)
+    dKnob.BackgroundColor3 = COLORS.WHITE
+    dKnob.Text = ""
+    dKnob.BorderSizePixel = 0
+    dKnob.Parent = dBar
+    Corner(dKnob, 8)
+
+    -- Wire up weapon cycle
+    weaponBtn.MouseButton1Click:Connect(function()
+        local cur = MacroSlots[i].weapon
+        local idx = 1
+        for j, w in ipairs(WEAPON_TYPES) do if w == cur then idx = j break end end
+        idx = idx % #WEAPON_TYPES + 1
+        MacroSlots[i].weapon = WEAPON_TYPES[idx]
+        weaponBtn.Text = MacroSlots[i].weapon
+        SaveMacroConfig()
+    end)
+
+    -- Wire up skill cycle
+    skillBtn.MouseButton1Click:Connect(function()
+        local cur = MacroSlots[i].skill
+        local idx = 1
+        for j, s in ipairs(SKILL_OPTIONS) do if s == cur then idx = j break end end
+        idx = idx % #SKILL_OPTIONS + 1
+        MacroSlots[i].skill = SKILL_OPTIONS[idx]
+        skillBtn.Text = MacroSlots[i].skill
+        SaveMacroConfig()
+    end)
+
+    -- Wire up delay slider
+    local dragging = false
+    local function updateDelayFromPos(pos)
+        local ap = dBar.AbsolutePosition
+        local sz = dBar.AbsoluteSize.X
+        local rx = math.clamp(pos.X - ap.X, 0, sz)
+        local ratio = rx / sz
+        local newDelay = math.floor((0.05 + ratio * (2.0 - 0.05)) * 100 + 0.5) / 100
+        MacroSlots[i].delay = newDelay
+        dFill.Size = UDim2.new(ratio, 0, 1, 0)
+        dKnob.Position = UDim2.new(ratio, -4, 0.5, -4)
+        delayLbl.Text = string.format("%.2fs", newDelay)
+        SaveMacroConfig()
+    end
+
+    dBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            updateDelayFromPos(input.Position)
+        end
+    end)
+    dKnob.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
+        or input.UserInputType == Enum.UserInputType.Touch) then
+            updateDelayFromPos(input.Position)
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+
+    slotUI[i] = {weaponBtn = weaponBtn, skillBtn = skillBtn, delayLbl = delayLbl}
+end
 
 Section(VisualPage, "ESP")
 Toggle(VisualPage, "Enable ESP", Features.ESP, function(s) Features.ESP = s SaveConfig() end)
@@ -1248,10 +1448,25 @@ Toggle(VisualPage, "Players", Features.ESPPlayers, function(s) Features.ESPPlaye
 Toggle(VisualPage, "NPCs", Features.ESPNPCs, function(s) Features.ESPNPCs = s SaveConfig() end)
 
 Section(ConfigPage, "CONFIG")
-Button(ConfigPage, "Save Config", function() SaveConfig() end)
-Button(ConfigPage, "Load Config", function() LoadConfig() end)
-Button(ConfigPage, "Reset Config", function() ResetConfig() end)
-Button(ConfigPage, "Unload UI", function() SaveConfig() StopMacro() Gui:Destroy() end)
+Button(ConfigPage, "Save Config", function() SaveConfig() SaveMacroConfig() end)
+Button(ConfigPage, "Load Config", function() LoadConfig() LoadMacroConfig() end)
+Button(ConfigPage, "Reset Config", function()
+    ResetConfig()
+    for i = 1, 10 do
+        MacroSlots[i] = {
+            weapon = "Melee",
+            skill = (i == 1 and "Z") or (i == 2 and "X") or "OFF",
+            delay = 0.30,
+        }
+        if slotUI[i] then
+            slotUI[i].weaponBtn.Text = MacroSlots[i].weapon
+            slotUI[i].skillBtn.Text = MacroSlots[i].skill
+            slotUI[i].delayLbl.Text = string.format("%.2fs", MacroSlots[i].delay)
+        end
+    end
+    SaveMacroConfig()
+end)
+Button(ConfigPage, "Unload UI", function() SaveConfig() SaveMacroConfig() StopMacro() Gui:Destroy() end)
 
 Section(SocialsPage, "⭐ JOIN US ⭐")
 local socialTitle = Text(SocialsPage, "Ivory & Rayo's Discord", 12, true)
@@ -1283,28 +1498,28 @@ socialCard("IVORY", "Ivory999", 55)
 socialCard("RAYO", "Rayo06996", 125)
 
 Section(AboutPage, "📖 ABOUT IVORY HUB")
-local aboutTitle = Text(AboutPage, "Ivory Hub v10.7", 14, true)
-aboutTitle.Size = UDim2.new(1, 0, 0, 22)
-aboutTitle.TextXAlignment = Enum.TextXAlignment.Center
-aboutTitle.TextColor3 = COLORS.WHITE
-
 local aboutLines = {
+    "Ivory Hub v10.8 - Mobile PVP",
+    "",
     "• Silent Aim (Players / NPCs / Both)",
-    "• Soru Aimbot (Flashstep auto-TP)",
+    "• Soru Aimbot (auto-teleport on dash)",
     "• Fast Attack (M1 spam, 25 studs)",
     "• ESP (Box, Name, HP%, Distance)",
-    "• Macro (Slot + Skill + Delay)",
-    "• FOV Circle (V1 center / V2 mouse)",
+    "• Macro (10 customizable slots)",
     "",
-    "MACRO: Tap the MACRO button on screen",
-    "to start. Tap again to stop.",
+    "MACRO: 10 slots. Tap weapon name to",
+    "cycle (Melee/Fruit/Sword/Gun). Tap",
+    "skill to cycle (Z/X/C/V/F/M1/OFF).",
+    "Drag the slider to change delay.",
+    "",
+    "Config auto-saves on change.",
     "",
     "Thanks for using Ivory Hub 🦷"
 }
 for i, line in ipairs(aboutLines) do
     local lbl = Text(AboutPage, line, 9, false)
     lbl.Size = UDim2.new(1, -10, 0, 14)
-    lbl.Position = UDim2.new(0, 5, 0, 30 + (i-1)*15)
+    lbl.Position = UDim2.new(0, 5, 0, 26 + (i-1)*15)
     lbl.TextColor3 = COLORS.WHITE
     lbl.TextXAlignment = Enum.TextXAlignment.Left
 end
@@ -1376,10 +1591,10 @@ Minimize.MouseButton1Click:Connect(function()
     if Min then
         Sidebar.Visible = false
         Content.Visible = false
-        TweenIt(Main, {Size = UDim2.new(0, 480, 0, 44)})
+        TweenIt(Main, {Size = UDim2.new(0, 500, 0, 44)})
         Minimize.Text = "+"
     else
-        TweenIt(Main, {Size = UDim2.new(0, 480, 0, 300)})
+        TweenIt(Main, {Size = UDim2.new(0, 500, 0, 340)})
         task.wait(.15)
         Sidebar.Visible = true
         Content.Visible = true
@@ -1389,6 +1604,7 @@ end)
 
 Close.MouseButton1Click:Connect(function()
     SaveConfig()
+    SaveMacroConfig()
     StopMacro()
     TweenIt(Main, {Size = UDim2.new(0, 0, 0, 0)})
     task.wait(.3)
@@ -1396,10 +1612,8 @@ Close.MouseButton1Click:Connect(function()
 end)
 
 print("========================================")
-print("        IVORY HUB v10.7 LOADED")
+print("        IVORY HUB v10.8 LOADED")
 print("========================================")
-print("Silent Aim | Soru | Fast Attack | ESP | Macro")
-print("========================================")
-print("💡 Enable Macro in the MACRO tab → button appears on screen")
-print("💡 Tap MACRO to start, tap STOP to stop, drag to move")
+print("Macro now has 10 customizable slots")
+print("Tap weapon/skill to cycle, drag delay slider")
 print("========================================")
