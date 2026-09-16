@@ -1,8 +1,8 @@
 -- =============================================
--- IVORY HUB v10.6 - MACRO VIA TOOL REMOTES
+-- IVORY HUB v10.7 - WITH MACRO
 -- =============================================
 
-print("🦷 Ivory Hub v10.6 loading...")
+print("🦷 Ivory Hub v10.7 loading...")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -541,7 +541,7 @@ local function CreateESP(target, displayName)
     local gui = Instance.new("BillboardGui")
     gui.Name = "IvoryESP"
     gui.Adornee = head
-    gui.Size = UDim2.new(0, 200, 0, 100)
+    gui.Size = UDim2.new(0, 100, 0, 60)
     gui.StudsOffset = Vector3.new(0, 2.5, 0)
     gui.AlwaysOnTop = true
     gui.Parent = head
@@ -549,31 +549,31 @@ local function CreateESP(target, displayName)
     local box = Instance.new("Frame")
     box.AnchorPoint = Vector2.new(0.5, 0.5)
     box.Position = UDim2.new(0.5, 0, 0.5, 0)
-    box.Size = UDim2.new(0, 40, 0, 50)
+    box.Size = UDim2.new(0, 30, 0, 40)
     box.BackgroundTransparency = 1
     box.BorderSizePixel = 0
     box.Parent = gui
     local stroke = Instance.new("UIStroke")
     stroke.Color = COLORS.ACCENT
-    stroke.Thickness = 1.2
+    stroke.Thickness = 1
     stroke.Parent = box
 
     local nameL = Instance.new("TextLabel")
-    nameL.Size = UDim2.new(1, 0, 0, 14)
-    nameL.Position = UDim2.new(0, 0, 0.5, -45)
+    nameL.Size = UDim2.new(1, 0, 0, 12)
+    nameL.Position = UDim2.new(0, 0, 0.5, -34)
     nameL.BackgroundTransparency = 1
     nameL.Text = displayName or "NPC"
     nameL.TextColor3 = COLORS.WHITE
     nameL.TextStrokeTransparency = 0
     nameL.TextStrokeColor3 = Color3.new(0,0,0)
-    nameL.TextSize = 11
+    nameL.TextSize = 10
     nameL.Font = Enum.Font.GothamBold
     nameL.TextXAlignment = Enum.TextXAlignment.Center
     nameL.Parent = gui
 
     local hpText = Instance.new("TextLabel")
-    hpText.Size = UDim2.new(1, 0, 0, 12)
-    hpText.Position = UDim2.new(0, 0, 0.5, 27)
+    hpText.Size = UDim2.new(1, 0, 0, 11)
+    hpText.Position = UDim2.new(0, 0, 0.5, 22)
     hpText.BackgroundTransparency = 1
     hpText.Text = "100%"
     hpText.TextColor3 = COLORS.GREEN
@@ -585,8 +585,8 @@ local function CreateESP(target, displayName)
     hpText.Parent = gui
 
     local distL = Instance.new("TextLabel")
-    distL.Size = UDim2.new(1, 0, 0, 12)
-    distL.Position = UDim2.new(0, 0, 0.5, 40)
+    distL.Size = UDim2.new(1, 0, 0, 11)
+    distL.Position = UDim2.new(0, 0, 0.5, 32)
     distL.BackgroundTransparency = 1
     distL.Text = "0m"
     distL.TextColor3 = COLORS.GRAY
@@ -599,8 +599,8 @@ local function CreateESP(target, displayName)
 
     local healthBg = Instance.new("Frame")
     healthBg.AnchorPoint = Vector2.new(0.5, 0.5)
-    healthBg.Size = UDim2.new(0, 40, 0, 3)
-    healthBg.Position = UDim2.new(0.5, 0, 0.5, -27)
+    healthBg.Size = UDim2.new(0, 30, 0, 2)
+    healthBg.Position = UDim2.new(0.5, 0, 0.5, -22)
     healthBg.BackgroundColor3 = Color3.fromRGB(20,20,20)
     healthBg.BorderSizePixel = 0
     healthBg.Parent = gui
@@ -631,13 +631,6 @@ local function UpdateESP()
     local function apply(d, name, root, hum)
         d.gui.Visible = true
         local dist = (root.Position - cam.CFrame.Position).Magnitude
-        local scale = math.clamp(500 / math.max(dist, 1), 0.5, 1.6)
-        d.box.Size = UDim2.new(0, 40 * scale, 0, 55 * scale)
-        d.healthBg.Size = UDim2.new(0, 40 * scale, 0, 3)
-        d.healthBg.Position = UDim2.new(0.5, 0, 0.5, (-27 * scale))
-        d.name.Position = UDim2.new(0, 0, 0.5, (-45 * scale))
-        d.hpText.Position = UDim2.new(0, 0, 0.5, (27 * scale))
-        d.dist.Position = UDim2.new(0, 0, 0.5, (40 * scale))
         d.name.Text = name
         d.dist.Text = math.floor(dist) .. "m"
         local hp = hum.Health / math.max(hum.MaxHealth, 1)
@@ -705,107 +698,70 @@ end
 RunService.Heartbeat:Connect(function() pcall(UpdateESP) end)
 
 -- =============================================
--- MACRO SKILL TAP - VIA TOOL REMOTE
+-- MACRO SYSTEM
 -- =============================================
-local function tapSkillButton(key)
-    local char = player.Character
-    if not char then return false end
-    local tool = char:FindFirstChildOfClass("Tool")
-    if not tool then
-        -- Also check backpack
-        local backpack = player:FindFirstChild("Backpack")
-        if backpack then
-            tool = backpack:FindFirstChildOfClass("Tool")
-        end
-    end
-    if not tool then return false end
+local MacroSlots = {
+    {slot = 1, key = "Z", delay = 0.30},
+    {slot = 1, key = "X", delay = 0.30},
+    {slot = 2, key = "Z", delay = 0.30},
+    {slot = 2, key = "X", delay = 0.30},
+    {slot = 3, key = "Z", delay = 0.30},
+    {slot = 3, key = "X", delay = 0.30},
+}
 
-    -- Method 1: Try tool's RemoteEvent
-    local remote = tool:FindFirstChild("RemoteEvent")
-                or tool:FindFirstChild("RemoteFunction")
-                or tool:FindFirstChild("Remote")
-    if not remote then
-        for _, child in pairs(tool:GetDescendants()) do
-            if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
-                remote = child
-                break
-            end
-        end
-    end
+local SLOT_KEYS = {
+    [1] = Enum.KeyCode.One,
+    [2] = Enum.KeyCode.Two,
+    [3] = Enum.KeyCode.Three,
+    [4] = Enum.KeyCode.Four,
+}
 
-    if remote then
-        pcall(function()
-            if remote:IsA("RemoteFunction") then
-                remote:InvokeServer(key)
-            else
-                remote:FireServer(key)
-            end
-        end)
-        return true
-    end
-
-    -- Method 2: Keyboard event fallback
-    local kc = Enum.KeyCode[key]
-    if kc then
-        pcall(function()
-            VIM:SendKeyEvent(true, kc, false)
-            task.wait(0.05)
-            VIM:SendKeyEvent(false, kc, false)
-        end)
-    end
-    return false
-end
-
-local function tapM1()
-    local char = player.Character
-    if not char then return end
-    local tool = char:FindFirstChildOfClass("Tool")
-
-    -- Try tool remote for M1
-    if tool then
-        local remote = tool:FindFirstChild("RemoteEvent")
-                    or tool:FindFirstChild("RemoteFunction")
-        if remote then
-            pcall(function()
-                if remote:IsA("RemoteFunction") then
-                    remote:InvokeServer("M1")
-                else
-                    remote:FireServer("M1")
-                end
-            end)
-            return
-        end
-    end
-
-    -- Fallback: tap screen center
-    local vp = Camera.ViewportSize
-    pcall(function()
-        VIM:SendMouseButtonEvent(vp.X * 0.5, vp.Y * 0.5, 0, true, game, 1)
-        task.wait(0.03)
-        VIM:SendMouseButtonEvent(vp.X * 0.5, vp.Y * 0.5, 0, false, game, 1)
-    end)
-end
-
-local MacroBlocks = {}
 local MacroRunning = false
 local MacroThread = nil
 
-local WEAPON_SKILLS = {
-    Melee = {"Z","X","C","M1"},
-    Fruit = {"Z","X","C","V","F","M1"},
-    Sword = {"Z","X","M1"},
-    Gun   = {"Z","X","M1"},
-}
-local WEAPON_TYPES = {"Melee", "Fruit", "Sword", "Gun"}
+local function pressKey(kc)
+    if not kc then return end
+    pcall(function()
+        VIM:SendKeyEvent(true, kc, false, game)
+        task.wait(0.05)
+        VIM:SendKeyEvent(false, kc, false, game)
+    end)
+end
 
-local function cancellableWait(seconds)
-    if seconds <= 0 then return true end
-    local start = tick()
-    while tick() - start < seconds do
-        if not MacroRunning then return false end
-        task.wait(0.02)
+local function equipSlot(slotNum)
+    local kc = SLOT_KEYS[slotNum]
+    if not kc then return end
+    pressKey(kc)
+    task.wait(0.15)
+    local char = player.Character
+    if char and not char:FindFirstChildOfClass("Tool") then
+        pressKey(kc)
+        task.wait(0.1)
     end
-    return true
+end
+
+local function ExecuteMacro()
+    if MacroRunning then return end
+    MacroRunning = true
+    MacroThread = task.spawn(function()
+        local lastSlot = nil
+        while MacroRunning do
+            for _, item in ipairs(MacroSlots) do
+                if not MacroRunning then break end
+                if item.key and item.key ~= "OFF" then
+                    if item.slot ~= lastSlot then
+                        equipSlot(item.slot)
+                        lastSlot = item.slot
+                    end
+                    local kc = Enum.KeyCode[item.key]
+                    if kc then pressKey(kc) end
+                    task.wait(item.delay or 0.3)
+                end
+            end
+        end
+        MacroRunning = false
+        MacroThread = nil
+    end)
 end
 
 local function StopMacro()
@@ -816,36 +772,72 @@ local function StopMacro()
     end
 end
 
-local function ExecuteMacro()
-    if #MacroBlocks == 0 then return end
-    MacroRunning = true
-    MacroThread = task.spawn(function()
-        for _, b in pairs(MacroBlocks) do
-            if not MacroRunning then break end
-            local skill  = b.Skill()
-            local hold   = b.Hold()
-            local delay  = b.Delay()
+-- =============================================
+-- MACRO BUTTON
+-- =============================================
+local MacroBtn = Instance.new("TextButton")
+MacroBtn.Name = "IvoryMacroBtn"
+MacroBtn.Size = UDim2.fromOffset(70, 70)
+MacroBtn.Position = UDim2.new(0.85, -35, 0.7, -35)
+MacroBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+MacroBtn.BackgroundTransparency = 0.15
+MacroBtn.Text = "MACRO"
+MacroBtn.TextColor3 = COLORS.WHITE
+MacroBtn.TextSize = 11
+MacroBtn.Font = Enum.Font.GothamBold
+MacroBtn.BorderSizePixel = 0
+MacroBtn.Visible = false
+MacroBtn.Parent = Gui
+Corner(MacroBtn, 999)
+Stroke(MacroBtn, Color3.fromRGB(60, 60, 60), 1.5)
 
-            local target = GetNearestTarget("Both", "360", 100)
-            if target then FaceTarget(target) end
-            if not cancellableWait(0.05) then break end
+local macroDrag = {active = false, moved = false, startPos = nil, startMouse = nil}
 
-            if skill == "M1" then
-                tapM1()
-                if not cancellableWait(math.max(hold, 0.08)) then break end
-            else
-                tapSkillButton(skill)
-                if not cancellableWait(math.max(hold, 0.1)) then break end
-            end
+MacroBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+        macroDrag.active = true
+        macroDrag.moved = false
+        macroDrag.startMouse = input.Position
+        macroDrag.startPos = MacroBtn.Position
+    end
+end)
 
-            if delay > 0 then
-                if not cancellableWait(delay) then break end
-            end
-        end
-        MacroRunning = false
-        MacroThread = nil
-    end)
-end
+MacroBtn.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+        macroDrag.active = false
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if not macroDrag.active then return end
+    if input.UserInputType ~= Enum.UserInputType.MouseMovement
+    and input.UserInputType ~= Enum.UserInputType.Touch then return end
+    local delta = input.Position - macroDrag.startMouse
+    if delta.Magnitude > 6 then macroDrag.moved = true end
+    MacroBtn.Position = UDim2.new(
+        macroDrag.startPos.X.Scale,
+        macroDrag.startPos.X.Offset + delta.X,
+        macroDrag.startPos.Y.Scale,
+        macroDrag.startPos.Y.Offset + delta.Y
+    )
+end)
+
+MacroBtn.MouseButton1Click:Connect(function()
+    if macroDrag.moved then return end
+    if MacroRunning then
+        StopMacro()
+        MacroBtn.Text = "MACRO"
+        MacroBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+        MacroBtn.TextColor3 = COLORS.WHITE
+    else
+        ExecuteMacro()
+        MacroBtn.Text = "STOP"
+        MacroBtn.BackgroundColor3 = COLORS.RED
+        MacroBtn.TextColor3 = COLORS.WHITE
+    end
+end)
 
 -- =============================================
 -- UI
@@ -1155,7 +1147,7 @@ local SocialsPage = CreatePage("Socials")
 local AboutPage = CreatePage("About")
 
 Section(MainPage, "IVORY HUB")
-local mt = Text(MainPage, "IVORY HUB v10.6", 16, true)
+local mt = Text(MainPage, "IVORY HUB v10.7", 16, true)
 mt.Size = UDim2.new(1, 0, 0, 24)
 mt.TextXAlignment = Enum.TextXAlignment.Center
 mt.TextColor3 = COLORS.WHITE
@@ -1179,7 +1171,7 @@ task.spawn(function()
         if Features.SoruAim then table.insert(active, "Soru") end
         if Features.FastAttack then table.insert(active, "Fast") end
         if Features.ESP then table.insert(active, "ESP") end
-        if Features.Macro then table.insert(active, "Macro") end
+        if MacroRunning then table.insert(active, "Macro") end
         if statusLbl and statusLbl.Parent then
             if #active == 0 then
                 statusLbl.Text = "Active: None"
@@ -1229,322 +1221,22 @@ fastInfo.TextXAlignment = Enum.TextXAlignment.Center
 Section(MacroPage, "MACRO")
 Toggle(MacroPage, "Enable Macro", Features.Macro, function(s)
     Features.Macro = s
-    if not s then
-        StopMacro()
-        if MacroBtn then MacroBtn.Visible = false end
-    else
-        if MacroBtn then
-            MacroBtn.Visible = true
-            MacroBtn.Text = "MACRO"
-            MacroBtn.BackgroundColor3 = Color3.fromRGB(15,15,15)
-            MacroBtn.TextColor3 = COLORS.WHITE
-        end
-    end
+    MacroBtn.Visible = s
     SaveConfig()
 end)
 
-local btnRow = Instance.new("Frame")
-btnRow.Size = UDim2.new(1, -10, 0, 26)
-btnRow.BackgroundTransparency = 1
-btnRow.Parent = MacroPage
+local macroInfo = Text(MacroPage, "Tap the MACRO button on screen to start/stop.\nDrag it anywhere.", 9, false)
+macroInfo.Size = UDim2.new(1, -10, 0, 28)
+macroInfo.Position = UDim2.new(0, 5, 0, 0)
+macroInfo.TextColor3 = COLORS.GRAY
+macroInfo.TextWrapped = true
 
-local addBtn = Instance.new("TextButton")
-addBtn.Size = UDim2.new(0.48, -4, 1, 0)
-addBtn.BackgroundColor3 = COLORS.CARD
-addBtn.Text = "+ Add Block"
-addBtn.TextColor3 = COLORS.WHITE
-addBtn.TextSize = 10
-addBtn.Font = Enum.Font.GothamBold
-addBtn.BorderSizePixel = 0
-addBtn.Parent = btnRow
-Corner(addBtn, 8)
-Stroke(addBtn, Color3.fromRGB(35,35,35), 1)
-
-local clearBtn = Instance.new("TextButton")
-clearBtn.Size = UDim2.new(0.48, -4, 1, 0)
-clearBtn.Position = UDim2.new(0.52, 4, 0, 0)
-clearBtn.BackgroundColor3 = COLORS.CARD
-clearBtn.Text = "Clear All"
-clearBtn.TextColor3 = COLORS.WHITE
-clearBtn.TextSize = 10
-clearBtn.Font = Enum.Font.GothamBold
-clearBtn.BorderSizePixel = 0
-clearBtn.Parent = btnRow
-Corner(clearBtn, 8)
-Stroke(clearBtn, Color3.fromRGB(35,35,35), 1)
-
-local blockContainer = Instance.new("ScrollingFrame")
-blockContainer.Size = UDim2.new(1, -10, 0, 140)
-blockContainer.BackgroundTransparency = 1
-blockContainer.BorderSizePixel = 0
-blockContainer.ScrollBarThickness = 3
-blockContainer.ScrollBarImageColor3 = COLORS.ACCENT
-blockContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
-blockContainer.AutomaticCanvasSize = Enum.AutomaticSize.Y
-blockContainer.Parent = MacroPage
-
-local blockLayout = Instance.new("UIListLayout")
-blockLayout.Padding = UDim.new(0, 5)
-blockLayout.SortOrder = Enum.SortOrder.LayoutOrder
-blockLayout.Parent = blockContainer
-
-local MacroBtn = Instance.new("TextButton")
-MacroBtn.Size = UDim2.fromOffset(60, 60)
-MacroBtn.Position = UDim2.new(0.5, -30, 0.7, 0)
-MacroBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-MacroBtn.Text = "MACRO"
-MacroBtn.TextColor3 = COLORS.WHITE
-MacroBtn.TextSize = 10
-MacroBtn.Font = Enum.Font.GothamBold
-MacroBtn.BorderSizePixel = 0
-MacroBtn.Visible = false
-MacroBtn.Parent = Gui
-Corner(MacroBtn, 999)
-Stroke(MacroBtn, Color3.fromRGB(60,60,60), 1.5)
-
-local function AddBlock()
-    local idx = #MacroBlocks + 1
-    local block = Instance.new("Frame")
-    block.Size = UDim2.new(1, 0, 0, 60)
-    block.BackgroundColor3 = COLORS.CARD
-    block.BorderSizePixel = 0
-    block.Parent = blockContainer
-    Corner(block, 8)
-    Stroke(block, Color3.fromRGB(35,35,35), 1)
-
-    local num = Text(block, "#" .. idx, 10, true)
-    num.Position = UDim2.new(0, 8, 0, 4)
-    num.Size = UDim2.new(0, 30, 0, 14)
-    num.TextColor3 = COLORS.ACCENT
-
-    local weaponBtn = Instance.new("TextButton")
-    weaponBtn.Size = UDim2.new(0, 70, 0, 20)
-    weaponBtn.Position = UDim2.new(0, 40, 0, 3)
-    weaponBtn.BackgroundColor3 = COLORS.DARKER
-    weaponBtn.Text = "Melee"
-    weaponBtn.TextColor3 = COLORS.WHITE
-    weaponBtn.TextSize = 10
-    weaponBtn.Font = Enum.Font.GothamBold
-    weaponBtn.BorderSizePixel = 0
-    weaponBtn.Parent = block
-    Corner(weaponBtn, 6)
-    Stroke(weaponBtn, COLORS.ACCENT, 1)
-
-    local weaponIdx = 1
-    local currentSkills = WEAPON_SKILLS[WEAPON_TYPES[1]]
-
-    local skillBtn = Instance.new("TextButton")
-    skillBtn.Size = UDim2.new(0, 45, 0, 20)
-    skillBtn.Position = UDim2.new(0, 115, 0, 3)
-    skillBtn.BackgroundColor3 = COLORS.DARKER
-    skillBtn.Text = currentSkills[1]
-    skillBtn.TextColor3 = COLORS.WHITE
-    skillBtn.TextSize = 10
-    skillBtn.Font = Enum.Font.GothamBold
-    skillBtn.BorderSizePixel = 0
-    skillBtn.Parent = block
-    Corner(skillBtn, 6)
-    Stroke(skillBtn, COLORS.ACCENT, 1)
-
-    local skillIdx = 1
-
-    weaponBtn.MouseButton1Click:Connect(function()
-        weaponIdx = weaponIdx % #WEAPON_TYPES + 1
-        local wType = WEAPON_TYPES[weaponIdx]
-        weaponBtn.Text = wType
-        currentSkills = WEAPON_SKILLS[wType]
-        skillIdx = 1
-        skillBtn.Text = currentSkills[1]
-    end)
-
-    skillBtn.MouseButton1Click:Connect(function()
-        skillIdx = skillIdx % #currentSkills + 1
-        skillBtn.Text = currentSkills[skillIdx]
-    end)
-
-    local hLabel = Text(block, "Hold: 0s", 9, false)
-    hLabel.Position = UDim2.new(0, 8, 0, 26)
-    hLabel.Size = UDim2.new(0, 60, 0, 14)
-    hLabel.TextColor3 = COLORS.GRAY
-
-    local hSlider = Instance.new("Frame")
-    hSlider.Size = UDim2.new(1, -110, 0, 4)
-    hSlider.Position = UDim2.new(0, 72, 0, 31)
-    hSlider.BackgroundColor3 = Color3.fromRGB(45,45,45)
-    hSlider.BorderSizePixel = 0
-    hSlider.Parent = block
-    Corner(hSlider, 2)
-
-    local hFill = Instance.new("Frame")
-    hFill.Size = UDim2.new(0,0,1,0)
-    hFill.BackgroundColor3 = COLORS.ACCENT
-    hFill.BorderSizePixel = 0
-    hFill.Parent = hSlider
-    Corner(hFill, 2)
-
-    local hKnob = Instance.new("TextButton")
-    hKnob.Size = UDim2.new(0,14,0,14)
-    hKnob.Position = UDim2.new(0,-7,0.5,-7)
-    hKnob.BackgroundColor3 = COLORS.WHITE
-    hKnob.Text = ""
-    hKnob.BorderSizePixel = 0
-    hKnob.Parent = hSlider
-    Corner(hKnob, 10)
-
-    local dLabel = Text(block, "Delay: 0s", 9, false)
-    dLabel.Position = UDim2.new(0, 8, 0, 42)
-    dLabel.Size = UDim2.new(0, 60, 0, 14)
-    dLabel.TextColor3 = COLORS.GRAY
-
-    local dSlider = Instance.new("Frame")
-    dSlider.Size = UDim2.new(1, -110, 0, 4)
-    dSlider.Position = UDim2.new(0, 72, 0, 47)
-    dSlider.BackgroundColor3 = Color3.fromRGB(45,45,45)
-    dSlider.BorderSizePixel = 0
-    dSlider.Parent = block
-    Corner(dSlider, 2)
-
-    local dFill = Instance.new("Frame")
-    dFill.Size = UDim2.new(0,0,1,0)
-    dFill.BackgroundColor3 = COLORS.ACCENT
-    dFill.BorderSizePixel = 0
-    dFill.Parent = dSlider
-    Corner(dFill, 2)
-
-    local dKnob = Instance.new("TextButton")
-    dKnob.Size = UDim2.new(0,14,0,14)
-    dKnob.Position = UDim2.new(0,-7,0.5,-7)
-    dKnob.BackgroundColor3 = COLORS.WHITE
-    dKnob.Text = ""
-    dKnob.BorderSizePixel = 0
-    dKnob.Parent = dSlider
-    Corner(dKnob, 10)
-
-    local hVal, dVal = 0, 0
-    local dragging = nil
-
-    local function updateH(pos)
-        local ap = hSlider.AbsolutePosition
-        local sz = hSlider.AbsoluteSize.X
-        local rx = math.clamp(pos.X - ap.X, 0, sz)
-        hVal = math.floor((rx / sz) * 30 + 0.5) / 10
-        hFill.Size = UDim2.new(rx/sz, 0, 1, 0)
-        hKnob.Position = UDim2.new(rx/sz, -7, 0.5, -7)
-        hLabel.Text = "Hold: " .. hVal .. "s"
-    end
-
-    local function updateD(pos)
-        local ap = dSlider.AbsolutePosition
-        local sz = dSlider.AbsoluteSize.X
-        local rx = math.clamp(pos.X - ap.X, 0, sz)
-        dVal = math.floor((rx / sz) * 30 + 0.5) / 10
-        dFill.Size = UDim2.new(rx/sz, 0, 1, 0)
-        dKnob.Position = UDim2.new(rx/sz, -7, 0.5, -7)
-        dLabel.Text = "Delay: " .. dVal .. "s"
-    end
-
-    hSlider.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = "h" updateH(input.Position)
-        end
-    end)
-    hKnob.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = "h"
-        end
-    end)
-    dSlider.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = "d" updateD(input.Position)
-        end
-    end)
-    dKnob.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = "d"
-        end
-    end)
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging == "h" and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            updateH(input.Position)
-        elseif dragging == "d" and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            updateD(input.Position)
-        end
-    end)
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = nil
-        end
-    end)
-
-    table.insert(MacroBlocks, {
-        Weapon = function() return WEAPON_TYPES[weaponIdx] end,
-        Skill  = function() return currentSkills[skillIdx] or "Z" end,
-        Hold   = function() return hVal end,
-        Delay  = function() return dVal end,
-    })
-    if Features.Macro and MacroBtn and MacroBtn.Parent then MacroBtn.Visible = true end
-end
-
-addBtn.MouseButton1Click:Connect(AddBlock)
-clearBtn.MouseButton1Click:Connect(function()
-    for _, c in pairs(blockContainer:GetChildren()) do
-        if c:IsA("Frame") then c:Destroy() end
-    end
-    MacroBlocks = {}
-    if MacroBtn then MacroBtn.Visible = false end
-end)
-
-local mdrag = {d = false, sp = nil, sm = nil, moved = false}
-MacroBtn.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        mdrag.d = true
-        mdrag.sm = input.Position
-        mdrag.sp = MacroBtn.Position
-        mdrag.moved = false
-    end
-end)
-MacroBtn.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        mdrag.d = false
-    end
-end)
-UserInputService.InputChanged:Connect(function(input)
-    if mdrag.d and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local delta = input.Position - mdrag.sm
-        if delta.Magnitude > 5 then mdrag.moved = true end
-        MacroBtn.Position = UDim2.new(mdrag.sp.X.Scale, mdrag.sp.X.Offset + delta.X, mdrag.sp.Y.Scale, mdrag.sp.Y.Offset + delta.Y)
-    end
-end)
-
-MacroBtn.MouseButton1Click:Connect(function()
-    if mdrag.moved then return end
-    if not Features.Macro then return end
-    if MacroRunning then
-        StopMacro()
-        MacroBtn.Text = "MACRO"
-        MacroBtn.BackgroundColor3 = Color3.fromRGB(15,15,15)
-        MacroBtn.TextColor3 = COLORS.WHITE
-    else
-        if #MacroBlocks == 0 then return end
-        ExecuteMacro()
-        MacroBtn.Text = "STOP"
-        MacroBtn.BackgroundColor3 = COLORS.RED
-        MacroBtn.TextColor3 = COLORS.WHITE
-    end
-end)
-
-task.spawn(function()
-    while Gui and Gui.Parent do
-        if MacroBtn and Features.Macro then
-            if not MacroRunning and MacroBtn.Text == "STOP" then
-                MacroBtn.Text = "MACRO"
-                MacroBtn.BackgroundColor3 = Color3.fromRGB(15,15,15)
-                MacroBtn.TextColor3 = COLORS.WHITE
-            end
-        end
-        task.wait(0.2)
-    end
-end)
+Section(MacroPage, "SLOTS")
+local slotInfo = Text(MacroPage, "Default: Slot1 Z, Slot1 X, Slot2 Z, Slot2 X, Slot3 Z, Slot3 X\nEdit MacroSlots in code to customize.", 9, false)
+slotInfo.Size = UDim2.new(1, -10, 0, 30)
+slotInfo.Position = UDim2.new(0, 5, 0, 0)
+slotInfo.TextColor3 = COLORS.GRAY
+slotInfo.TextWrapped = true
 
 Section(VisualPage, "ESP")
 Toggle(VisualPage, "Enable ESP", Features.ESP, function(s) Features.ESP = s SaveConfig() end)
@@ -1568,12 +1260,6 @@ socialTitle.Position = UDim2.new(0, 0, 0, 26)
 socialTitle.TextXAlignment = Enum.TextXAlignment.Center
 socialTitle.TextColor3 = COLORS.ACCENT
 
-local socialSub = Text(SocialsPage, "Add us for updates & support", 9, false)
-socialSub.Size = UDim2.new(1, 0, 0, 16)
-socialSub.Position = UDim2.new(0, 0, 0, 48)
-socialSub.TextXAlignment = Enum.TextXAlignment.Center
-socialSub.TextColor3 = COLORS.GRAY
-
 local function socialCard(name, discord, y)
     local crd = Instance.new("Frame")
     crd.Size = UDim2.new(1, -10, 0, 60)
@@ -1593,48 +1279,34 @@ local function socialCard(name, discord, y)
     d.TextColor3 = COLORS.GRAY
 end
 
-socialCard("IVORY", "Ivory999", 75)
-socialCard("RAYO", "Rayo06996", 145)
+socialCard("IVORY", "Ivory999", 55)
+socialCard("RAYO", "Rayo06996", 125)
 
 Section(AboutPage, "📖 ABOUT IVORY HUB")
+local aboutTitle = Text(AboutPage, "Ivory Hub v10.7", 14, true)
+aboutTitle.Size = UDim2.new(1, 0, 0, 22)
+aboutTitle.TextXAlignment = Enum.TextXAlignment.Center
+aboutTitle.TextColor3 = COLORS.WHITE
 
 local aboutLines = {
-    {text = "Ivory Hub is a mobile-optimized PVP script for", size = 10, bold = false, color = COLORS.WHITE},
-    {text = "Blox Fruits built by Ivory and Rayo.", size = 10, bold = false, color = COLORS.WHITE},
-    {text = "", size = 6, bold = false, color = COLORS.WHITE},
-    {text = "FEATURES:", size = 10, bold = true, color = COLORS.ACCENT},
-    {text = "• Silent Aim — hits targets without missing", size = 9, bold = false, color = COLORS.WHITE},
-    {text = "• Soru Aimbot — auto-teleports on dash", size = 9, bold = false, color = COLORS.WHITE},
-    {text = "• Fast Attack — spams M1 at nearby enemies", size = 9, bold = false, color = COLORS.WHITE},
-    {text = "• Macro — records and replays your combo", size = 9, bold = false, color = COLORS.WHITE},
-    {text = "• ESP — see players/NPCs through walls", size = 9, bold = false, color = COLORS.WHITE},
-    {text = "• FOV Circle — visual aim area indicator", size = 9, bold = false, color = COLORS.WHITE},
-    {text = "", size = 6, bold = false, color = COLORS.WHITE},
-    {text = "MACRO GUIDE:", size = 10, bold = true, color = COLORS.ACCENT},
-    {text = "1. Enable Macro in the MACRO tab", size = 9, bold = false, color = COLORS.WHITE},
-    {text = "2. Tap '+ Add Block' to create steps", size = 9, bold = false, color = COLORS.WHITE},
-    {text = "3. Pick weapon (Melee/Fruit/Sword/Gun)", size = 9, bold = false, color = COLORS.WHITE},
-    {text = "4. Pick skill (Z/X/C/V/F/M1)", size = 9, bold = false, color = COLORS.WHITE},
-    {text = "5. Set Hold (how long) and Delay (wait)", size = 9, bold = false, color = COLORS.WHITE},
-    {text = "6. Tap the MACRO button to start", size = 9, bold = false, color = COLORS.WHITE},
-    {text = "7. Tap STOP to cancel, tap again to replay", size = 9, bold = false, color = COLORS.WHITE},
-    {text = "", size = 6, bold = false, color = COLORS.WHITE},
-    {text = "CONFIG:", size = 10, bold = true, color = COLORS.ACCENT},
-    {text = "• Save/Load/Reset in the CONFIG tab", size = 9, bold = false, color = COLORS.WHITE},
-    {text = "• Settings save automatically per change", size = 9, bold = false, color = COLORS.WHITE},
-    {text = "", size = 6, bold = false, color = COLORS.WHITE},
-    {text = "VERSION: v10.6", size = 10, bold = true, color = COLORS.ACCENT},
-    {text = "Thanks for using Ivory Hub 🦷", size = 10, bold = false, color = COLORS.WHITE},
+    "• Silent Aim (Players / NPCs / Both)",
+    "• Soru Aimbot (Flashstep auto-TP)",
+    "• Fast Attack (M1 spam, 25 studs)",
+    "• ESP (Box, Name, HP%, Distance)",
+    "• Macro (Slot + Skill + Delay)",
+    "• FOV Circle (V1 center / V2 mouse)",
+    "",
+    "MACRO: Tap the MACRO button on screen",
+    "to start. Tap again to stop.",
+    "",
+    "Thanks for using Ivory Hub 🦷"
 }
-
-local yOffset = 30
-for _, line in ipairs(aboutLines) do
-    local lbl = Text(AboutPage, line.text, line.size, line.bold)
-    lbl.Size = UDim2.new(1, -10, 0, line.size + 6)
-    lbl.Position = UDim2.new(0, 5, 0, yOffset)
-    lbl.TextColor3 = line.color
+for i, line in ipairs(aboutLines) do
+    local lbl = Text(AboutPage, line, 9, false)
+    lbl.Size = UDim2.new(1, -10, 0, 14)
+    lbl.Position = UDim2.new(0, 5, 0, 30 + (i-1)*15)
+    lbl.TextColor3 = COLORS.WHITE
     lbl.TextXAlignment = Enum.TextXAlignment.Left
-    yOffset = yOffset + line.size + 6
 end
 
 local Tabs = {
@@ -1682,15 +1354,6 @@ for _, d in ipairs(Tabs) do
 end
 SelectTab(Tabs[1].button, Tabs[1].page)
 
-task.spawn(function()
-    while Gui and Gui.Parent do
-        if MacroBtn then
-            MacroBtn.Visible = Features.Macro
-        end
-        task.wait(0.2)
-    end
-end)
-
 local Drag, DStart, SPos = false, nil, nil
 Top.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -1733,7 +1396,10 @@ Close.MouseButton1Click:Connect(function()
 end)
 
 print("========================================")
-print("        IVORY HUB v10.6 LOADED")
+print("        IVORY HUB v10.7 LOADED")
 print("========================================")
-print("Macro uses tool remotes | Sidebar on left")
+print("Silent Aim | Soru | Fast Attack | ESP | Macro")
+print("========================================")
+print("💡 Enable Macro in the MACRO tab → button appears on screen")
+print("💡 Tap MACRO to start, tap STOP to stop, drag to move")
 print("========================================")
