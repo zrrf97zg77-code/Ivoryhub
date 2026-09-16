@@ -1,5 +1,5 @@
 -- =============================================
--- IVORY HUB v10.9 - GRAVITY F AIMBOT
+-- IVORY HUB v10.9 - FULL MACRO EDITOR
 -- =============================================
 
 print("🦷 Ivory Hub v10.9 loading...")
@@ -88,12 +88,12 @@ local Features = {
     ESPPlayers = true,
     ESPNPCs = true,
     FastAttack = false,
-    GravityFAimbot = false,
     FOVCircle = false,
     FOVRadius = 150,
     FOVMode = "V1",
     Macro = false,
     MaxRange = 1000,
+    GravityF = false,
 }
 
 -- =============================================
@@ -346,47 +346,6 @@ pcall(function()
     mt.__namecall = function(self, ...)
         local args = {...}
         local method = getnamecallmethod()
-
-        -- =============================================
-        -- GRAVITY F AIMBOT CHECK
-        -- =============================================
-        if not checkcaller() and (method == "FireServer" or method == "InvokeServer") then
-            local isGravityF = false
-            local gravityFIndex = nil
-            for i, arg in ipairs(args) do
-                if typeof(arg) == "string" and string.upper(arg) == "F" then
-                    isGravityF = true
-                    gravityFIndex = i
-                    break
-                end
-            end
-
-            if isGravityF then
-                if not Features.GravityFAimbot then
-                    -- Gravity F OFF: normal fire, no aimbot
-                    return oldNamecall(self, ...)
-                end
-                -- Gravity F ON: aim at nearest target
-                local target = GetNearestTarget("Both", "360", 500)
-                if target then
-                    for i, arg in ipairs(args) do
-                        if typeof(arg) == "Vector3" then
-                            args[i] = target.Position
-                        elseif typeof(arg) == "CFrame" then
-                            args[i] = CFrame.new(target.Position)
-                        end
-                    end
-                    -- Face the target too
-                    task.spawn(function() FaceTarget(target) end)
-                    return oldNamecall(self, unpack(args))
-                end
-                return oldNamecall(self, ...)
-            end
-        end
-
-        -- =============================================
-        -- NORMAL SILENT AIM CHECK
-        -- =============================================
         if not checkcaller() and Features.SilentAim and TargetPos then
             if method == "FireServer" or method == "InvokeServer" then
                 for i, v in ipairs(args) do
@@ -403,7 +362,7 @@ end)
 
 task.spawn(function()
     while Gui and Gui.Parent do
-        if not Features.SilentAim and not Features.GravityFAimbot then
+        if not Features.SilentAim then
             TargetPos = nil
         else
             local t = GetNearestTarget(Features.SilentAimTarget, Features.SilentAimMode, Features.SilentAimDistance)
@@ -474,10 +433,62 @@ end
 player.CharacterAdded:Connect(function(c) task.wait(0.5) MonitorFlashstep(c) end)
 if player.Character then task.wait(0.5) MonitorFlashstep(player.Character) end
 
+-- =============================================
+-- GRAVITY F TELEPORT (Silent Aim for F skill)
+-- Blox Fruits specific - hooks CommF_ remote
+-- =============================================
+local GravityFTarget = nil
+
+-- Update Gravity F target continuously when enabled
+task.spawn(function()
+    while Gui and Gui.Parent do
+        if Features.GravityF then
+            GravityFTarget = GetNearestTarget(Features.SilentAimTarget, "FOV", Features.SilentAimDistance)
+        else
+            GravityFTarget = nil
+        end
+        task.wait(0.05)
+    end
+end)
+
+-- Hook CommF_ remote to redirect F skill to FOV target
+pcall(function()
+    local mt = getrawmetatable(game)
+    if not mt then return end
+    local oldNamecall = mt.__namecall
+    setreadonly(mt, false)
+
+    mt.__namecall = function(self, ...)
+        local args = {...}
+        local method = getnamecallmethod()
+
+        if not checkcaller() and Features.GravityF and GravityFTarget then
+            if method == "InvokeServer" or method == "FireServer" then
+                local remoteName = tostring(self)
+                if string.find(remoteName, "CommF_") then
+                    -- F skill action name in Blox Fruits is "ShootingStar"
+                    if args[1] == "ShootingStar" or args[1] == "F" then
+                        for i, v in ipairs(args) do
+                            if typeof(v) == "Vector3" then
+                                args[i] = GravityFTarget.Position
+                            elseif typeof(v) == "CFrame" then
+                                args[i] = CFrame.new(GravityFTarget.Position)
+                            end
+                        end
+                        return oldNamecall(self, unpack(args))
+                    end
+                end
+            end
+        end
+        return oldNamecall(self, ...)
+    end
+    setreadonly(mt, true)
+end)
+
 local FastAttack = (function()
     local module = {}
     local RegisterAttack, RegisterHit
-    local RANGE = 25
+    local RANGE = 50
     local SPEED = 0.08
 
     task.spawn(function()
@@ -750,7 +761,7 @@ end
 RunService.Heartbeat:Connect(function() pcall(UpdateESP) end)
 
 -- =============================================
--- MACRO SYSTEM - 10 SLOTS
+-- MACRO SYSTEM - 10 SLOTS, FULLY CUSTOMIZABLE
 -- =============================================
 local WEAPON_TYPES = {"Melee", "Fruit", "Sword", "Gun"}
 local SLOT_FOR_WEAPON = {
@@ -761,6 +772,7 @@ local SLOT_FOR_WEAPON = {
 }
 local SKILL_OPTIONS = {"Z", "X", "C", "V", "F", "M1", "OFF"}
 
+-- 10 slots, each: {weapon, skill, delay}
 local MacroSlots = {}
 for i = 1, 10 do
     MacroSlots[i] = {
@@ -780,6 +792,7 @@ local SLOT_KEYS = {
 local MacroRunning = false
 local MacroThread = nil
 
+-- Save/load macro config
 local function SaveMacroConfig()
     local data = ""
     for i, slot in ipairs(MacroSlots) do
@@ -838,11 +851,13 @@ local function ExecuteMacro()
             for i, item in ipairs(MacroSlots) do
                 if not MacroRunning then break end
                 if item.skill and item.skill ~= "OFF" then
+                    -- Swap weapon if needed
                     if item.weapon ~= lastWeapon then
                         local slotNum = SLOT_FOR_WEAPON[item.weapon] or 1
                         equipWeaponSlot(slotNum)
                         lastWeapon = item.weapon
                     end
+                    -- Fire skill
                     if item.skill == "M1" then
                         local vp = Camera.ViewportSize
                         pcall(function()
@@ -1269,7 +1284,7 @@ task.spawn(function()
         if Features.SilentAim then table.insert(active, "Silent Aim") end
         if Features.SoruAim then table.insert(active, "Soru") end
         if Features.FastAttack then table.insert(active, "Fast") end
-        if Features.GravityFAimbot then table.insert(active, "Gravity F") end
+        if Features.GravityF then table.insert(active, "Gravity F") end
         if Features.ESP then table.insert(active, "ESP") end
         if MacroRunning then table.insert(active, "Macro") end
         if statusLbl and statusLbl.Parent then
@@ -1313,22 +1328,25 @@ Toggle(FastPage, "Enable Fast Attack", Features.FastAttack, function(s)
     FastAttack:SetEnabled(s)
     SaveConfig()
 end)
-local fastInfo = Text(FastPage, "Attacks NPCs + Players within 25 studs", 9, false)
+local fastInfo = Text(FastPage, "Attacks NPCs + Players within 50 studs", 9, false)
 fastInfo.Size = UDim2.new(1, -10, 0, 14)
 fastInfo.TextColor3 = COLORS.GRAY
 fastInfo.TextXAlignment = Enum.TextXAlignment.Center
 
-Section(FastPage, "GRAVITY F AIMBOT")
-Toggle(FastPage, "Gravity F Aimbot", Features.GravityFAimbot, function(s)
-    Features.GravityFAimbot = s
+Section(FastPage, "GRAVITY F")
+Toggle(FastPage, "Gravity F Teleport", Features.GravityF, function(s)
+    Features.GravityF = s
+    if not s then GravityFTarget = nil end
     SaveConfig()
 end)
-local gravityInfo = Text(FastPage, "ON: Gravity F targets nearest enemy\nOFF: Gravity F fires normally", 9, false)
-gravityInfo.Size = UDim2.new(1, -10, 0, 28)
-gravityInfo.TextColor3 = COLORS.GRAY
-gravityInfo.TextXAlignment = Enum.TextXAlignment.Center
-gravityInfo.TextWrapped = true
+local gfInfo = Text(FastPage, "Silent aim for F skill only. Uses FOV circle.", 9, false)
+gfInfo.Size = UDim2.new(1, -10, 0, 14)
+gfInfo.TextColor3 = COLORS.GRAY
+gfInfo.TextXAlignment = Enum.TextXAlignment.Center
 
+-- =============================================
+-- MACRO PAGE - 10 slots, each with weapon/skill/delay
+-- =============================================
 Section(MacroPage, "MACRO")
 Toggle(MacroPage, "Enable Macro", Features.Macro, function(s)
     Features.Macro = s
@@ -1343,6 +1361,7 @@ macroInfo.TextXAlignment = Enum.TextXAlignment.Center
 
 Section(MacroPage, "SLOTS")
 
+-- Create 10 slot editors
 local slotUI = {}
 
 for i = 1, 10 do
@@ -1359,6 +1378,7 @@ for i = 1, 10 do
     numL.Size = UDim2.new(0, 22, 1, 0)
     numL.TextColor3 = COLORS.ACCENT
 
+    -- Weapon button
     local weaponBtn = Instance.new("TextButton")
     weaponBtn.Size = UDim2.new(0, 60, 0, 20)
     weaponBtn.Position = UDim2.new(0, 30, 0.5, -10)
@@ -1372,6 +1392,7 @@ for i = 1, 10 do
     Corner(weaponBtn, 5)
     Stroke(weaponBtn, Color3.fromRGB(60,60,60), 1)
 
+    -- Skill button
     local skillBtn = Instance.new("TextButton")
     skillBtn.Size = UDim2.new(0, 42, 0, 20)
     skillBtn.Position = UDim2.new(0, 94, 0.5, -10)
@@ -1385,11 +1406,13 @@ for i = 1, 10 do
     Corner(skillBtn, 5)
     Stroke(skillBtn, Color3.fromRGB(60,60,60), 1)
 
+    -- Delay label
     local delayLbl = Text(row, string.format("%.2fs", MacroSlots[i].delay), 9, false)
     delayLbl.Position = UDim2.new(0, 142, 0, 0)
     delayLbl.Size = UDim2.new(0, 48, 1, 0)
     delayLbl.TextColor3 = COLORS.GRAY
 
+    -- Delay slider (thin bar)
     local dBar = Instance.new("Frame")
     dBar.Size = UDim2.new(0, 90, 0, 3)
     dBar.Position = UDim2.new(1, -100, 0.5, -1.5)
@@ -1414,6 +1437,7 @@ for i = 1, 10 do
     dKnob.Parent = dBar
     Corner(dKnob, 8)
 
+    -- Wire up weapon cycle
     weaponBtn.MouseButton1Click:Connect(function()
         local cur = MacroSlots[i].weapon
         local idx = 1
@@ -1424,6 +1448,7 @@ for i = 1, 10 do
         SaveMacroConfig()
     end)
 
+    -- Wire up skill cycle
     skillBtn.MouseButton1Click:Connect(function()
         local cur = MacroSlots[i].skill
         local idx = 1
@@ -1434,6 +1459,7 @@ for i = 1, 10 do
         SaveMacroConfig()
     end)
 
+    -- Wire up delay slider
     local dragging = false
     local function updateDelayFromPos(pos)
         local ap = dBar.AbsolutePosition
@@ -1542,14 +1568,17 @@ local aboutLines = {
     "",
     "• Silent Aim (Players / NPCs / Both)",
     "• Soru Aimbot (auto-teleport on dash)",
-    "• Fast Attack (M1 spam, 25 studs)",
-    "• Gravity F Aimbot (targets nearest)",
+    "• Fast Attack (M1 spam, 50 studs)",
+    "• Gravity F (silent aim F skill only)",
     "• ESP (Box, Name, HP%, Distance)",
     "• Macro (10 customizable slots)",
     "",
-    "GRAVITY F: Toggle in FAST tab. When",
-    "ON, pressing F (Gravity fruit move)",
-    "aims at the nearest enemy.",
+    "MACRO: 10 slots. Tap weapon name to",
+    "cycle (Melee/Fruit/Sword/Gun). Tap",
+    "skill to cycle (Z/X/C/V/F/M1/OFF).",
+    "Drag the slider to change delay.",
+    "",
+    "Config auto-saves on change.",
     "",
     "Thanks for using Ivory Hub 🦷"
 }
@@ -1571,7 +1600,8 @@ local Tabs = {
     {name="SOCIALS", icon="💬", page=SocialsPage},
     {name="ABOUT", icon="📖", page=AboutPage},
 }
-local Current
+local CurrentTab
+
 local function SelectTab(button, page)
     for _, d in ipairs(Tabs) do
         if d.button then
@@ -1649,4 +1679,8 @@ end)
 
 print("========================================")
 print("        IVORY HUB v10.9 LOADED")
+print("========================================")
+print("Fast Attack: 50 studs")
+print("Gravity F: silent aim for F skill")
+print("Macro: 10 customizable slots")
 print("========================================")
