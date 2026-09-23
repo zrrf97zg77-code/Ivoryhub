@@ -1,8 +1,8 @@
 -- =============================================
--- IVORY HUB v11.1 - FULL MACRO EDITOR + GUN SILENT AIM
+-- IVORY HUB v11.2 - MOBILE GUN AIMBOT
 -- =============================================
 
-print("🦷 Ivory Hub v11.1 loading...")
+print("🦷 Ivory Hub v11.2 loading...")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -77,8 +77,8 @@ local Features = {
     SilentAimTarget = "Both",
     SilentAimMode = "360",
     SilentAimDistance = 500,
-    SilentAimGuns = true,       -- NEW: include guns
-    SilentAimMelee = true,      -- NEW: include melee/skills
+    SilentAimGuns = true,
+    SilentAimMelee = true,
     SoruAim = false,
     SoruTarget = "Both",
     SoruMode = "360",
@@ -97,9 +97,6 @@ local Features = {
     MaxRange = 1000,
 }
 
--- =============================================
--- CONFIG
--- =============================================
 local CONFIG_FOLDER = "IvoryHub"
 local CONFIG_FILE = CONFIG_FOLDER .. "/config.txt"
 local MACRO_FILE = CONFIG_FOLDER .. "/macro.txt"
@@ -117,9 +114,7 @@ local function SaveConfig()
         if type(v) == "boolean" then val = v and "true" or "false" end
         data = data .. k .. "=" .. val .. "\n"
     end
-    pcall(function()
-        if writefile then writefile(CONFIG_FILE, data) end
-    end)
+    pcall(function() if writefile then writefile(CONFIG_FILE, data) end end)
 end
 
 local function LoadConfig()
@@ -138,16 +133,13 @@ local function LoadConfig()
             end
         end
     end)
-    -- Only load non-boolean values (safer: avoids auto-enabling cheats on load)
     for k, v in pairs(loaded) do
         if Features[k] ~= nil and type(v) ~= "boolean" then Features[k] = v end
     end
 end
 
 local function ResetConfig()
-    for k, v in pairs(Features) do
-        if type(v) == "boolean" then Features[k] = false end
-    end
+    for k in pairs(Features) do if type(Features[k]) == "boolean" then Features[k] = false end end
     Features.SilentAimTarget = "Both"
     Features.SilentAimMode = "360"
     Features.SilentAimDistance = 500
@@ -172,13 +164,10 @@ LoadConfig()
 -- =============================================
 -- FOV
 -- =============================================
-local FOVGui = nil
-local FOVRing = nil
+local FOVGui, FOVRing = nil, nil
 
 local function getFOVCenter()
-    if Features.FOVMode == "V2" then
-        return UserInputService:GetMouseLocation()
-    end
+    if Features.FOVMode == "V2" then return UserInputService:GetMouseLocation() end
     return Camera.ViewportSize / 2
 end
 
@@ -212,13 +201,11 @@ local function UpdateFOVCircle()
             s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
             s.Parent = FOVRing
         end
-        if FOVRing then
-            local c = getFOVCenter()
-            local d = math.floor(Features.FOVRadius * 2)
-            FOVRing.Position = UDim2.new(0, c.X, 0, c.Y)
-            FOVRing.Size = UDim2.fromOffset(d, d)
-            FOVRing.Visible = true
-        end
+        local c = getFOVCenter()
+        local d = math.floor(Features.FOVRadius * 2)
+        FOVRing.Position = UDim2.new(0, c.X, 0, c.Y)
+        FOVRing.Size = UDim2.fromOffset(d, d)
+        FOVRing.Visible = true
     elseif FOVRing then
         FOVRing.Visible = false
     end
@@ -246,13 +233,27 @@ local function isCombatNPC(model, hum, root)
     return true
 end
 
+local function getHitboxPart(model)
+    local names = {"Head","UpperTorso","Torso","HumanoidRootPart","Root","Hitbox","Chest"}
+    for _, n in ipairs(names) do
+        local p = model:FindFirstChild(n, true)
+        if p and p:IsA("BasePart") then return p end
+    end
+    for _, p in ipairs(model:GetDescendants()) do
+        if p:IsA("BasePart") then return p end
+    end
+    return nil
+end
+
+local NPC_FOLDERS = {"Enemies","Enemy","Monsters","Monster","Mobs","Mob","Bosses","Boss","NPCs","Npcs"}
+
 local function GetNearestTarget(targetType, mode, maxDist)
     local char = player.Character
-    if not char then return nil end
+    if not char then return nil, nil end
     local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then return nil end
+    if not root then return nil, nil end
 
-    local best, bestDist = nil, math.huge
+    local best, bestPart, bestDist = nil, nil, math.huge
     local maxRange = maxDist or Features.MaxRange or 1000
 
     if targetType == "Players" or targetType == "Both" then
@@ -263,16 +264,11 @@ local function GetNearestTarget(targetType, mode, maxDist)
                 if hum and hum.Health > 0 and hrp then
                     local dist = (hrp.Position - root.Position).Magnitude
                     if dist <= maxRange then
-                        if mode == "FOV" then
-                            if isInFOV(hrp) and dist < bestDist then
-                                bestDist = dist
-                                best = hrp
-                            end
-                        else
-                            if dist < bestDist then
-                                bestDist = dist
-                                best = hrp
-                            end
+                        local ok = (mode ~= "FOV") or isInFOV(hrp)
+                        if ok and dist < bestDist then
+                            bestDist = dist
+                            best = hrp
+                            bestPart = plr.Character:FindFirstChild("Head") or hrp
                         end
                     end
                 end
@@ -281,27 +277,21 @@ local function GetNearestTarget(targetType, mode, maxDist)
     end
 
     if targetType == "NPCs" or targetType == "Both" then
-        local fns = {"Enemies","Enemy","Monsters","Monster","Mobs","Mob","Bosses","Boss"}
-        for _, name in ipairs(fns) do
+        for _, name in ipairs(NPC_FOLDERS) do
             local folder = workspace:FindFirstChild(name)
             if folder then
                 for _, npc in pairs(folder:GetChildren()) do
                     if npc:IsA("Model") then
                         local hum = npc:FindFirstChildOfClass("Humanoid")
                         local hrp = npc:FindFirstChild("HumanoidRootPart")
-                        if hum and hrp and isCombatNPC(npc, hum, hrp) then
+                        if hum and hrp and hum.Health > 0 and isCombatNPC(npc, hum, hrp) then
                             local dist = (hrp.Position - root.Position).Magnitude
                             if dist <= maxRange then
-                                if mode == "FOV" then
-                                    if isInFOV(hrp) and dist < bestDist then
-                                        bestDist = dist
-                                        best = hrp
-                                    end
-                                else
-                                    if dist < bestDist then
-                                        bestDist = dist
-                                        best = hrp
-                                    end
+                                local ok = (mode ~= "FOV") or isInFOV(hrp)
+                                if ok and dist < bestDist then
+                                    bestDist = dist
+                                    best = hrp
+                                    bestPart = getHitboxPart(npc)
                                 end
                             end
                         end
@@ -310,7 +300,7 @@ local function GetNearestTarget(targetType, mode, maxDist)
             end
         end
     end
-    return best
+    return best, bestPart
 end
 
 -- =============================================
@@ -336,11 +326,30 @@ local function IsHoldingGun()
 end
 
 -- =============================================
--- Silent Aim hooks
+-- Silent Aim — target tracking
 -- =============================================
 local TargetPos = nil
 local TargetPart = nil
 
+RunService.RenderStepped:Connect(function()
+    if not Features.SilentAim then
+        TargetPos = nil
+        TargetPart = nil
+        return
+    end
+    local hrp, part = GetNearestTarget(Features.SilentAimTarget, Features.SilentAimMode, Features.SilentAimDistance)
+    if hrp and part then
+        TargetPart = part
+        TargetPos = part.Position
+    else
+        TargetPos = nil
+        TargetPart = nil
+    end
+end)
+
+-- =============================================
+-- MOBILE GUN HOOK — intercept Camera ray functions
+-- =============================================
 pcall(function()
     local mt = getrawmetatable(game)
     if not mt then return end
@@ -349,23 +358,13 @@ pcall(function()
     setreadonly(mt, false)
 
     mt.__index = function(self, key)
-        if not checkcaller() and Features.SilentAim and self == mouse and TargetPart then
-            -- Only spoof when holding a gun AND gun aim is enabled
+        if not checkcaller() and Features.SilentAim and self == mouse and TargetPos then
             if Features.SilentAimGuns and IsHoldingGun() then
-                if key == "Hit" then
-                    return CFrame.new(TargetPos)
-                elseif key == "Target" then
-                    return TargetPart
-                elseif key == "UnitRay" then
-                    local origin = Camera.CFrame.Position
-                    local dir = (TargetPos - origin).Unit
-                    return Ray.new(origin, dir * 5000)
-                elseif key == "X" then
-                    local sp = Camera:WorldToViewportPoint(TargetPos)
-                    return sp.X
-                elseif key == "Y" then
-                    local sp = Camera:WorldToViewportPoint(TargetPos)
-                    return sp.Y
+                if key == "Hit" then return CFrame.new(TargetPos) end
+                if key == "Target" then return TargetPart end
+                if key == "UnitRay" then
+                    local o = Camera.CFrame.Position
+                    return Ray.new(o, (TargetPos - o).Unit * 5000)
                 end
             end
         end
@@ -373,12 +372,28 @@ pcall(function()
     end
 
     mt.__namecall = function(self, ...)
-        local args = {...}
         local method = getnamecallmethod()
+        local args = {...}
+
+        -- ===== MOBILE GUN AIMBOT: spoof camera rays =====
+        if not checkcaller()
+           and self == Camera
+           and Features.SilentAim
+           and Features.SilentAimGuns
+           and TargetPart
+           and IsHoldingGun() then
+            if method == "ScreenPointToRay" or method == "ViewportPointToRay" then
+                local sp, on = Camera:WorldToViewportPoint(TargetPart.Position)
+                if on then
+                    return oldNamecall(self, sp.X, sp.Y, unpack(args, 3))
+                end
+            end
+        end
+
+        -- ===== SKILL/MEELE AIMBOT: spoof remote args =====
         if not checkcaller() and Features.SilentAim and TargetPos and Features.SilentAimMelee then
             if method == "FireServer" or method == "InvokeServer" then
                 local nm = string.lower(tostring(self.Name or ""))
-                -- Don't touch movement / utility remotes
                 local skip = {"commf_","commu_","commt_","commr_","commun_"}
                 local ok = true
                 for _, s in ipairs(skip) do
@@ -393,26 +408,10 @@ pcall(function()
                 end
             end
         end
+
         return oldNamecall(self, ...)
     end
     setreadonly(mt, true)
-end)
-
-RunService.RenderStepped:Connect(function()
-    if not Features.SilentAim then
-        TargetPos = nil
-        TargetPart = nil
-        return
-    end
-    local t = GetNearestTarget(Features.SilentAimTarget, Features.SilentAimMode, Features.SilentAimDistance)
-    if t then
-        local head = t.Parent and t.Parent:FindFirstChild("Head")
-        TargetPart = head or t
-        TargetPos = TargetPart.Position
-    else
-        TargetPos = nil
-        TargetPart = nil
-    end
 end)
 
 -- =============================================
@@ -429,9 +428,7 @@ local function DoSoruTeleport()
     if not char then return end
     local hrp = char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
-    pcall(function()
-        hrp.CFrame = CFrame.new(target.Position + Vector3.new(0, 2, 0))
-    end)
+    pcall(function() hrp.CFrame = CFrame.new(target.Position + Vector3.new(0, 2, 0)) end)
     SoruCooldown = tick() + 0.8
 end
 
@@ -496,8 +493,7 @@ local FastAttack = (function()
             end
         end
 
-        local fns = {"Enemies","Enemy","Monsters","Monster","Mobs","Mob","Bosses","Boss"}
-        for _, name in ipairs(fns) do
+        for _, name in ipairs(NPC_FOLDERS) do
             local folder = workspace:FindFirstChild(name)
             if folder then
                 for _, npc in pairs(folder:GetChildren()) do
@@ -514,7 +510,6 @@ local FastAttack = (function()
                 end
             end
         end
-
         return list
     end
 
@@ -525,9 +520,7 @@ local FastAttack = (function()
             if target then
                 local hitParts = {}
                 for _, part in ipairs(target.model:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        hitParts[part] = true
-                    end
+                    if part:IsA("BasePart") then hitParts[part] = true end
                 end
                 RegisterHit:FireServer(target.root, hitParts)
             end
@@ -542,14 +535,9 @@ local FastAttack = (function()
                 if tick() - last < SPEED then return end
                 last = tick()
                 local targets = getTargets()
-                if #targets == 0 then
-                    fire(nil)
-                    return
-                end
+                if #targets == 0 then fire(nil) return end
                 table.sort(targets, function(a, b) return a.dist < b.dist end)
-                for _, t in ipairs(targets) do
-                    fire(t)
-                end
+                for _, t in ipairs(targets) do fire(t) end
             end)
         elseif not state and conn then
             conn:Disconnect()
@@ -646,11 +634,8 @@ local function CreateESP(target, displayName)
     healthFill.Parent = healthBg
     Corner(healthFill, 2)
 
-    ESPData[target] = {
-        gui = gui, box = box, stroke = stroke,
-        name = nameL, dist = distL,
-        healthBg = healthBg, healthFill = healthFill, hpText = hpText,
-    }
+    ESPData[target] = { gui=gui, box=box, stroke=stroke, name=nameL, dist=distL,
+        healthBg=healthBg, healthFill=healthFill, hpText=hpText }
 end
 
 local function UpdateESP()
@@ -669,10 +654,7 @@ local function UpdateESP()
         local hp = hum.Health / math.max(hum.MaxHealth, 1)
         d.healthFill.Size = UDim2.new(hp, 0, 1, 0)
         d.hpText.Text = math.floor(hp * 100) .. "%"
-        local col
-        if hp > 0.5 then col = COLORS.GREEN
-        elseif hp > 0.25 then col = COLORS.YELLOW
-        else col = COLORS.RED end
+        local col = hp > 0.5 and COLORS.GREEN or (hp > 0.25 and COLORS.YELLOW or COLORS.RED)
         d.healthFill.BackgroundColor3 = col
         d.hpText.TextColor3 = col
         d.box.Visible = Features.ESPBox
@@ -685,24 +667,20 @@ local function UpdateESP()
 
     if Features.ESPPlayers then
         for _, plr in pairs(Players:GetPlayers()) do
-            if plr ~= player then
-                local char = plr.Character
-                if char then
-                    local hum = char:FindFirstChildOfClass("Humanoid")
-                    local root = char:FindFirstChild("HumanoidRootPart")
-                    if hum and hum.Health > 0 and root then
-                        if not ESPData[plr] then CreateESP(plr, plr.Name) end
-                        current[plr] = true
-                        if ESPData[plr] then apply(ESPData[plr], plr.Name, root, hum) end
-                    end
+            if plr ~= player and plr.Character then
+                local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+                local root = plr.Character:FindFirstChild("HumanoidRootPart")
+                if hum and hum.Health > 0 and root then
+                    if not ESPData[plr] then CreateESP(plr, plr.Name) end
+                    current[plr] = true
+                    if ESPData[plr] then apply(ESPData[plr], plr.Name, root, hum) end
                 end
             end
         end
     end
 
     if Features.ESPNPCs then
-        local fns = {"Enemies","Enemy","Monsters","Monster","Mobs","Mob","Bosses","Boss"}
-        for _, name in ipairs(fns) do
+        for _, name in ipairs(NPC_FOLDERS) do
             local folder = Workspace:FindFirstChild(name)
             if folder then
                 for _, npc in pairs(folder:GetChildren()) do
@@ -734,12 +712,7 @@ RunService.Heartbeat:Connect(function() pcall(UpdateESP) end)
 -- MACRO SYSTEM
 -- =============================================
 local WEAPON_TYPES = {"Melee", "Fruit", "Sword", "Gun"}
-local SLOT_FOR_WEAPON = {
-    Melee = 1,
-    Gun   = 2,
-    Sword = 3,
-    Fruit = 4,
-}
+local SLOT_FOR_WEAPON = { Melee=1, Gun=2, Sword=3, Fruit=4 }
 local SKILL_OPTIONS = {"Z", "X", "C", "V", "F", "M1", "OFF"}
 
 local MacroSlots = {}
@@ -767,9 +740,7 @@ local function SaveMacroConfig()
     for i, slot in ipairs(MacroSlots) do
         data = data .. i .. "|" .. slot.weapon .. "|" .. slot.skill .. "|" .. slot.holdTime .. "|" .. slot.delayAfterMove .. "\n"
     end
-    pcall(function()
-        if writefile then writefile(MACRO_FILE, data) end
-    end)
+    pcall(function() if writefile then writefile(MACRO_FILE, data) end end)
 end
 
 local function LoadMacroConfig()
@@ -806,9 +777,7 @@ local function holdKey(kc, duration)
         VIM:SendKeyEvent(true, kc, false, game)
         task.wait(duration or 0.10)
     end)
-    pcall(function()
-        VIM:SendKeyEvent(false, kc, false, game)
-    end)
+    pcall(function() VIM:SendKeyEvent(false, kc, false, game) end)
     HeldKeys[kc] = nil
 end
 
@@ -856,7 +825,6 @@ local function ExecuteMacro()
                         equipWeaponSlot(slotNum)
                         lastWeapon = item.weapon
                     end
-
                     local hold = item.holdTime or 0.10
                     if item.skill == "M1" then
                         holdM1(hold)
@@ -864,7 +832,6 @@ local function ExecuteMacro()
                         local kc = Enum.KeyCode[item.skill]
                         if kc then holdKey(kc, hold) end
                     end
-
                     task.wait(item.delayAfterMove or 0.30)
                 end
             end
@@ -902,11 +869,10 @@ MacroBtn.Parent = Gui
 Corner(MacroBtn, 999)
 Stroke(MacroBtn, Color3.fromRGB(60, 60, 60), 1.5)
 
-local macroDrag = {active = false, moved = false, startPos = nil, startMouse = nil}
+local macroDrag = {active=false, moved=false, startPos=nil, startMouse=nil}
 
 MacroBtn.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1
-    or input.UserInputType == Enum.UserInputType.Touch then
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         macroDrag.active = true
         macroDrag.moved = false
         macroDrag.startMouse = input.Position
@@ -915,24 +881,19 @@ MacroBtn.InputBegan:Connect(function(input)
 end)
 
 MacroBtn.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1
-    or input.UserInputType == Enum.UserInputType.Touch then
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         macroDrag.active = false
     end
 end)
 
 UserInputService.InputChanged:Connect(function(input)
     if not macroDrag.active then return end
-    if input.UserInputType ~= Enum.UserInputType.MouseMovement
-    and input.UserInputType ~= Enum.UserInputType.Touch then return end
+    if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then return end
     local delta = input.Position - macroDrag.startMouse
     if delta.Magnitude > 6 then macroDrag.moved = true end
     MacroBtn.Position = UDim2.new(
-        macroDrag.startPos.X.Scale,
-        macroDrag.startPos.X.Offset + delta.X,
-        macroDrag.startPos.Y.Scale,
-        macroDrag.startPos.Y.Offset + delta.Y
-    )
+        macroDrag.startPos.X.Scale, macroDrag.startPos.X.Offset + delta.X,
+        macroDrag.startPos.Y.Scale, macroDrag.startPos.Y.Offset + delta.Y)
 end)
 
 MacroBtn.MouseButton1Click:Connect(function()
@@ -983,14 +944,6 @@ Top.BackgroundColor3 = COLORS.DARK
 Top.BorderSizePixel = 0
 Top.Parent = Main
 Corner(Top, 14)
-
-local headerLine = Instance.new("Frame")
-headerLine.Size = UDim2.new(1, -20, 0, 1)
-headerLine.Position = UDim2.new(0, 10, 1, -1)
-headerLine.BackgroundColor3 = COLORS.ACCENT
-headerLine.BackgroundTransparency = 0.5
-headerLine.BorderSizePixel = 0
-headerLine.Parent = Top
 
 local Title = Text(Top, "IVORY", 18, true)
 Title.Position = UDim2.new(0, 15, 0, 4)
@@ -1185,8 +1138,7 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1
-    or input.UserInputType == Enum.UserInputType.Touch then
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         ActiveSlider = nil
     end
 end)
@@ -1230,7 +1182,6 @@ local function Slider(parent, text, default, minVal, maxVal, cb, suffix)
     knob.Parent = bg
     Corner(knob, 20)
     Stroke(knob, COLORS.ACCENT, 2)
-
     local function UpdateSlider(v)
         local cv = math.clamp(v, minVal, maxVal)
         Value = cv
@@ -1240,14 +1191,12 @@ local function Slider(parent, text, default, minVal, maxVal, cb, suffix)
         lbl.Text = text .. ": " .. tostring(math.floor(cv * 100) / 100) .. (suffix or "")
         if cb then cb(cv) end
     end
-
     local function fromPos(pos)
         local ap = bg.AbsolutePosition
         local sz = bg.AbsoluteSize.X
         local rx = math.clamp(pos.X - ap.X, 0, sz)
         UpdateSlider(minVal + (rx / sz) * (maxVal - minVal))
     end
-
     local fullBar = Instance.new("TextButton")
     fullBar.Size = UDim2.new(1, 0, 0, 20)
     fullBar.Position = UDim2.new(0, 0, 0.5, -10)
@@ -1258,9 +1207,7 @@ local function Slider(parent, text, default, minVal, maxVal, cb, suffix)
         ActiveSlider = fromPos
         fromPos(UserInputService:GetMouseLocation())
     end)
-    knob.MouseButton1Down:Connect(function()
-        ActiveSlider = fromPos
-    end)
+    knob.MouseButton1Down:Connect(function() ActiveSlider = fromPos end)
     return h
 end
 
@@ -1274,12 +1221,12 @@ local SocialsPage = CreatePage("Socials")
 local AboutPage = CreatePage("About")
 
 Section(MainPage, "IVORY HUB")
-local mt = Text(MainPage, "IVORY HUB v11.1", 16, true)
-mt.Size = UDim2.new(1, 0, 0, 24)
-mt.TextXAlignment = Enum.TextXAlignment.Center
-mt.TextColor3 = COLORS.WHITE
+local mtL = Text(MainPage, "IVORY HUB v11.2", 16, true)
+mtL.Size = UDim2.new(1, 0, 0, 24)
+mtL.TextXAlignment = Enum.TextXAlignment.Center
+mtL.TextColor3 = COLORS.WHITE
 
-local msub = Text(MainPage, "Blox Fruits PVP Hub", 10, false)
+local msub = Text(MainPage, "Blox Fruits Mobile PVP", 10, false)
 msub.Size = UDim2.new(1, 0, 0, 16)
 msub.Position = UDim2.new(0, 0, 0, 26)
 msub.TextXAlignment = Enum.TextXAlignment.Center
@@ -1318,7 +1265,6 @@ tipLbl.Size = UDim2.new(1, -10, 0, 16)
 tipLbl.Position = UDim2.new(0, 5, 0, 85)
 tipLbl.TextColor3 = COLORS.GRAY
 
--- ===== Combat =====
 Section(CombatPage, "SILENT AIM")
 Toggle(CombatPage, "Enable Silent Aim", Features.SilentAim, function(s) Features.SilentAim = s SaveConfig() end)
 Toggle(CombatPage, "Aim Guns (M1)", Features.SilentAimGuns, function(s) Features.SilentAimGuns = s SaveConfig() end)
@@ -1348,7 +1294,6 @@ fastInfo.Size = UDim2.new(1, -10, 0, 14)
 fastInfo.TextColor3 = COLORS.GRAY
 fastInfo.TextXAlignment = Enum.TextXAlignment.Center
 
--- ===== Macro =====
 Section(MacroPage, "MACRO")
 Toggle(MacroPage, "Enable Macro", Features.Macro, function(s)
     Features.Macro = s
@@ -1507,15 +1452,13 @@ for i = 1, 10 do
     end
 
     hBar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             ActiveSlider = updateHoldFromPos
             updateHoldFromPos(input.Position)
         end
     end)
     hKnob.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             ActiveSlider = updateHoldFromPos
         end
     end)
@@ -1534,28 +1477,20 @@ for i = 1, 10 do
     end
 
     dBar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             ActiveSlider = updateDelayFromPos
             updateDelayFromPos(input.Position)
         end
     end)
     dKnob.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             ActiveSlider = updateDelayFromPos
         end
     end)
 
-    slotUI[i] = {
-        weaponBtn = weaponBtn,
-        skillBtn = skillBtn,
-        holdLbl = holdLbl,
-        delayLbl = delayLbl,
-    }
+    slotUI[i] = { weaponBtn=weaponBtn, skillBtn=skillBtn, holdLbl=holdLbl, delayLbl=delayLbl }
 end
 
--- ===== Visual =====
 Section(VisualPage, "ESP")
 Toggle(VisualPage, "Enable ESP", Features.ESP, function(s) Features.ESP = s SaveConfig() end)
 Toggle(VisualPage, "Box", Features.ESPBox, function(s) Features.ESPBox = s SaveConfig() end)
@@ -1565,19 +1500,13 @@ Toggle(VisualPage, "Distance", Features.ESPDistance, function(s) Features.ESPDis
 Toggle(VisualPage, "Players", Features.ESPPlayers, function(s) Features.ESPPlayers = s SaveConfig() end)
 Toggle(VisualPage, "NPCs", Features.ESPNPCs, function(s) Features.ESPNPCs = s SaveConfig() end)
 
--- ===== Config =====
 Section(ConfigPage, "CONFIG")
 Button(ConfigPage, "Save Config", function() SaveConfig() SaveMacroConfig() end)
 Button(ConfigPage, "Load Config", function() LoadConfig() LoadMacroConfig() end)
 Button(ConfigPage, "Reset Config", function()
     ResetConfig()
     for i = 1, 10 do
-        MacroSlots[i] = {
-            weapon = "Melee",
-            skill = (i == 1 and "Z") or (i == 2 and "X") or "OFF",
-            holdTime = 0.10,
-            delayAfterMove = 0.30,
-        }
+        MacroSlots[i] = { weapon="Melee", skill=(i==1 and "Z") or (i==2 and "X") or "OFF", holdTime=0.10, delayAfterMove=0.30 }
         if slotUI[i] then
             slotUI[i].weaponBtn.Text = MacroSlots[i].weapon
             slotUI[i].skillBtn.Text = MacroSlots[i].skill
@@ -1589,7 +1518,6 @@ Button(ConfigPage, "Reset Config", function()
 end)
 Button(ConfigPage, "Unload UI", function() SaveConfig() SaveMacroConfig() StopMacro() Gui:Destroy() end)
 
--- ===== Socials =====
 Section(SocialsPage, "⭐ JOIN US ⭐")
 local socialTitle = Text(SocialsPage, "Ivory & Rayo's Discord", 12, true)
 socialTitle.Size = UDim2.new(1, 0, 0, 20)
@@ -1619,22 +1547,18 @@ end
 socialCard("IVORY", "Ivory999", 55)
 socialCard("RAYO", "Rayo06996", 125)
 
--- ===== About =====
 Section(AboutPage, "📖 ABOUT IVORY HUB")
 local aboutLines = {
-    "Ivory Hub v11.1 - Mobile PVP",
+    "Ivory Hub v11.2 - Mobile Gun Aimbot",
     "",
-    "• Silent Aim (Guns + Melee/Skills)",
-    "• Soru Aimbot (auto-teleport on dash)",
-    "• Fast Attack (M1 spam, 50 studs)",
-    "• ESP (Box, Name, HP%, Distance)",
-    "• Macro (10 slots, hold + delay)",
+    "• Silent Aim (Guns + Skills)",
+    "• Gun M1 aimbot via camera ray spoof",
+    "• Soru, Fast Attack, ESP, Macro",
     "",
-    "MACRO PER SLOT:",
-    "• Weapon: Melee/Gun/Sword/Fruit",
-    "• Skill: Z/X/C/V/F/M1/OFF",
-    "• Hold Time: max 3s",
-    "• Delay After Move: max 5s",
+    "GUN AIMBOT TIPS:",
+    "• Hold a gun and shoot normally",
+    "• Keep target within Aim Distance",
+    "• Works on Players + NPCs",
     "",
     "Config auto-saves on change.",
     "",
@@ -1648,7 +1572,6 @@ for i, line in ipairs(aboutLines) do
     lbl.TextXAlignment = Enum.TextXAlignment.Left
 end
 
--- ===== Tabs =====
 local Tabs = {
     {name="MAIN", icon="🏠", page=MainPage},
     {name="COMBAT", icon="⚔️", page=CombatPage},
@@ -1659,7 +1582,6 @@ local Tabs = {
     {name="SOCIALS", icon="💬", page=SocialsPage},
     {name="ABOUT", icon="📖", page=AboutPage},
 }
-local CurrentTab
 
 local function SelectTab(button, page)
     for _, d in ipairs(Tabs) do
@@ -1672,7 +1594,6 @@ local function SelectTab(button, page)
     TweenIt(button, {BackgroundColor3 = COLORS.ACCENT}, 0.2)
     button.TextColor3 = COLORS.WHITE
     page.Visible = true
-    CurrentTab = page
 end
 
 for _, d in ipairs(Tabs) do
@@ -1694,7 +1615,6 @@ for _, d in ipairs(Tabs) do
 end
 SelectTab(Tabs[1].button, Tabs[1].page)
 
--- ===== Drag =====
 local Drag, DStart, SPos = false, nil, nil
 Top.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -1738,9 +1658,8 @@ Close.MouseButton1Click:Connect(function()
 end)
 
 print("========================================")
-print("        IVORY HUB v11.1 LOADED")
+print("        IVORY HUB v11.2 LOADED")
 print("========================================")
-print("Silent Aim: Guns (M1) + Melee/Skills")
-print("Fast Attack: 50 studs")
-print("Macro: 10 slots with Hold + Delay")
+print("Mobile Gun M1 Aimbot: ACTIVE")
+print("Hooks: ScreenPointToRay / ViewportPointToRay")
 print("========================================")
