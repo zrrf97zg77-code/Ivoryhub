@@ -1,8 +1,8 @@
 -- =============================================
--- IVORY HUB v11.2 - MOBILE GUN AIMBOT
+-- IVORY HUB v11.4 - HITBOX EXPANDER
 -- =============================================
 
-print("🦷 Ivory Hub v11.2 loading...")
+print("🦷 Ivory Hub v11.4 loading...")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -90,6 +90,14 @@ local Features = {
     ESPPlayers = true,
     ESPNPCs = true,
     FastAttack = false,
+    FastAttackRange = 60,
+    FastAttackSpeed = 0.05,
+    Hitbox = false,
+    HitboxSize = 12,
+    HitboxRange = 500,
+    HitboxPlayers = true,
+    HitboxNPCs = true,
+    HitboxVisual = true,
     FOVCircle = false,
     FOVRadius = 150,
     FOVMode = "V1",
@@ -153,6 +161,13 @@ local function ResetConfig()
     Features.ESPDistance = true
     Features.ESPPlayers = true
     Features.ESPNPCs = true
+    Features.FastAttackRange = 60
+    Features.FastAttackSpeed = 0.05
+    Features.HitboxSize = 12
+    Features.HitboxRange = 500
+    Features.HitboxPlayers = true
+    Features.HitboxNPCs = true
+    Features.HitboxVisual = true
     Features.FOVRadius = 150
     Features.FOVMode = "V1"
     Features.MaxRange = 1000
@@ -348,7 +363,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- =============================================
--- MOBILE GUN HOOK — intercept Camera ray functions
+-- SILENT AIM HOOK (safe, no camera freeze)
 -- =============================================
 pcall(function()
     local mt = getrawmetatable(game)
@@ -375,23 +390,7 @@ pcall(function()
         local method = getnamecallmethod()
         local args = {...}
 
-        -- ===== MOBILE GUN AIMBOT: spoof camera rays =====
-        if not checkcaller()
-           and self == Camera
-           and Features.SilentAim
-           and Features.SilentAimGuns
-           and TargetPart
-           and IsHoldingGun() then
-            if method == "ScreenPointToRay" or method == "ViewportPointToRay" then
-                local sp, on = Camera:WorldToViewportPoint(TargetPart.Position)
-                if on then
-                    return oldNamecall(self, sp.X, sp.Y, unpack(args, 3))
-                end
-            end
-        end
-
-        -- ===== SKILL/MEELE AIMBOT: spoof remote args =====
-        if not checkcaller() and Features.SilentAim and TargetPos and Features.SilentAimMelee then
+        if not checkcaller() and Features.SilentAim and TargetPos then
             if method == "FireServer" or method == "InvokeServer" then
                 local nm = string.lower(tostring(self.Name or ""))
                 local skip = {"commf_","commu_","commt_","commr_","commun_"}
@@ -400,11 +399,25 @@ pcall(function()
                     if string.find(nm, s, 1, true) then ok = false break end
                 end
                 if ok then
-                    for i, v in ipairs(args) do
-                        if typeof(v) == "Vector3" then args[i] = TargetPos
-                        elseif typeof(v) == "CFrame" then args[i] = CFrame.new(TargetPos) end
+                    if Features.SilentAimMelee then
+                        local changed = false
+                        for i, v in ipairs(args) do
+                            if typeof(v) == "Vector3" then args[i] = TargetPos changed = true
+                            elseif typeof(v) == "CFrame" then args[i] = CFrame.new(TargetPos) changed = true end
+                        end
+                        if changed then return oldNamecall(self, unpack(args)) end
                     end
-                    return oldNamecall(self, unpack(args))
+                    if Features.SilentAimGuns then
+                        if string.find(nm, "shoot") or string.find(nm, "fire")
+                           or string.find(nm, "gun") or string.find(nm, "hit") then
+                            local changed = false
+                            for i, v in ipairs(args) do
+                                if typeof(v) == "Vector3" then args[i] = TargetPos changed = true
+                                elseif typeof(v) == "CFrame" then args[i] = CFrame.new(TargetPos) changed = true end
+                            end
+                            if changed then return oldNamecall(self, unpack(args)) end
+                        end
+                    end
                 end
             end
         end
@@ -412,6 +425,142 @@ pcall(function()
         return oldNamecall(self, ...)
     end
     setreadonly(mt, true)
+end)
+
+-- =============================================
+-- HITBOX EXPANDER
+-- =============================================
+local HitboxVisuals = {}  -- [model] = {visual = box part, hitbox = real hitbox part}
+
+local function getOrCreateHitbox(model)
+    local hitbox = model:FindFirstChild("IvoryHitbox")
+    if hitbox and hitbox:IsA("BasePart") then return hitbox end
+
+    local hrp = model:FindFirstChild("HumanoidRootPart")
+    if not hrp then return nil end
+
+    hitbox = Instance.new("Part")
+    hitbox.Name = "IvoryHitbox"
+    hitbox.Size = hrp.Size * Features.HitboxSize
+    hitbox.Transparency = 1
+    hitbox.CanCollide = false
+    hitbox.CanTouch = true
+    hitbox.CanQuery = true
+    hitbox.Massless = true
+    hitbox.Anchored = false
+    hitbox.CFrame = hrp.CFrame
+    hitbox.Parent = model
+
+    local weld = Instance.new("WeldConstraint")
+    weld.Part0 = hrp
+    weld.Part1 = hitbox
+    weld.Parent = hitbox
+
+    return hitbox
+end
+
+local function getOrCreateVisual(model, hitbox)
+    local visual = model:FindFirstChild("IvoryHitboxVisual")
+    if visual then return visual end
+
+    visual = Instance.new("SelectionBox")
+    visual.Name = "IvoryHitboxVisual"
+    visual.Adornee = hitbox
+    visual.LineThickness = 0.03
+    visual.Color3 = COLORS.ACCENT
+    visual.Transparency = 0.3
+    visual.SurfaceTransparency = 1
+    visual.Parent = hitbox
+    return visual
+end
+
+local function updateHitbox(model)
+    if model == player.Character then return end
+    local hum = model:FindFirstChildOfClass("Humanoid")
+    if not hum or hum.Health <= 0 then
+        -- Clean up dead
+        local hb = model:FindFirstChild("IvoryHitbox")
+        if hb then hb:Destroy() end
+        HitboxVisuals[model] = nil
+        return
+    end
+
+    local myChar = player.Character
+    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return end
+    local hrp = model:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    local dist = (hrp.Position - myRoot.Position).Magnitude
+    if dist > Features.HitboxRange then
+        local hb = model:FindFirstChild("IvoryHitbox")
+        if hb then hb:Destroy() end
+        HitboxVisuals[model] = nil
+        return
+    end
+
+    local hitbox = getOrCreateHitbox(model)
+    if hitbox then
+        hitbox.Size = hrp.Size * Features.HitboxSize
+        if Features.HitboxVisual then
+            getOrCreateVisual(model, hitbox)
+        else
+            local v = model:FindFirstChild("IvoryHitboxVisual")
+            if v then v:Destroy() end
+            local v2 = hitbox:FindFirstChild("IvoryHitboxVisual")
+            if v2 then v2:Destroy() end
+        end
+    end
+end
+
+local function clearAllHitboxes()
+    for _, model in ipairs(workspace:GetDescendants()) do
+        if model.Name == "IvoryHitbox" or model.Name == "IvoryHitboxVisual" then
+            pcall(function() model:Destroy() end)
+        end
+    end
+    HitboxVisuals = {}
+end
+
+RunService.Heartbeat:Connect(function()
+    if not Features.Hitbox then
+        -- Clean up if turned off
+        if next(HitboxVisuals) ~= nil or #(workspace:GetChildren()) > 0 then
+            -- Only clean occasionally to reduce lag
+        end
+        return
+    end
+
+    if Features.HitboxPlayers then
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= player and plr.Character then
+                pcall(updateHitbox, plr.Character)
+            end
+        end
+    end
+    if Features.HitboxNPCs then
+        for _, folderName in ipairs(NPC_FOLDERS) do
+            local folder = workspace:FindFirstChild(folderName)
+            if folder then
+                for _, npc in ipairs(folder:GetChildren()) do
+                    if npc:IsA("Model") then
+                        pcall(updateHitbox, npc)
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- Cleanup when toggled off
+local hitboxWasOn = false
+RunService.Heartbeat:Connect(function()
+    if hitboxWasOn and not Features.Hitbox then
+        clearAllHitboxes()
+        hitboxWasOn = false
+    elseif Features.Hitbox and not hitboxWasOn then
+        hitboxWasOn = true
+    end
 end)
 
 -- =============================================
@@ -461,8 +610,7 @@ if player.Character then task.wait(0.5) MonitorFlashstep(player.Character) end
 local FastAttack = (function()
     local module = {}
     local RegisterAttack, RegisterHit
-    local RANGE = 50
-    local SPEED = 0.08
+    local conn, last = nil, 0
 
     task.spawn(function()
         local modules = ReplicatedStorage:WaitForChild("Modules", 10)
@@ -479,6 +627,7 @@ local FastAttack = (function()
         if not myChar then return list end
         local myRoot = myChar:FindFirstChild("HumanoidRootPart")
         if not myRoot then return list end
+        local range = Features.FastAttackRange or 60
 
         for _, plr in pairs(Players:GetPlayers()) do
             if plr ~= player and plr.Character then
@@ -486,7 +635,7 @@ local FastAttack = (function()
                 local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
                 if hum and hum.Health > 0 and hrp then
                     local dist = (hrp.Position - myRoot.Position).Magnitude
-                    if dist <= RANGE then
+                    if dist <= range then
                         table.insert(list, {model = plr.Character, root = hrp, dist = dist})
                     end
                 end
@@ -502,7 +651,7 @@ local FastAttack = (function()
                         local hrp = npc:FindFirstChild("HumanoidRootPart")
                         if hum and hum.Health > 0 and hrp and isCombatNPC(npc, hum, hrp) then
                             local dist = (hrp.Position - myRoot.Position).Magnitude
-                            if dist <= RANGE then
+                            if dist <= range then
                                 table.insert(list, {model = npc, root = hrp, dist = dist})
                             end
                         end
@@ -527,12 +676,12 @@ local FastAttack = (function()
         end)
     end
 
-    local conn, last = nil, 0
     function module:SetEnabled(state)
         if state and not conn then
             conn = RunService.Heartbeat:Connect(function()
                 if not Features.FastAttack then return end
-                if tick() - last < SPEED then return end
+                local speed = Features.FastAttackSpeed or 0.05
+                if tick() - last < speed then return end
                 last = tick()
                 local targets = getTargets()
                 if #targets == 0 then fire(nil) return end
@@ -1216,12 +1365,13 @@ local CombatPage = CreatePage("Combat")
 local FastPage = CreatePage("Fast")
 local MacroPage = CreatePage("Macro")
 local VisualPage = CreatePage("Visual")
+local HitboxPage = CreatePage("Hitbox")
 local ConfigPage = CreatePage("Config")
 local SocialsPage = CreatePage("Socials")
 local AboutPage = CreatePage("About")
 
 Section(MainPage, "IVORY HUB")
-local mtL = Text(MainPage, "IVORY HUB v11.2", 16, true)
+local mtL = Text(MainPage, "IVORY HUB v11.4", 16, true)
 mtL.Size = UDim2.new(1, 0, 0, 24)
 mtL.TextXAlignment = Enum.TextXAlignment.Center
 mtL.TextColor3 = COLORS.WHITE
@@ -1244,6 +1394,7 @@ task.spawn(function()
         if Features.SilentAim then table.insert(active, "Silent Aim") end
         if Features.SoruAim then table.insert(active, "Soru") end
         if Features.FastAttack then table.insert(active, "Fast") end
+        if Features.Hitbox then table.insert(active, "Hitbox") end
         if Features.ESP then table.insert(active, "ESP") end
         if MacroRunning then table.insert(active, "Macro") end
         if statusLbl and statusLbl.Parent then
@@ -1283,16 +1434,40 @@ Toggle(CombatPage, "Show FOV Circle", Features.FOVCircle, function(s) Features.F
 Slider(CombatPage, "FOV Radius", Features.FOVRadius, 10, 500, function(v) Features.FOVRadius = v SaveConfig() end)
 CycleButton(CombatPage, "FOV Mode", {"V1","V2"}, Features.FOVMode, function(v) Features.FOVMode = v SaveConfig() end)
 
-Section(FastPage, "FAST ATTACK")
+Section(FastPage, "FAST ATTACK (SUPER)")
 Toggle(FastPage, "Enable Fast Attack", Features.FastAttack, function(s)
     Features.FastAttack = s
     FastAttack:SetEnabled(s)
     SaveConfig()
 end)
-local fastInfo = Text(FastPage, "Attacks NPCs + Players within 50 studs", 9, false)
+Slider(FastPage, "Range", Features.FastAttackRange, 10, 150, function(v) Features.FastAttackRange = v SaveConfig() end, " studs")
+Slider(FastPage, "Speed", Features.FastAttackSpeed, 0.02, 0.30, function(v) Features.FastAttackSpeed = v SaveConfig() end, "s")
+
+local fastInfo = Text(FastPage, "Sends attack remote directly — works on mobile + NPCs", 9, false)
 fastInfo.Size = UDim2.new(1, -10, 0, 14)
 fastInfo.TextColor3 = COLORS.GRAY
 fastInfo.TextXAlignment = Enum.TextXAlignment.Center
+
+-- ===== HITBOX PAGE =====
+Section(HitboxPage, "HITBOX EXPANDER")
+Toggle(HitboxPage, "Enable Hitbox", Features.Hitbox, function(s)
+    Features.Hitbox = s
+    if not s then clearAllHitboxes() end
+    SaveConfig()
+end)
+Toggle(HitboxPage, "Show Box Outline", Features.HitboxVisual, function(s) Features.HitboxVisual = s SaveConfig() end)
+Toggle(HitboxPage, "Players", Features.HitboxPlayers, function(s) Features.HitboxPlayers = s SaveConfig() end)
+Toggle(HitboxPage, "NPCs", Features.HitboxNPCs, function(s) Features.HitboxNPCs = s SaveConfig() end)
+
+Section(HitboxPage, "SIZE & RANGE")
+Slider(HitboxPage, "Size Multiplier", Features.HitboxSize, 2, 40, function(v) Features.HitboxSize = v SaveConfig() end, "x")
+Slider(HitboxPage, "Range", Features.HitboxRange, 50, 2000, function(v) Features.HitboxRange = v SaveConfig() end, "m")
+
+local hitboxInfo = Text(HitboxPage, "Character looks normal, hitbox is invisible. Box outline shows the size.", 9, false)
+hitboxInfo.Size = UDim2.new(1, -10, 0, 28)
+hitboxInfo.TextColor3 = COLORS.GRAY
+hitboxInfo.TextXAlignment = Enum.TextXAlignment.Center
+hitboxInfo.TextWrapped = true
 
 Section(MacroPage, "MACRO")
 Toggle(MacroPage, "Enable Macro", Features.Macro, function(s)
@@ -1516,7 +1691,7 @@ Button(ConfigPage, "Reset Config", function()
     end
     SaveMacroConfig()
 end)
-Button(ConfigPage, "Unload UI", function() SaveConfig() SaveMacroConfig() StopMacro() Gui:Destroy() end)
+Button(ConfigPage, "Unload UI", function() SaveConfig() SaveMacroConfig() StopMacro() clearAllHitboxes() Gui:Destroy() end)
 
 Section(SocialsPage, "⭐ JOIN US ⭐")
 local socialTitle = Text(SocialsPage, "Ivory & Rayo's Discord", 12, true)
@@ -1549,18 +1724,19 @@ socialCard("RAYO", "Rayo06996", 125)
 
 Section(AboutPage, "📖 ABOUT IVORY HUB")
 local aboutLines = {
-    "Ivory Hub v11.2 - Mobile Gun Aimbot",
+    "Ivory Hub v11.4 - Hitbox Expander",
     "",
-    "• Silent Aim (Guns + Skills)",
-    "• Gun M1 aimbot via camera ray spoof",
+    "• Hitbox Expander (NEW)",
+    "  Invisible box, character looks normal",
+    "  Works with ALL M1s (gun, melee, sword)",
+    "",
+    "• Silent Aim (skills + guns)",
     "• Soru, Fast Attack, ESP, Macro",
     "",
-    "GUN AIMBOT TIPS:",
-    "• Hold a gun and shoot normally",
-    "• Keep target within Aim Distance",
-    "• Works on Players + NPCs",
-    "",
-    "Config auto-saves on change.",
+    "HITBOX TIP:",
+    "Bigger size = easier to hit",
+    "Range 500 = hits everything nearby",
+    "Box outline shows the hitbox size",
     "",
     "Thanks for using Ivory Hub 🦷"
 }
@@ -1576,6 +1752,7 @@ local Tabs = {
     {name="MAIN", icon="🏠", page=MainPage},
     {name="COMBAT", icon="⚔️", page=CombatPage},
     {name="FAST", icon="⚡", page=FastPage},
+    {name="HITBOX", icon="📦", page=HitboxPage},
     {name="MACRO", icon="🎮", page=MacroPage},
     {name="VISUAL", icon="👁️", page=VisualPage},
     {name="CONFIG", icon="⚙️", page=ConfigPage},
@@ -1652,14 +1829,15 @@ Close.MouseButton1Click:Connect(function()
     SaveConfig()
     SaveMacroConfig()
     StopMacro()
+    clearAllHitboxes()
     TweenIt(Main, {Size = UDim2.new(0, 0, 0, 0)})
     task.wait(.3)
     Gui:Destroy()
 end)
 
 print("========================================")
-print("        IVORY HUB v11.2 LOADED")
+print("        IVORY HUB v11.4 LOADED")
 print("========================================")
-print("Mobile Gun M1 Aimbot: ACTIVE")
-print("Hooks: ScreenPointToRay / ViewportPointToRay")
+print("NEW: Hitbox Expander (invisible + outline)")
+print("Works with all M1 weapons")
 print("========================================")
