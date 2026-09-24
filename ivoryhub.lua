@@ -1,8 +1,8 @@
 -- =============================================
--- IVORY HUB v11.5 - WORKING HITBOX EXPANDER
+-- IVORY HUB v11.6 - HITBOX FIXED (Players Only by default)
 -- =============================================
 
-print("🦷 Ivory Hub v11.5 loading...")
+print("🦷 Ivory Hub v11.6 loading...")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -93,12 +93,11 @@ local Features = {
     FastAttackRange = 60,
     FastAttackSpeed = 0.05,
     Hitbox = false,
-    HitboxSize = 3,
+    HitboxSize = 5,
     HitboxRange = 500,
     HitboxPlayers = true,
-    HitboxNPCs = true,
+    HitboxNPCs = false,
     HitboxVisual = true,
-    HitboxTransparency = 0.7,
     FOVCircle = false,
     FOVRadius = 150,
     FOVMode = "V1",
@@ -164,12 +163,11 @@ local function ResetConfig()
     Features.ESPNPCs = true
     Features.FastAttackRange = 60
     Features.FastAttackSpeed = 0.05
-    Features.HitboxSize = 3
+    Features.HitboxSize = 5
     Features.HitboxRange = 500
     Features.HitboxPlayers = true
-    Features.HitboxNPCs = true
+    Features.HitboxNPCs = false
     Features.HitboxVisual = true
-    Features.HitboxTransparency = 0.7
     Features.FOVRadius = 150
     Features.FOVMode = "V1"
     Features.MaxRange = 1000
@@ -264,7 +262,8 @@ end
 
 local NPC_FOLDERS = {"Enemies","Enemy","Monsters","Monster","Mobs","Mob","Bosses","Boss","NPCs","Npcs"}
 
-local function GetNearestTarget(targetType, mode, maxDist)
+-- UPDATED: GetNearestTarget now filters properly for soru
+local function GetNearestTarget(targetType, mode, maxDist, requireCombat)
     local char = player.Character
     if not char then return nil, nil end
     local root = char:FindFirstChild("HumanoidRootPart")
@@ -301,14 +300,23 @@ local function GetNearestTarget(targetType, mode, maxDist)
                     if npc:IsA("Model") then
                         local hum = npc:FindFirstChildOfClass("Humanoid")
                         local hrp = npc:FindFirstChild("HumanoidRootPart")
-                        if hum and hrp and hum.Health > 0 and isCombatNPC(npc, hum, hrp) then
-                            local dist = (hrp.Position - root.Position).Magnitude
-                            if dist <= maxRange then
-                                local ok = (mode ~= "FOV") or isInFOV(hrp)
-                                if ok and dist < bestDist then
-                                    bestDist = dist
-                                    best = hrp
-                                    bestPart = getHitboxPart(npc)
+                        if hum and hrp and hum.Health > 0 then
+                            -- Combat check (always for soru, always for silent aim)
+                            local valid = true
+                            if requireCombat then
+                                valid = isCombatNPC(npc, hum, hrp)
+                            else
+                                valid = isCombatNPC(npc, hum, hrp)
+                            end
+                            if valid then
+                                local dist = (hrp.Position - root.Position).Magnitude
+                                if dist <= maxRange then
+                                    local ok = (mode ~= "FOV") or isInFOV(hrp)
+                                    if ok and dist < bestDist then
+                                        bestDist = dist
+                                        best = hrp
+                                        bestPart = getHitboxPart(npc)
+                                    end
                                 end
                             end
                         end
@@ -354,7 +362,7 @@ RunService.RenderStepped:Connect(function()
         TargetPart = nil
         return
     end
-    local hrp, part = GetNearestTarget(Features.SilentAimTarget, Features.SilentAimMode, Features.SilentAimDistance)
+    local hrp, part = GetNearestTarget(Features.SilentAimTarget, Features.SilentAimMode, Features.SilentAimDistance, true)
     if hrp and part then
         TargetPart = part
         TargetPos = part.Position
@@ -430,10 +438,11 @@ pcall(function()
 end)
 
 -- =============================================
--- HITBOX EXPANDER (WORKING — resizes real HRP)
+-- HITBOX EXPANDER (v11.6 - FIXED)
+-- Only resizes HRP. Doesn't touch transparency/collide/massless.
 -- =============================================
-local HitboxOriginals = {}   -- [hrp] = original size
-local HitboxVisuals = {}     -- [model] = SelectionBox
+local HitboxOriginalSizes = {}   -- [hrp] = original size Vector3
+local HitboxVisuals = {}         -- [model] = SelectionBox
 
 local function applyHitbox(model)
     if not model or model == player.Character then return end
@@ -451,23 +460,14 @@ local function applyHitbox(model)
     local dist = (hrp.Position - myRoot.Position).Magnitude
     if dist > Features.HitboxRange then return end
 
-    -- Save original size once
-    if not HitboxOriginals[hrp] then
-        HitboxOriginals[hrp] = {
-            size = hrp.Size,
-            transparency = hrp.Transparency,
-            cancollide = hrp.CanCollide,
-            massless = hrp.Massless,
-        }
+    if not HitboxOriginalSizes[hrp] then
+        HitboxOriginalSizes[hrp] = hrp.Size
     end
 
-    -- Resize the REAL HumanoidRootPart
-    local s = Features.HitboxSize
+    -- ONLY resize HRP. Don't touch Transparency / CanCollide / Massless.
+    local size = Features.HitboxSize
     pcall(function()
-        hrp.Size = Vector3.new(s, s, s)
-        hrp.Transparency = Features.HitboxTransparency
-        hrp.CanCollide = false
-        hrp.Massless = true
+        hrp.Size = Vector3.new(size, size, size)
     end)
 
     -- Box outline
@@ -493,40 +493,28 @@ end
 
 local function resetHitbox(model)
     local hrp = model:FindFirstChild("HumanoidRootPart")
-    if hrp and HitboxOriginals[hrp] then
-        local o = HitboxOriginals[hrp]
-        pcall(function()
-            hrp.Size = o.size
-            hrp.Transparency = o.transparency
-            hrp.CanCollide = o.cancollide
-            hrp.Massless = o.massless
-        end)
-        HitboxOriginals[hrp] = nil
+    if hrp and HitboxOriginalSizes[hrp] then
+        local orig = HitboxOriginalSizes[hrp]
+        pcall(function() hrp.Size = orig end)
+        HitboxOriginalSizes[hrp] = nil
     end
     if HitboxVisuals[model] then
         pcall(function() HitboxVisuals[model]:Destroy() end)
         HitboxVisuals[model] = nil
     end
-    -- Also nuke any stray selection boxes
     local stray = hrp and hrp:FindFirstChild("IvoryHitboxBox")
     if stray then pcall(function() stray:Destroy() end) end
 end
 
 local function clearAllHitboxes()
-    for hrp, o in pairs(HitboxOriginals) do
-        pcall(function()
-            hrp.Size = o.size
-            hrp.Transparency = o.transparency
-            hrp.CanCollide = o.cancollide
-            hrp.Massless = o.massless
-        end)
+    for hrp, size in pairs(HitboxOriginalSizes) do
+        pcall(function() hrp.Size = size end)
     end
-    HitboxOriginals = {}
+    HitboxOriginalSizes = {}
     for _, box in pairs(HitboxVisuals) do
         pcall(function() box:Destroy() end)
     end
     HitboxVisuals = {}
-    -- Cleanup stray
     for _, obj in ipairs(workspace:GetDescendants()) do
         if obj.Name == "IvoryHitboxBox" then
             pcall(function() obj:Destroy() end)
@@ -558,20 +546,20 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- Reset on death / respawn
 player.CharacterAdded:Connect(function()
     clearAllHitboxes()
 end)
 
 -- =============================================
--- Soru
+-- Soru (FIXED - only combat targets)
 -- =============================================
 local SoruCooldown = 0
 
 local function DoSoruTeleport()
     if not Features.SoruAim then return end
     if tick() < SoruCooldown then return end
-    local target = GetNearestTarget(Features.SoruTarget, Features.SoruMode, Features.MaxRange)
+    -- requireCombat = true → filters out quest givers, shops, etc.
+    local target = GetNearestTarget(Features.SoruTarget, Features.SoruMode, Features.MaxRange, true)
     if not target then return end
     local char = player.Character
     if not char then return end
@@ -1371,7 +1359,7 @@ local SocialsPage = CreatePage("Socials")
 local AboutPage = CreatePage("About")
 
 Section(MainPage, "IVORY HUB")
-local mtL = Text(MainPage, "IVORY HUB v11.5", 16, true)
+local mtL = Text(MainPage, "IVORY HUB v11.6", 16, true)
 mtL.Size = UDim2.new(1, 0, 0, 24)
 mtL.TextXAlignment = Enum.TextXAlignment.Center
 mtL.TextColor3 = COLORS.WHITE
@@ -1457,20 +1445,19 @@ Toggle(HitboxPage, "Enable Hitbox", Features.Hitbox, function(s)
 end)
 Toggle(HitboxPage, "Show Box Outline", Features.HitboxVisual, function(s) Features.HitboxVisual = s SaveConfig() end)
 Toggle(HitboxPage, "Players", Features.HitboxPlayers, function(s) Features.HitboxPlayers = s SaveConfig() end)
-Toggle(HitboxPage, "NPCs", Features.HitboxNPCs, function(s) Features.HitboxNPCs = s SaveConfig() end)
+Toggle(HitboxPage, "NPCs (may freeze them)", Features.HitboxNPCs, function(s) Features.HitboxNPCs = s SaveConfig() end)
 
 Section(HitboxPage, "SIZE & RANGE")
-Slider(HitboxPage, "Size", Features.HitboxSize, 1.5, 8, function(v) Features.HitboxSize = v SaveConfig() end, "x")
+Slider(HitboxPage, "Size", Features.HitboxSize, 3, 15, function(v) Features.HitboxSize = v SaveConfig() end, "x")
 Slider(HitboxPage, "Range", Features.HitboxRange, 50, 2000, function(v) Features.HitboxRange = v SaveConfig() end, "m")
-Slider(HitboxPage, "Transparency", Features.HitboxTransparency, 0.3, 1, function(v) Features.HitboxTransparency = v SaveConfig() end)
 
-local hitboxInfo = Text(HitboxPage, "Resizes the real HumanoidRootPart — M1 raycast hits bigger target.", 9, false)
+local hitboxInfo = Text(HitboxPage, "Expands real HRP. Box outline shows size. NPCs OFF by default (they freeze).", 9, false)
 hitboxInfo.Size = UDim2.new(1, -10, 0, 28)
 hitboxInfo.TextColor3 = COLORS.GRAY
 hitboxInfo.TextXAlignment = Enum.TextXAlignment.Center
 hitboxInfo.TextWrapped = true
 
-local hitboxWarn = Text(HitboxPage, "⚠ Keep Size below 4x for safety", 9, true)
+local hitboxWarn = Text(HitboxPage, "⚠ Size 3-5x = safe | 6x+ = risky", 9, true)
 hitboxWarn.Size = UDim2.new(1, -10, 0, 16)
 hitboxWarn.TextColor3 = COLORS.YELLOW
 hitboxWarn.TextXAlignment = Enum.TextXAlignment.Center
@@ -1730,17 +1717,16 @@ socialCard("RAYO", "Rayo06996", 125)
 
 Section(AboutPage, "📖 ABOUT IVORY HUB")
 local aboutLines = {
-    "Ivory Hub v11.5 - Working Hitbox",
+    "Ivory Hub v11.6 - Hitbox Fixed",
     "",
-    "• Hitbox Expander (resizes real HRP)",
-    "• Works with M1 (gun/melee/sword)",
-    "• Silent Aim, Soru, Fast Attack",
-    "• ESP, Macro, FOV",
+    "• Hitbox: Players by default",
+    "• NPCs option (may freeze them)",
+    "• Box outline shows size",
     "",
-    "HITBOX TIPS:",
-    "• Size 2-3x = safe",
-    "• Size 4x+ = risky",
-    "• Box outline shows the size",
+    "• Soru only targets combat NPCs",
+    "  (quest givers are ignored)",
+    "",
+    "• Silent Aim, Fast Attack, ESP, Macro",
     "",
     "Thanks for using Ivory Hub 🦷"
 }
@@ -1840,8 +1826,8 @@ Close.MouseButton1Click:Connect(function()
 end)
 
 print("========================================")
-print("        IVORY HUB v11.5 LOADED")
+print("        IVORY HUB v11.6 LOADED")
 print("========================================")
-print("Hitbox Expander: WORKING (real HRP resize)")
-print("Default size: 3x (safe)")
+print("Hitbox: Players only by default")
+print("Soru: Only targets combat NPCs (no quest givers)")
 print("========================================")
