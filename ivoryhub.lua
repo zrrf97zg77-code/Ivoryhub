@@ -1,8 +1,8 @@
 -- =============================================
--- IVORY HUB v11.4 - HITBOX EXPANDER
+-- IVORY HUB v11.5 - WORKING HITBOX EXPANDER
 -- =============================================
 
-print("🦷 Ivory Hub v11.4 loading...")
+print("🦷 Ivory Hub v11.5 loading...")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -93,11 +93,12 @@ local Features = {
     FastAttackRange = 60,
     FastAttackSpeed = 0.05,
     Hitbox = false,
-    HitboxSize = 12,
+    HitboxSize = 3,
     HitboxRange = 500,
     HitboxPlayers = true,
     HitboxNPCs = true,
     HitboxVisual = true,
+    HitboxTransparency = 0.7,
     FOVCircle = false,
     FOVRadius = 150,
     FOVMode = "V1",
@@ -163,11 +164,12 @@ local function ResetConfig()
     Features.ESPNPCs = true
     Features.FastAttackRange = 60
     Features.FastAttackSpeed = 0.05
-    Features.HitboxSize = 12
+    Features.HitboxSize = 3
     Features.HitboxRange = 500
     Features.HitboxPlayers = true
     Features.HitboxNPCs = true
     Features.HitboxVisual = true
+    Features.HitboxTransparency = 0.7
     Features.FOVRadius = 150
     Features.FOVMode = "V1"
     Features.MaxRange = 1000
@@ -363,7 +365,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- =============================================
--- SILENT AIM HOOK (safe, no camera freeze)
+-- SILENT AIM HOOK
 -- =============================================
 pcall(function()
     local mt = getrawmetatable(game)
@@ -428,113 +430,117 @@ pcall(function()
 end)
 
 -- =============================================
--- HITBOX EXPANDER
+-- HITBOX EXPANDER (WORKING — resizes real HRP)
 -- =============================================
-local HitboxVisuals = {}  -- [model] = {visual = box part, hitbox = real hitbox part}
+local HitboxOriginals = {}   -- [hrp] = original size
+local HitboxVisuals = {}     -- [model] = SelectionBox
 
-local function getOrCreateHitbox(model)
-    local hitbox = model:FindFirstChild("IvoryHitbox")
-    if hitbox and hitbox:IsA("BasePart") then return hitbox end
+local function applyHitbox(model)
+    if not model or model == player.Character then return end
+
+    local hum = model:FindFirstChildOfClass("Humanoid")
+    if not hum or hum.Health <= 0 then return end
 
     local hrp = model:FindFirstChild("HumanoidRootPart")
-    if not hrp then return nil end
-
-    hitbox = Instance.new("Part")
-    hitbox.Name = "IvoryHitbox"
-    hitbox.Size = hrp.Size * Features.HitboxSize
-    hitbox.Transparency = 1
-    hitbox.CanCollide = false
-    hitbox.CanTouch = true
-    hitbox.CanQuery = true
-    hitbox.Massless = true
-    hitbox.Anchored = false
-    hitbox.CFrame = hrp.CFrame
-    hitbox.Parent = model
-
-    local weld = Instance.new("WeldConstraint")
-    weld.Part0 = hrp
-    weld.Part1 = hitbox
-    weld.Parent = hitbox
-
-    return hitbox
-end
-
-local function getOrCreateVisual(model, hitbox)
-    local visual = model:FindFirstChild("IvoryHitboxVisual")
-    if visual then return visual end
-
-    visual = Instance.new("SelectionBox")
-    visual.Name = "IvoryHitboxVisual"
-    visual.Adornee = hitbox
-    visual.LineThickness = 0.03
-    visual.Color3 = COLORS.ACCENT
-    visual.Transparency = 0.3
-    visual.SurfaceTransparency = 1
-    visual.Parent = hitbox
-    return visual
-end
-
-local function updateHitbox(model)
-    if model == player.Character then return end
-    local hum = model:FindFirstChildOfClass("Humanoid")
-    if not hum or hum.Health <= 0 then
-        -- Clean up dead
-        local hb = model:FindFirstChild("IvoryHitbox")
-        if hb then hb:Destroy() end
-        HitboxVisuals[model] = nil
-        return
-    end
+    if not hrp then return end
 
     local myChar = player.Character
     local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
     if not myRoot then return end
-    local hrp = model:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
 
     local dist = (hrp.Position - myRoot.Position).Magnitude
-    if dist > Features.HitboxRange then
-        local hb = model:FindFirstChild("IvoryHitbox")
-        if hb then hb:Destroy() end
-        HitboxVisuals[model] = nil
-        return
+    if dist > Features.HitboxRange then return end
+
+    -- Save original size once
+    if not HitboxOriginals[hrp] then
+        HitboxOriginals[hrp] = {
+            size = hrp.Size,
+            transparency = hrp.Transparency,
+            cancollide = hrp.CanCollide,
+            massless = hrp.Massless,
+        }
     end
 
-    local hitbox = getOrCreateHitbox(model)
-    if hitbox then
-        hitbox.Size = hrp.Size * Features.HitboxSize
-        if Features.HitboxVisual then
-            getOrCreateVisual(model, hitbox)
-        else
-            local v = model:FindFirstChild("IvoryHitboxVisual")
-            if v then v:Destroy() end
-            local v2 = hitbox:FindFirstChild("IvoryHitboxVisual")
-            if v2 then v2:Destroy() end
+    -- Resize the REAL HumanoidRootPart
+    local s = Features.HitboxSize
+    pcall(function()
+        hrp.Size = Vector3.new(s, s, s)
+        hrp.Transparency = Features.HitboxTransparency
+        hrp.CanCollide = false
+        hrp.Massless = true
+    end)
+
+    -- Box outline
+    if Features.HitboxVisual then
+        if not HitboxVisuals[model] or not HitboxVisuals[model].Parent then
+            local box = Instance.new("SelectionBox")
+            box.Name = "IvoryHitboxBox"
+            box.Adornee = hrp
+            box.LineThickness = 0.05
+            box.Color3 = COLORS.ACCENT
+            box.Transparency = 0.3
+            box.SurfaceTransparency = 1
+            box.Parent = hrp
+            HitboxVisuals[model] = box
+        end
+    else
+        if HitboxVisuals[model] then
+            pcall(function() HitboxVisuals[model]:Destroy() end)
+            HitboxVisuals[model] = nil
         end
     end
+end
+
+local function resetHitbox(model)
+    local hrp = model:FindFirstChild("HumanoidRootPart")
+    if hrp and HitboxOriginals[hrp] then
+        local o = HitboxOriginals[hrp]
+        pcall(function()
+            hrp.Size = o.size
+            hrp.Transparency = o.transparency
+            hrp.CanCollide = o.cancollide
+            hrp.Massless = o.massless
+        end)
+        HitboxOriginals[hrp] = nil
+    end
+    if HitboxVisuals[model] then
+        pcall(function() HitboxVisuals[model]:Destroy() end)
+        HitboxVisuals[model] = nil
+    end
+    -- Also nuke any stray selection boxes
+    local stray = hrp and hrp:FindFirstChild("IvoryHitboxBox")
+    if stray then pcall(function() stray:Destroy() end) end
 end
 
 local function clearAllHitboxes()
-    for _, model in ipairs(workspace:GetDescendants()) do
-        if model.Name == "IvoryHitbox" or model.Name == "IvoryHitboxVisual" then
-            pcall(function() model:Destroy() end)
-        end
+    for hrp, o in pairs(HitboxOriginals) do
+        pcall(function()
+            hrp.Size = o.size
+            hrp.Transparency = o.transparency
+            hrp.CanCollide = o.cancollide
+            hrp.Massless = o.massless
+        end)
+    end
+    HitboxOriginals = {}
+    for _, box in pairs(HitboxVisuals) do
+        pcall(function() box:Destroy() end)
     end
     HitboxVisuals = {}
+    -- Cleanup stray
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj.Name == "IvoryHitboxBox" then
+            pcall(function() obj:Destroy() end)
+        end
+    end
 end
 
 RunService.Heartbeat:Connect(function()
-    if not Features.Hitbox then
-        -- Clean up if turned off
-        if next(HitboxVisuals) ~= nil or #(workspace:GetChildren()) > 0 then
-            -- Only clean occasionally to reduce lag
-        end
-        return
-    end
+    if not Features.Hitbox then return end
 
     if Features.HitboxPlayers then
         for _, plr in ipairs(Players:GetPlayers()) do
             if plr ~= player and plr.Character then
-                pcall(updateHitbox, plr.Character)
+                pcall(applyHitbox, plr.Character)
             end
         end
     end
@@ -544,7 +550,7 @@ RunService.Heartbeat:Connect(function()
             if folder then
                 for _, npc in ipairs(folder:GetChildren()) do
                     if npc:IsA("Model") then
-                        pcall(updateHitbox, npc)
+                        pcall(applyHitbox, npc)
                     end
                 end
             end
@@ -552,15 +558,9 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- Cleanup when toggled off
-local hitboxWasOn = false
-RunService.Heartbeat:Connect(function()
-    if hitboxWasOn and not Features.Hitbox then
-        clearAllHitboxes()
-        hitboxWasOn = false
-    elseif Features.Hitbox and not hitboxWasOn then
-        hitboxWasOn = true
-    end
+-- Reset on death / respawn
+player.CharacterAdded:Connect(function()
+    clearAllHitboxes()
 end)
 
 -- =============================================
@@ -1371,7 +1371,7 @@ local SocialsPage = CreatePage("Socials")
 local AboutPage = CreatePage("About")
 
 Section(MainPage, "IVORY HUB")
-local mtL = Text(MainPage, "IVORY HUB v11.4", 16, true)
+local mtL = Text(MainPage, "IVORY HUB v11.5", 16, true)
 mtL.Size = UDim2.new(1, 0, 0, 24)
 mtL.TextXAlignment = Enum.TextXAlignment.Center
 mtL.TextColor3 = COLORS.WHITE
@@ -1434,7 +1434,7 @@ Toggle(CombatPage, "Show FOV Circle", Features.FOVCircle, function(s) Features.F
 Slider(CombatPage, "FOV Radius", Features.FOVRadius, 10, 500, function(v) Features.FOVRadius = v SaveConfig() end)
 CycleButton(CombatPage, "FOV Mode", {"V1","V2"}, Features.FOVMode, function(v) Features.FOVMode = v SaveConfig() end)
 
-Section(FastPage, "FAST ATTACK (SUPER)")
+Section(FastPage, "FAST ATTACK")
 Toggle(FastPage, "Enable Fast Attack", Features.FastAttack, function(s)
     Features.FastAttack = s
     FastAttack:SetEnabled(s)
@@ -1460,14 +1460,20 @@ Toggle(HitboxPage, "Players", Features.HitboxPlayers, function(s) Features.Hitbo
 Toggle(HitboxPage, "NPCs", Features.HitboxNPCs, function(s) Features.HitboxNPCs = s SaveConfig() end)
 
 Section(HitboxPage, "SIZE & RANGE")
-Slider(HitboxPage, "Size Multiplier", Features.HitboxSize, 2, 40, function(v) Features.HitboxSize = v SaveConfig() end, "x")
+Slider(HitboxPage, "Size", Features.HitboxSize, 1.5, 8, function(v) Features.HitboxSize = v SaveConfig() end, "x")
 Slider(HitboxPage, "Range", Features.HitboxRange, 50, 2000, function(v) Features.HitboxRange = v SaveConfig() end, "m")
+Slider(HitboxPage, "Transparency", Features.HitboxTransparency, 0.3, 1, function(v) Features.HitboxTransparency = v SaveConfig() end)
 
-local hitboxInfo = Text(HitboxPage, "Character looks normal, hitbox is invisible. Box outline shows the size.", 9, false)
+local hitboxInfo = Text(HitboxPage, "Resizes the real HumanoidRootPart — M1 raycast hits bigger target.", 9, false)
 hitboxInfo.Size = UDim2.new(1, -10, 0, 28)
 hitboxInfo.TextColor3 = COLORS.GRAY
 hitboxInfo.TextXAlignment = Enum.TextXAlignment.Center
 hitboxInfo.TextWrapped = true
+
+local hitboxWarn = Text(HitboxPage, "⚠ Keep Size below 4x for safety", 9, true)
+hitboxWarn.Size = UDim2.new(1, -10, 0, 16)
+hitboxWarn.TextColor3 = COLORS.YELLOW
+hitboxWarn.TextXAlignment = Enum.TextXAlignment.Center
 
 Section(MacroPage, "MACRO")
 Toggle(MacroPage, "Enable Macro", Features.Macro, function(s)
@@ -1724,19 +1730,17 @@ socialCard("RAYO", "Rayo06996", 125)
 
 Section(AboutPage, "📖 ABOUT IVORY HUB")
 local aboutLines = {
-    "Ivory Hub v11.4 - Hitbox Expander",
+    "Ivory Hub v11.5 - Working Hitbox",
     "",
-    "• Hitbox Expander (NEW)",
-    "  Invisible box, character looks normal",
-    "  Works with ALL M1s (gun, melee, sword)",
+    "• Hitbox Expander (resizes real HRP)",
+    "• Works with M1 (gun/melee/sword)",
+    "• Silent Aim, Soru, Fast Attack",
+    "• ESP, Macro, FOV",
     "",
-    "• Silent Aim (skills + guns)",
-    "• Soru, Fast Attack, ESP, Macro",
-    "",
-    "HITBOX TIP:",
-    "Bigger size = easier to hit",
-    "Range 500 = hits everything nearby",
-    "Box outline shows the hitbox size",
+    "HITBOX TIPS:",
+    "• Size 2-3x = safe",
+    "• Size 4x+ = risky",
+    "• Box outline shows the size",
     "",
     "Thanks for using Ivory Hub 🦷"
 }
@@ -1836,8 +1840,8 @@ Close.MouseButton1Click:Connect(function()
 end)
 
 print("========================================")
-print("        IVORY HUB v11.4 LOADED")
+print("        IVORY HUB v11.5 LOADED")
 print("========================================")
-print("NEW: Hitbox Expander (invisible + outline)")
-print("Works with all M1 weapons")
+print("Hitbox Expander: WORKING (real HRP resize)")
+print("Default size: 3x (safe)")
 print("========================================")
