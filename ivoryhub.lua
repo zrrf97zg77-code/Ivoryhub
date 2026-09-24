@@ -1,8 +1,8 @@
 -- =============================================
--- IVORY HUB v11.7 - SORU PLAYERS ONLY + 3x HITBOX
+-- IVORY HUB v11.8 - SORU FIX + 5x HITBOX
 -- =============================================
 
-print("🦷 Ivory Hub v11.7 loading...")
+print("🦷 Ivory Hub v11.8 loading...")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -92,7 +92,7 @@ local Features = {
     FastAttackRange = 60,
     FastAttackSpeed = 0.05,
     Hitbox = false,
-    HitboxSize = 3,
+    HitboxSize = 5,
     HitboxRange = 500,
     HitboxPlayers = true,
     HitboxNPCs = false,
@@ -161,7 +161,7 @@ local function ResetConfig()
     Features.ESPNPCs = true
     Features.FastAttackRange = 60
     Features.FastAttackSpeed = 0.05
-    Features.HitboxSize = 3
+    Features.HitboxSize = 5
     Features.HitboxRange = 500
     Features.HitboxPlayers = true
     Features.HitboxNPCs = false
@@ -535,14 +535,44 @@ player.CharacterAdded:Connect(function()
 end)
 
 -- =============================================
--- Soru (PLAYERS ONLY — hardcoded)
+-- Soru — PLAYERS ONLY, FLASHSTEP ONLY, GATED BY TOGGLE
 -- =============================================
 local SoruCooldown = 0
 
+-- ONLY flashstep animations match. Dash is EXCLUDED.
+local FLASHSTEP_KEYWORDS = {
+    "flashstep", "soru", "skywalk", "geppo", "flash step", "flash_step"
+}
+local FLASHSTEP_IDS = {
+    "17555632156", "616006778", "1846164274", "1846163351", "11420797633"
+}
+-- Explicit dash EXCLUSION (so dash never triggers teleport)
+local DASH_EXCLUDE = { "dash", "dodge", "roll", "sidestep" }
+
+local function isFlashstepAnim(track)
+    local n = string.lower(track.Name or "")
+    local id = tostring(track.Animation and track.Animation.AnimationId or "")
+
+    -- Reject if it matches dash/dodge
+    for _, w in ipairs(DASH_EXCLUDE) do
+        if string.find(n, w, 1, true) then return false end
+    end
+
+    -- Accept if it matches flashstep keywords
+    for _, w in ipairs(FLASHSTEP_KEYWORDS) do
+        if string.find(n, w, 1, true) then return true end
+    end
+    for _, w in ipairs(FLASHSTEP_IDS) do
+        if string.find(id, w, 1, true) then return true end
+    end
+    return false
+end
+
 local function DoSoruTeleport()
+    -- GATED: only fires if toggle is ON
     if not Features.SoruAim then return end
     if tick() < SoruCooldown then return end
-    -- ALWAYS players only, no NPCs, no quest givers
+    -- Players only, never NPCs
     local target = GetNearestTarget("Players", Features.SoruMode, Features.MaxRange)
     if not target then return end
     local char = player.Character
@@ -557,17 +587,10 @@ local function MonitorFlashstep(char)
     local hum = char:FindFirstChildOfClass("Humanoid")
     if not hum then return end
     hum.AnimationPlayed:Connect(function(track)
+        -- GATED: only fires if toggle is ON
         if not Features.SoruAim then return end
         if tick() < SoruCooldown then return end
-        local n = string.lower(track.Name or "")
-        local id = tostring(track.Animation and track.Animation.AnimationId or "")
-        if string.find(n, "flashstep") or string.find(n, "soru") or
-           string.find(n, "dash") or string.find(n, "dodge") or
-           string.find(n, "skywalk") or string.find(n, "geppo") or
-           string.find(n, "flash") or
-           string.find(id, "17555632156") or string.find(id, "616006778") or
-           string.find(id, "1846164274") or string.find(id, "1846163351") or
-           string.find(id, "11420797633") then
+        if isFlashstepAnim(track) then
             DoSoruTeleport()
         end
     end)
@@ -1343,7 +1366,7 @@ local SocialsPage = CreatePage("Socials")
 local AboutPage = CreatePage("About")
 
 Section(MainPage, "IVORY HUB")
-local mtL = Text(MainPage, "IVORY HUB v11.7", 16, true)
+local mtL = Text(MainPage, "IVORY HUB v11.8", 16, true)
 mtL.Size = UDim2.new(1, 0, 0, 24)
 mtL.TextXAlignment = Enum.TextXAlignment.Center
 mtL.TextColor3 = COLORS.WHITE
@@ -1398,7 +1421,7 @@ Slider(CombatPage, "Aim Distance", Features.SilentAimDistance, 0, 2000, function
 
 Section(CombatPage, "SORU")
 Toggle(CombatPage, "Enable Soru", Features.SoruAim, function(s) Features.SoruAim = s SaveConfig() end)
-local soruInfo = Text(CombatPage, "Target: Players only (locked)", 9, false)
+local soruInfo = Text(CombatPage, "Fires on FLASHSTEP only. Players only. Dash ignored.", 9, false)
 soruInfo.Size = UDim2.new(1, -10, 0, 14)
 soruInfo.TextColor3 = COLORS.GREEN
 soruInfo.TextXAlignment = Enum.TextXAlignment.Center
@@ -1437,7 +1460,7 @@ Section(HitboxPage, "SIZE & RANGE")
 Slider(HitboxPage, "Size", Features.HitboxSize, 3, 40, function(v) Features.HitboxSize = v SaveConfig() end, "x")
 Slider(HitboxPage, "Range", Features.HitboxRange, 50, 2000, function(v) Features.HitboxRange = v SaveConfig() end, "m")
 
-local hitboxInfo = Text(HitboxPage, "Default 3x. Players only by default.", 9, false)
+local hitboxInfo = Text(HitboxPage, "Default 5x. Players only by default.", 9, false)
 hitboxInfo.Size = UDim2.new(1, -10, 0, 28)
 hitboxInfo.TextColor3 = COLORS.GRAY
 hitboxInfo.TextXAlignment = Enum.TextXAlignment.Center
@@ -1703,14 +1726,14 @@ socialCard("RAYO", "Rayo06996", 125)
 
 Section(AboutPage, "📖 ABOUT IVORY HUB")
 local aboutLines = {
-    "Ivory Hub v11.7",
+    "Ivory Hub v11.8",
     "",
-    "• Soru is Players-only (locked)",
-    "• Hitbox default 3x",
-    "• Hitbox = Players by default",
+    "• Soru: FLASHSTEP only (dash ignored)",
+    "• Soru: properly gated by toggle",
+    "• Soru: Players only",
     "",
-    "• Silent Aim, Fast Attack",
-    "• ESP, Macro, FOV",
+    "• Hitbox: default 5x",
+    "• Hitbox: Players only by default",
     "",
     "Thanks for using Ivory Hub 🦷"
 }
@@ -1810,8 +1833,8 @@ Close.MouseButton1Click:Connect(function()
 end)
 
 print("========================================")
-print("        IVORY HUB v11.7 LOADED")
+print("        IVORY HUB v11.8 LOADED")
 print("========================================")
-print("Soru: PLAYERS ONLY (hardcoded)")
-print("Hitbox: default 3x")
+print("Soru: Flashstep only, players only, toggle-gated")
+print("Hitbox: default 5x")
 print("========================================")
