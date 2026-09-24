@@ -1,8 +1,8 @@
 -- =============================================
--- IVORY HUB v12.0 - IN-BOX M1 + SORU TARGET TOGGLE
+-- IVORY HUB v12.3 - HITBOX BOX TOGGLE
 -- =============================================
 
-print("🦷 Ivory Hub v12.0 loading...")
+print("🦷 Ivory Hub v12.3 loading...")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -95,11 +95,7 @@ local Features = {
     FastAttackSpeed = 0.05,
     Hitbox = false,
     HitboxSize = 5,
-    HitboxHeight = 2.5,
-    HitboxRange = 500,
-    HitboxPlayers = true,
-    HitboxNPCs = true,
-    HitboxVisual = true,
+    HideBox = false,
     FOVCircle = false,
     FOVRadius = 150,
     FOVMode = "V1",
@@ -167,11 +163,6 @@ local function ResetConfig()
     Features.FastAttackRange = 60
     Features.FastAttackSpeed = 0.05
     Features.HitboxSize = 5
-    Features.HitboxHeight = 2.5
-    Features.HitboxRange = 500
-    Features.HitboxPlayers = true
-    Features.HitboxNPCs = true
-    Features.HitboxVisual = true
     Features.FOVRadius = 150
     Features.FOVMode = "V1"
     Features.MaxRange = 1000
@@ -349,7 +340,6 @@ local function IsHoldingMeleeOrSword()
     if not char then return false end
     local tool = char:FindFirstChildOfClass("Tool")
     if not tool then return false end
-    -- Not a gun = melee or sword
     return not IsHoldingGun()
 end
 
@@ -441,16 +431,32 @@ pcall(function()
 end)
 
 -- =============================================
--- HITBOX EXPANDER
+-- HITBOX EXPANDER (with box visual + Hide Box toggle)
 -- =============================================
 local HitboxOriginals = {}
-local HitboxVisuals = {}
+local HitboxBoxes = {}
+
+local function removeBox(model)
+    if HitboxBoxes[model] then
+        pcall(function() HitboxBoxes[model]:Destroy() end)
+        HitboxBoxes[model] = nil
+    end
+    -- Also nuke strays
+    local hrp = model:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        local stray = hrp:FindFirstChild("IvoryHitboxBox")
+        if stray then pcall(function() stray:Destroy() end) end
+    end
+end
 
 local function applyHitbox(model)
     if not model or model == player.Character then return end
 
     local hum = model:FindFirstChildOfClass("Humanoid")
-    if not hum or hum.Health <= 0 then return end
+    if not hum or hum.Health <= 0 then
+        removeBox(model)
+        return
+    end
 
     local hrp = model:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
@@ -460,23 +466,25 @@ local function applyHitbox(model)
     if not myRoot then return end
 
     local dist = (hrp.Position - myRoot.Position).Magnitude
-    if dist > Features.HitboxRange then return end
+    if dist > 500 then
+        removeBox(model)
+        return
+    end
 
     if not HitboxOriginals[hrp] then
         HitboxOriginals[hrp] = { size = hrp.Size }
     end
 
     local size = Features.HitboxSize
-    local liftY = Features.HitboxHeight
-
     pcall(function()
         hrp.Size = Vector3.new(size, size, size)
-        local origCF = hrp.CFrame
-        hrp.CFrame = CFrame.new(origCF.Position + Vector3.new(0, liftY, 0))
     end)
 
-    if Features.HitboxVisual then
-        if not HitboxVisuals[model] or not HitboxVisuals[model].Parent then
+    -- Visual box (controlled by HideBox toggle)
+    if Features.HideBox then
+        removeBox(model)
+    else
+        if not HitboxBoxes[model] or not HitboxBoxes[model].Parent then
             local box = Instance.new("SelectionBox")
             box.Name = "IvoryHitboxBox"
             box.Adornee = hrp
@@ -485,28 +493,9 @@ local function applyHitbox(model)
             box.Transparency = 0.3
             box.SurfaceTransparency = 1
             box.Parent = hrp
-            HitboxVisuals[model] = box
-        end
-    else
-        if HitboxVisuals[model] then
-            pcall(function() HitboxVisuals[model]:Destroy() end)
-            HitboxVisuals[model] = nil
+            HitboxBoxes[model] = box
         end
     end
-end
-
-local function resetHitbox(model)
-    local hrp = model:FindFirstChild("HumanoidRootPart")
-    if hrp and HitboxOriginals[hrp] then
-        pcall(function() hrp.Size = HitboxOriginals[hrp].size end)
-        HitboxOriginals[hrp] = nil
-    end
-    if HitboxVisuals[model] then
-        pcall(function() HitboxVisuals[model]:Destroy() end)
-        HitboxVisuals[model] = nil
-    end
-    local stray = hrp and hrp:FindFirstChild("IvoryHitboxBox")
-    if stray then pcall(function() stray:Destroy() end) end
 end
 
 local function clearAllHitboxes()
@@ -514,10 +503,10 @@ local function clearAllHitboxes()
         pcall(function() hrp.Size = data.size end)
     end
     HitboxOriginals = {}
-    for _, box in pairs(HitboxVisuals) do
+    for model, box in pairs(HitboxBoxes) do
         pcall(function() box:Destroy() end)
     end
-    HitboxVisuals = {}
+    HitboxBoxes = {}
     for _, obj in ipairs(workspace:GetDescendants()) do
         if obj.Name == "IvoryHitboxBox" then
             pcall(function() obj:Destroy() end)
@@ -526,23 +515,17 @@ local function clearAllHitboxes()
 end
 
 RunService.Heartbeat:Connect(function()
-    if not Features.Hitbox then return end
-
-    if Features.HitboxPlayers then
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if plr ~= player and plr.Character then
-                pcall(applyHitbox, plr.Character)
-            end
-        end
+    if not Features.Hitbox then
+        if next(HitboxOriginals) ~= nil then clearAllHitboxes() end
+        return
     end
-    if Features.HitboxNPCs then
-        for _, folderName in ipairs(NPC_FOLDERS) do
-            local folder = workspace:FindFirstChild(folderName)
-            if folder then
-                for _, npc in ipairs(folder:GetChildren()) do
-                    if npc:IsA("Model") then
-                        pcall(applyHitbox, npc)
-                    end
+
+    for _, folderName in ipairs(NPC_FOLDERS) do
+        local folder = workspace:FindFirstChild(folderName)
+        if folder then
+            for _, npc in ipairs(folder:GetChildren()) do
+                if npc:IsA("Model") then
+                    pcall(applyHitbox, npc)
                 end
             end
         end
@@ -554,8 +537,7 @@ player.CharacterAdded:Connect(function()
 end)
 
 -- =============================================
--- IN-BOX M1 (new in v12.0)
--- When you're inside an expanded hitbox, M1 fires RegisterHit
+-- IN-BOX M1
 -- =============================================
 local RegisterAttack, RegisterHit
 
@@ -568,7 +550,6 @@ task.spawn(function()
     RegisterHit = net:WaitForChild("RE/RegisterHit", 10)
 end)
 
--- Get targets whose hitbox we're currently inside
 local function getInBoxTargets()
     local list = {}
     if not Features.Hitbox then return list end
@@ -578,37 +559,19 @@ local function getInBoxTargets()
     local myRoot = myChar:FindFirstChild("HumanoidRootPart")
     if not myRoot then return list end
 
-    -- "In-box" range = half of hitbox size + a small pad
     local inBoxRange = (Features.HitboxSize / 2) + 2
 
-    if Features.HitboxPlayers then
-        for _, plr in pairs(Players:GetPlayers()) do
-            if plr ~= player and plr.Character then
-                local hum = plr.Character:FindFirstChildOfClass("Humanoid")
-                local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
-                if hum and hum.Health > 0 and hrp then
-                    local dist = (hrp.Position - myRoot.Position).Magnitude
-                    if dist <= inBoxRange then
-                        table.insert(list, {model = plr.Character, root = hrp, dist = dist})
-                    end
-                end
-            end
-        end
-    end
-
-    if Features.HitboxNPCs then
-        for _, name in ipairs(NPC_FOLDERS) do
-            local folder = workspace:FindFirstChild(name)
-            if folder then
-                for _, npc in pairs(folder:GetChildren()) do
-                    if npc:IsA("Model") then
-                        local hum = npc:FindFirstChildOfClass("Humanoid")
-                        local hrp = npc:FindFirstChild("HumanoidRootPart")
-                        if hum and hum.Health > 0 and hrp and isCombatNPC(npc, hum, hrp) then
-                            local dist = (hrp.Position - myRoot.Position).Magnitude
-                            if dist <= inBoxRange then
-                                table.insert(list, {model = npc, root = hrp, dist = dist})
-                            end
+    for _, name in ipairs(NPC_FOLDERS) do
+        local folder = workspace:FindFirstChild(name)
+        if folder then
+            for _, npc in pairs(folder:GetChildren()) do
+                if npc:IsA("Model") then
+                    local hum = npc:FindFirstChildOfClass("Humanoid")
+                    local hrp = npc:FindFirstChild("HumanoidRootPart")
+                    if hum and hum.Health > 0 and hrp and isCombatNPC(npc, hum, hrp) then
+                        local dist = (hrp.Position - myRoot.Position).Magnitude
+                        if dist <= inBoxRange then
+                            table.insert(list, {model = npc, root = hrp, dist = dist})
                         end
                     end
                 end
@@ -630,7 +593,6 @@ local function fireInBoxHit()
     M1Cooldown = tick() + 0.15
 
     table.sort(targets, function(a, b) return a.dist < b.dist end)
-    -- Fire on nearest only
     local t = targets[1]
 
     pcall(function()
@@ -643,14 +605,12 @@ local function fireInBoxHit()
     end)
 end
 
--- Hook Tool.Activated to detect real M1s
 local hookedTools = {}
 local function hookTool(tool)
     if hookedTools[tool] then return end
     hookedTools[tool] = true
     pcall(function()
         tool.Activated:Connect(function()
-            -- Only fire for melee/sword (guns already work via hitbox)
             if IsHoldingMeleeOrSword() then
                 fireInBoxHit()
             end
@@ -674,7 +634,6 @@ player.CharacterAdded:Connect(function(c)
     scanTools()
 end)
 
--- Watch for tool changes
 task.spawn(function()
     while true do
         task.wait(0.5)
@@ -682,17 +641,8 @@ task.spawn(function()
     end
 end)
 
--- Clean hook tracking on tool removal
-player.CharacterAdded:Connect(function(c)
-    c.ChildRemoved:Connect(function(child)
-        if child:IsA("Tool") then
-            hookedTools[child] = nil
-        end
-    end)
-end)
-
 -- =============================================
--- Soru — FLASHSTEP only, target toggle
+-- Soru — fixed
 -- =============================================
 local SoruCooldown = 0
 
@@ -722,16 +672,19 @@ end
 local function DoSoruTeleport()
     if not Features.SoruAim then return end
     if tick() < SoruCooldown then return end
-    -- Use the target type set by user toggle
+
     local target = GetNearestTarget(Features.SoruTarget, Features.SoruMode, Features.SoruRange)
     if not target then return end
+
     local char = player.Character
     if not char then return end
     local hrp = char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
-    local dist = (target.Position - hrp.Position).Magnitude
-    if dist > Features.SoruRange then return end
-    pcall(function() hrp.CFrame = CFrame.new(target.Position + Vector3.new(0, 2, 0)) end)
+
+    pcall(function()
+        local behind = target.CFrame.LookVector * -3
+        hrp.CFrame = CFrame.new(target.Position + behind + Vector3.new(0, 3, 0))
+    end)
     SoruCooldown = tick() + 0.8
 end
 
@@ -1507,7 +1460,7 @@ local SocialsPage = CreatePage("Socials")
 local AboutPage = CreatePage("About")
 
 Section(MainPage, "IVORY HUB")
-local mtL = Text(MainPage, "IVORY HUB v12.0", 16, true)
+local mtL = Text(MainPage, "IVORY HUB v12.3", 16, true)
 mtL.Size = UDim2.new(1, 0, 0, 24)
 mtL.TextXAlignment = Enum.TextXAlignment.Center
 mtL.TextColor3 = COLORS.WHITE
@@ -1546,12 +1499,6 @@ task.spawn(function()
     end
 end)
 
-Section(MainPage, "TIP")
-local tipLbl = Text(MainPage, "Tap I button to open/close UI", 10, false)
-tipLbl.Size = UDim2.new(1, -10, 0, 16)
-tipLbl.Position = UDim2.new(0, 5, 0, 85)
-tipLbl.TextColor3 = COLORS.GRAY
-
 Section(CombatPage, "SILENT AIM")
 Toggle(CombatPage, "Enable Silent Aim", Features.SilentAim, function(s) Features.SilentAim = s SaveConfig() end)
 Toggle(CombatPage, "Aim Guns (M1)", Features.SilentAimGuns, function(s) Features.SilentAimGuns = s SaveConfig() end)
@@ -1562,10 +1509,6 @@ Slider(CombatPage, "Aim Distance", Features.SilentAimDistance, 0, 2000, function
 
 Section(CombatPage, "SORU")
 Toggle(CombatPage, "Enable Soru", Features.SoruAim, function(s) Features.SoruAim = s SaveConfig() end)
-local soruInfo = Text(CombatPage, "Flashstep only. Range limited.", 9, false)
-soruInfo.Size = UDim2.new(1, -10, 0, 14)
-soruInfo.TextColor3 = COLORS.GREEN
-soruInfo.TextXAlignment = Enum.TextXAlignment.Center
 CycleButton(CombatPage, "Soru Target", {"Players","NPCs","Both"}, Features.SoruTarget, function(v) Features.SoruTarget = v SaveConfig() end)
 Slider(CombatPage, "Soru Range", Features.SoruRange, 30, 300, function(v) Features.SoruRange = v SaveConfig() end, "m")
 CycleButton(CombatPage, "Soru Mode", {"360","FOV"}, Features.SoruMode, function(v) Features.SoruMode = v SaveConfig() end)
@@ -1584,31 +1527,23 @@ end)
 Slider(FastPage, "Range", Features.FastAttackRange, 10, 150, function(v) Features.FastAttackRange = v SaveConfig() end, " studs")
 Slider(FastPage, "Speed", Features.FastAttackSpeed, 0.02, 0.30, function(v) Features.FastAttackSpeed = v SaveConfig() end, "s")
 
-local fastInfo = Text(FastPage, "Auto-spam attack remote. Works with any weapon.", 9, false)
-fastInfo.Size = UDim2.new(1, -10, 0, 14)
-fastInfo.TextColor3 = COLORS.GRAY
-fastInfo.TextXAlignment = Enum.TextXAlignment.Center
-
-Section(HitboxPage, "HITBOX EXPANDER")
-Toggle(HitboxPage, "Enable Hitbox", Features.Hitbox, function(s)
+Section(HitboxPage, "HITBOX")
+Toggle(HitboxPage, "NPC Hitbox", Features.Hitbox, function(s)
     Features.Hitbox = s
     if not s then clearAllHitboxes() end
     SaveConfig()
 end)
-Toggle(HitboxPage, "Show Box Outline", Features.HitboxVisual, function(s) Features.HitboxVisual = s SaveConfig() end)
-Toggle(HitboxPage, "Players", Features.HitboxPlayers, function(s) Features.HitboxPlayers = s SaveConfig() end)
-Toggle(HitboxPage, "NPCs", Features.HitboxNPCs, function(s) Features.HitboxNPCs = s SaveConfig() end)
-
-Section(HitboxPage, "SIZE / LIFT / RANGE")
-Slider(HitboxPage, "Size", Features.HitboxSize, 3, 40, function(v) Features.HitboxSize = v SaveConfig() end, "x")
-Slider(HitboxPage, "Lift", Features.HitboxHeight, 0, 8, function(v) Features.HitboxHeight = v SaveConfig() end, " studs")
-Slider(HitboxPage, "Range", Features.HitboxRange, 50, 2000, function(v) Features.HitboxRange = v SaveConfig() end, "m")
-
-local inBoxInfo = Text(HitboxPage, "IN-BOX M1: when standing inside the red outline, your melee/sword M1 will auto-hit. Bigger hitbox = bigger range.", 9, false)
-inBoxInfo.Size = UDim2.new(1, -10, 0, 32)
-inBoxInfo.TextColor3 = COLORS.GREEN
-inBoxInfo.TextXAlignment = Enum.TextXAlignment.Center
-inBoxInfo.TextWrapped = true
+Slider(HitboxPage, "Hitbox Bigness", Features.HitboxSize, 3, 40, function(v) Features.HitboxSize = v SaveConfig() end, "x")
+Toggle(HitboxPage, "Hide Box", Features.HideBox, function(s)
+    Features.HideBox = s
+    -- Immediately hide/show all existing boxes
+    for _, box in pairs(HitboxBoxes) do
+        pcall(function()
+            box.Transparency = s and 1 or 0.3
+        end)
+    end
+    SaveConfig()
+end)
 
 Section(MacroPage, "MACRO")
 Toggle(MacroPage, "Enable Macro", Features.Macro, function(s)
@@ -1616,11 +1551,6 @@ Toggle(MacroPage, "Enable Macro", Features.Macro, function(s)
     MacroBtn.Visible = s
     SaveConfig()
 end)
-
-local macroInfo = Text(MacroPage, "Tap MACRO button to start/stop.", 9, false)
-macroInfo.Size = UDim2.new(1, -10, 0, 14)
-macroInfo.TextColor3 = COLORS.GRAY
-macroInfo.TextXAlignment = Enum.TextXAlignment.Center
 
 Section(MacroPage, "SLOTS")
 
@@ -1865,12 +1795,11 @@ socialCard("RAYO", "Rayo06996", 125)
 
 Section(AboutPage, "📖 ABOUT IVORY HUB")
 local aboutLines = {
-    "Ivory Hub v12.0",
+    "Ivory Hub v12.3",
     "",
-    "• IN-BOX M1: melee hits when inside red box",
-    "• Hitbox: 5x default, both players + NPCs",
-    "• Soru: Players/NPCs/Both toggle",
-    "• Soru: flashstep only, range limited",
+    "• Hitbox for NPCs",
+    "• Size slider + Hide Box toggle",
+    "• Soru, Silent Aim, Fast Attack, ESP, Macro",
     "",
     "Thanks for using Ivory Hub 🦷"
 }
@@ -1970,8 +1899,7 @@ Close.MouseButton1Click:Connect(function()
 end)
 
 print("========================================")
-print("        IVORY HUB v12.0 LOADED")
+print("        IVORY HUB v12.3 LOADED")
 print("========================================")
-print("NEW: IN-BOX M1 (melee extends into red box)")
-print("Soru Target: Players / NPCs / Both")
+print("Hitbox tab: NPC toggle, Size, Hide Box")
 print("========================================")
