@@ -1,8 +1,8 @@
 -- =============================================
--- IVORY HUB v12.3 - HITBOX BOX TOGGLE
+-- IVORY HUB v12.4 - PLAYERS + NPC HITBOX, NO QUEST GIVERS
 -- =============================================
 
-print("🦷 Ivory Hub v12.3 loading...")
+print("🦷 Ivory Hub v12.4 loading...")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -431,7 +431,7 @@ pcall(function()
 end)
 
 -- =============================================
--- HITBOX EXPANDER (with box visual + Hide Box toggle)
+-- HITBOX EXPANDER (players + combat NPCs only)
 -- =============================================
 local HitboxOriginals = {}
 local HitboxBoxes = {}
@@ -441,7 +441,6 @@ local function removeBox(model)
         pcall(function() HitboxBoxes[model]:Destroy() end)
         HitboxBoxes[model] = nil
     end
-    -- Also nuke strays
     local hrp = model:FindFirstChild("HumanoidRootPart")
     if hrp then
         local stray = hrp:FindFirstChild("IvoryHitboxBox")
@@ -449,7 +448,7 @@ local function removeBox(model)
     end
 end
 
-local function applyHitbox(model)
+local function applyHitbox(model, isNPC)
     if not model or model == player.Character then return end
 
     local hum = model:FindFirstChildOfClass("Humanoid")
@@ -460,6 +459,12 @@ local function applyHitbox(model)
 
     local hrp = model:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
+
+    -- NPCs: filter out quest givers, shops, etc.
+    if isNPC and not isCombatNPC(model, hum, hrp) then
+        removeBox(model)
+        return
+    end
 
     local myChar = player.Character
     local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
@@ -480,7 +485,6 @@ local function applyHitbox(model)
         hrp.Size = Vector3.new(size, size, size)
     end)
 
-    -- Visual box (controlled by HideBox toggle)
     if Features.HideBox then
         removeBox(model)
     else
@@ -520,12 +524,20 @@ RunService.Heartbeat:Connect(function()
         return
     end
 
+    -- Players (no filter)
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player and plr.Character then
+            pcall(applyHitbox, plr.Character, false)
+        end
+    end
+
+    -- NPCs (filtered to combat NPCs only)
     for _, folderName in ipairs(NPC_FOLDERS) do
         local folder = workspace:FindFirstChild(folderName)
         if folder then
             for _, npc in ipairs(folder:GetChildren()) do
                 if npc:IsA("Model") then
-                    pcall(applyHitbox, npc)
+                    pcall(applyHitbox, npc, true)
                 end
             end
         end
@@ -561,6 +573,21 @@ local function getInBoxTargets()
 
     local inBoxRange = (Features.HitboxSize / 2) + 2
 
+    -- Players
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= player and plr.Character then
+            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+            if hum and hum.Health > 0 and hrp then
+                local dist = (hrp.Position - myRoot.Position).Magnitude
+                if dist <= inBoxRange then
+                    table.insert(list, {model = plr.Character, root = hrp, dist = dist})
+                end
+            end
+        end
+    end
+
+    -- NPCs
     for _, name in ipairs(NPC_FOLDERS) do
         local folder = workspace:FindFirstChild(name)
         if folder then
@@ -642,7 +669,7 @@ task.spawn(function()
 end)
 
 -- =============================================
--- Soru — fixed
+-- Soru
 -- =============================================
 local SoruCooldown = 0
 
@@ -1460,7 +1487,7 @@ local SocialsPage = CreatePage("Socials")
 local AboutPage = CreatePage("About")
 
 Section(MainPage, "IVORY HUB")
-local mtL = Text(MainPage, "IVORY HUB v12.3", 16, true)
+local mtL = Text(MainPage, "IVORY HUB v12.4", 16, true)
 mtL.Size = UDim2.new(1, 0, 0, 24)
 mtL.TextXAlignment = Enum.TextXAlignment.Center
 mtL.TextColor3 = COLORS.WHITE
@@ -1536,7 +1563,6 @@ end)
 Slider(HitboxPage, "Hitbox Bigness", Features.HitboxSize, 3, 40, function(v) Features.HitboxSize = v SaveConfig() end, "x")
 Toggle(HitboxPage, "Hide Box", Features.HideBox, function(s)
     Features.HideBox = s
-    -- Immediately hide/show all existing boxes
     for _, box in pairs(HitboxBoxes) do
         pcall(function()
             box.Transparency = s and 1 or 0.3
@@ -1795,9 +1821,10 @@ socialCard("RAYO", "Rayo06996", 125)
 
 Section(AboutPage, "📖 ABOUT IVORY HUB")
 local aboutLines = {
-    "Ivory Hub v12.3",
+    "Ivory Hub v12.4",
     "",
-    "• Hitbox for NPCs",
+    "• Hitbox for players + NPCs",
+    "• Quest givers filtered out",
     "• Size slider + Hide Box toggle",
     "• Soru, Silent Aim, Fast Attack, ESP, Macro",
     "",
@@ -1899,7 +1926,8 @@ Close.MouseButton1Click:Connect(function()
 end)
 
 print("========================================")
-print("        IVORY HUB v12.3 LOADED")
+print("        IVORY HUB v12.4 LOADED")
 print("========================================")
-print("Hitbox tab: NPC toggle, Size, Hide Box")
+print("Hitbox: Players + combat NPCs only")
+print("Quest givers filtered out")
 print("========================================")
