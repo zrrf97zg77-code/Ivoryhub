@@ -1,8 +1,8 @@
 -- =============================================
--- IVORY HUB v11.8 - SORU FIX + 5x HITBOX
+-- IVORY HUB v11.9 - HITBOX OFFSET + SORU RANGE
 -- =============================================
 
-print("🦷 Ivory Hub v11.8 loading...")
+print("🦷 Ivory Hub v11.9 loading...")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -81,6 +81,7 @@ local Features = {
     SilentAimMelee = true,
     SoruAim = false,
     SoruMode = "360",
+    SoruRange = 150,
     ESP = false,
     ESPBox = true,
     ESPName = true,
@@ -93,6 +94,7 @@ local Features = {
     FastAttackSpeed = 0.05,
     Hitbox = false,
     HitboxSize = 5,
+    HitboxHeight = 2.5,
     HitboxRange = 500,
     HitboxPlayers = true,
     HitboxNPCs = false,
@@ -153,6 +155,7 @@ local function ResetConfig()
     Features.SilentAimGuns = true
     Features.SilentAimMelee = true
     Features.SoruMode = "360"
+    Features.SoruRange = 150
     Features.ESPBox = true
     Features.ESPName = true
     Features.ESPHealth = true
@@ -162,6 +165,7 @@ local function ResetConfig()
     Features.FastAttackRange = 60
     Features.FastAttackSpeed = 0.05
     Features.HitboxSize = 5
+    Features.HitboxHeight = 2.5
     Features.HitboxRange = 500
     Features.HitboxPlayers = true
     Features.HitboxNPCs = false
@@ -426,10 +430,10 @@ pcall(function()
 end)
 
 -- =============================================
--- HITBOX EXPANDER
+-- HITBOX EXPANDER (v11.9 - raised up)
 -- =============================================
-local HitboxOriginalSizes = {}
-local HitboxVisuals = {}
+local HitboxOriginals = {}   -- [hrp] = { size, cframe }
+local HitboxVisuals = {}     -- [model] = SelectionBox
 
 local function applyHitbox(model)
     if not model or model == player.Character then return end
@@ -447,13 +451,21 @@ local function applyHitbox(model)
     local dist = (hrp.Position - myRoot.Position).Magnitude
     if dist > Features.HitboxRange then return end
 
-    if not HitboxOriginalSizes[hrp] then
-        HitboxOriginalSizes[hrp] = hrp.Size
+    if not HitboxOriginals[hrp] then
+        HitboxOriginals[hrp] = {
+            size = hrp.Size,
+        }
     end
 
     local size = Features.HitboxSize
+    local liftY = Features.HitboxHeight
+
     pcall(function()
+        -- Set size then raise it up so it's not underground
         hrp.Size = Vector3.new(size, size, size)
+        -- Raise CFrame up so the center is at chest level
+        local origCF = hrp.CFrame
+        hrp.CFrame = CFrame.new(origCF.Position + Vector3.new(0, liftY, 0))
     end)
 
     if Features.HitboxVisual then
@@ -478,9 +490,9 @@ end
 
 local function resetHitbox(model)
     local hrp = model:FindFirstChild("HumanoidRootPart")
-    if hrp and HitboxOriginalSizes[hrp] then
-        pcall(function() hrp.Size = HitboxOriginalSizes[hrp] end)
-        HitboxOriginalSizes[hrp] = nil
+    if hrp and HitboxOriginals[hrp] then
+        pcall(function() hrp.Size = HitboxOriginals[hrp].size end)
+        HitboxOriginals[hrp] = nil
     end
     if HitboxVisuals[model] then
         pcall(function() HitboxVisuals[model]:Destroy() end)
@@ -491,10 +503,10 @@ local function resetHitbox(model)
 end
 
 local function clearAllHitboxes()
-    for hrp, size in pairs(HitboxOriginalSizes) do
-        pcall(function() hrp.Size = size end)
+    for hrp, data in pairs(HitboxOriginals) do
+        pcall(function() hrp.Size = data.size end)
     end
-    HitboxOriginalSizes = {}
+    HitboxOriginals = {}
     for _, box in pairs(HitboxVisuals) do
         pcall(function() box:Destroy() end)
     end
@@ -535,30 +547,24 @@ player.CharacterAdded:Connect(function()
 end)
 
 -- =============================================
--- Soru — PLAYERS ONLY, FLASHSTEP ONLY, GATED BY TOGGLE
+-- Soru — PLAYERS ONLY, FLASHSTEP ONLY, RANGE LIMITED
 -- =============================================
 local SoruCooldown = 0
 
--- ONLY flashstep animations match. Dash is EXCLUDED.
 local FLASHSTEP_KEYWORDS = {
     "flashstep", "soru", "skywalk", "geppo", "flash step", "flash_step"
 }
 local FLASHSTEP_IDS = {
     "17555632156", "616006778", "1846164274", "1846163351", "11420797633"
 }
--- Explicit dash EXCLUSION (so dash never triggers teleport)
 local DASH_EXCLUDE = { "dash", "dodge", "roll", "sidestep" }
 
 local function isFlashstepAnim(track)
     local n = string.lower(track.Name or "")
     local id = tostring(track.Animation and track.Animation.AnimationId or "")
-
-    -- Reject if it matches dash/dodge
     for _, w in ipairs(DASH_EXCLUDE) do
         if string.find(n, w, 1, true) then return false end
     end
-
-    -- Accept if it matches flashstep keywords
     for _, w in ipairs(FLASHSTEP_KEYWORDS) do
         if string.find(n, w, 1, true) then return true end
     end
@@ -569,16 +575,18 @@ local function isFlashstepAnim(track)
 end
 
 local function DoSoruTeleport()
-    -- GATED: only fires if toggle is ON
     if not Features.SoruAim then return end
     if tick() < SoruCooldown then return end
-    -- Players only, never NPCs
-    local target = GetNearestTarget("Players", Features.SoruMode, Features.MaxRange)
+    -- Limited range — never infinite
+    local target = GetNearestTarget("Players", Features.SoruMode, Features.SoruRange)
     if not target then return end
     local char = player.Character
     if not char then return end
     local hrp = char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
+    -- Double-check distance again just in case
+    local dist = (target.Position - hrp.Position).Magnitude
+    if dist > Features.SoruRange then return end
     pcall(function() hrp.CFrame = CFrame.new(target.Position + Vector3.new(0, 2, 0)) end)
     SoruCooldown = tick() + 0.8
 end
@@ -587,7 +595,6 @@ local function MonitorFlashstep(char)
     local hum = char:FindFirstChildOfClass("Humanoid")
     if not hum then return end
     hum.AnimationPlayed:Connect(function(track)
-        -- GATED: only fires if toggle is ON
         if not Features.SoruAim then return end
         if tick() < SoruCooldown then return end
         if isFlashstepAnim(track) then
@@ -1366,7 +1373,7 @@ local SocialsPage = CreatePage("Socials")
 local AboutPage = CreatePage("About")
 
 Section(MainPage, "IVORY HUB")
-local mtL = Text(MainPage, "IVORY HUB v11.8", 16, true)
+local mtL = Text(MainPage, "IVORY HUB v11.9", 16, true)
 mtL.Size = UDim2.new(1, 0, 0, 24)
 mtL.TextXAlignment = Enum.TextXAlignment.Center
 mtL.TextColor3 = COLORS.WHITE
@@ -1421,10 +1428,11 @@ Slider(CombatPage, "Aim Distance", Features.SilentAimDistance, 0, 2000, function
 
 Section(CombatPage, "SORU")
 Toggle(CombatPage, "Enable Soru", Features.SoruAim, function(s) Features.SoruAim = s SaveConfig() end)
-local soruInfo = Text(CombatPage, "Fires on FLASHSTEP only. Players only. Dash ignored.", 9, false)
+local soruInfo = Text(CombatPage, "Flashstep only. Players only.", 9, false)
 soruInfo.Size = UDim2.new(1, -10, 0, 14)
 soruInfo.TextColor3 = COLORS.GREEN
 soruInfo.TextXAlignment = Enum.TextXAlignment.Center
+Slider(CombatPage, "Soru Range", Features.SoruRange, 30, 300, function(v) Features.SoruRange = v SaveConfig() end, "m")
 CycleButton(CombatPage, "Soru Mode", {"360","FOV"}, Features.SoruMode, function(v) Features.SoruMode = v SaveConfig() end)
 
 Section(CombatPage, "FOV")
@@ -1456,20 +1464,16 @@ Toggle(HitboxPage, "Show Box Outline", Features.HitboxVisual, function(s) Featur
 Toggle(HitboxPage, "Players", Features.HitboxPlayers, function(s) Features.HitboxPlayers = s SaveConfig() end)
 Toggle(HitboxPage, "NPCs (may freeze them)", Features.HitboxNPCs, function(s) Features.HitboxNPCs = s SaveConfig() end)
 
-Section(HitboxPage, "SIZE & RANGE")
+Section(HitboxPage, "SIZE / RANGE / LIFT")
 Slider(HitboxPage, "Size", Features.HitboxSize, 3, 40, function(v) Features.HitboxSize = v SaveConfig() end, "x")
+Slider(HitboxPage, "Lift (raise off ground)", Features.HitboxHeight, 0, 8, function(v) Features.HitboxHeight = v SaveConfig() end, " studs")
 Slider(HitboxPage, "Range", Features.HitboxRange, 50, 2000, function(v) Features.HitboxRange = v SaveConfig() end, "m")
 
-local hitboxInfo = Text(HitboxPage, "Default 5x. Players only by default.", 9, false)
+local hitboxInfo = Text(HitboxPage, "If hitbox sinks into ground, raise the Lift slider.", 9, false)
 hitboxInfo.Size = UDim2.new(1, -10, 0, 28)
 hitboxInfo.TextColor3 = COLORS.GRAY
 hitboxInfo.TextXAlignment = Enum.TextXAlignment.Center
 hitboxInfo.TextWrapped = true
-
-local hitboxWarn = Text(HitboxPage, "⚠ Size 3-5x = safe | 6x+ = risky", 9, true)
-hitboxWarn.Size = UDim2.new(1, -10, 0, 16)
-hitboxWarn.TextColor3 = COLORS.YELLOW
-hitboxWarn.TextXAlignment = Enum.TextXAlignment.Center
 
 Section(MacroPage, "MACRO")
 Toggle(MacroPage, "Enable Macro", Features.Macro, function(s)
@@ -1726,14 +1730,14 @@ socialCard("RAYO", "Rayo06996", 125)
 
 Section(AboutPage, "📖 ABOUT IVORY HUB")
 local aboutLines = {
-    "Ivory Hub v11.8",
+    "Ivory Hub v11.9",
     "",
-    "• Soru: FLASHSTEP only (dash ignored)",
-    "• Soru: properly gated by toggle",
-    "• Soru: Players only",
+    "• Hitbox lifts off ground (Lift slider)",
+    "• Hitbox default 5x",
+    "• Soru Range slider (no more infinite)",
     "",
-    "• Hitbox: default 5x",
-    "• Hitbox: Players only by default",
+    "• Soru: flashstep only, players only",
+    "• Silent Aim, Fast Attack, ESP, Macro",
     "",
     "Thanks for using Ivory Hub 🦷"
 }
@@ -1833,8 +1837,8 @@ Close.MouseButton1Click:Connect(function()
 end)
 
 print("========================================")
-print("        IVORY HUB v11.8 LOADED")
+print("        IVORY HUB v11.9 LOADED")
 print("========================================")
-print("Soru: Flashstep only, players only, toggle-gated")
-print("Hitbox: default 5x")
+print("Hitbox: Lift slider (default 2.5)")
+print("Soru: Range slider (default 150m)")
 print("========================================")
