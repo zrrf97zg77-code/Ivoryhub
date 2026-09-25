@@ -1,8 +1,8 @@
 -- =============================================
--- IVORY HUB v13.1 - GUN FAST ATTACK FIX + IN-BOX M1
+-- IVORY HUB v13.0 - CLEANED + FPS BOOST + PREDICTION
 -- =============================================
 
-print("🦷 Ivory Hub v13.1 loading...")
+print("🦷 Ivory Hub v13.0 loading...")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -77,24 +77,16 @@ local Features = {
     SilentAimTarget = "Both",
     SilentAimMode = "360",
     SilentAimDistance = 500,
-    SilentAimPrediction = 0.10,
-    ShowTracer = true,
+    SilentAimPrediction = 0.15,
     SoruAim = false,
     SoruTarget = "Players",
     SoruMode = "360",
     SoruRange = 150,
-    ESP = false,
-    ESPBox = true,
-    ESPName = true,
-    ESPHealth = true,
-    ESPDistance = true,
-    ESPPlayers = true,
-    ESPNPCs = true,
     FastAttack = false,
     FastAttackRange = 60,
     FastAttackSpeed = 0.05,
     GunFastAttack = false,
-    GunFastAttackRange = 80,
+    GunFastAttackRange = 60,
     GunFastAttackSpeed = 0.08,
     Hitbox = false,
     HitboxSize = 5,
@@ -152,20 +144,13 @@ local function ResetConfig()
     Features.SilentAimTarget = "Both"
     Features.SilentAimMode = "360"
     Features.SilentAimDistance = 500
-    Features.SilentAimPrediction = 0.10
-    Features.ShowTracer = true
+    Features.SilentAimPrediction = 0.15
     Features.SoruTarget = "Players"
     Features.SoruMode = "360"
     Features.SoruRange = 150
-    Features.ESPBox = true
-    Features.ESPName = true
-    Features.ESPHealth = true
-    Features.ESPDistance = true
-    Features.ESPPlayers = true
-    Features.ESPNPCs = true
     Features.FastAttackRange = 60
     Features.FastAttackSpeed = 0.05
-    Features.GunFastAttackRange = 80
+    Features.GunFastAttackRange = 60
     Features.GunFastAttackSpeed = 0.08
     Features.HitboxSize = 5
     Features.FOVRadius = 150
@@ -340,50 +325,8 @@ local function IsHoldingGun()
     return false
 end
 
-local function IsHoldingMeleeOrSword()
-    local char = player.Character
-    if not char then return false end
-    local tool = char:FindFirstChildOfClass("Tool")
-    if not tool then return false end
-    return not IsHoldingGun()
-end
-
 -- =============================================
--- Tracer
--- =============================================
-local TracerPart = nil
-local function UpdateTracer(fromPos, toPos, visible)
-    if not visible or not fromPos or not toPos then
-        if TracerPart then TracerPart.Transparency = 1 end
-        return
-    end
-    if not TracerPart or not TracerPart.Parent then
-        TracerPart = Instance.new("Part")
-        TracerPart.Name = "IvoryTracer"
-        TracerPart.Anchored = true
-        TracerPart.CanCollide = false
-        TracerPart.CanQuery = false
-        TracerPart.CanTouch = false
-        TracerPart.Massless = true
-        TracerPart.Material = Enum.Material.Neon
-        TracerPart.Color = COLORS.ACCENT
-        TracerPart.Size = Vector3.new(0.08, 0.08, 1)
-        TracerPart.Transparency = 0.2
-        TracerPart.Parent = workspace
-    end
-    local dist = (toPos - fromPos).Magnitude
-    if dist < 0.1 then
-        TracerPart.Transparency = 1
-        return
-    end
-    local mid = (fromPos + toPos) / 2
-    TracerPart.CFrame = CFrame.lookAt(mid, toPos)
-    TracerPart.Size = Vector3.new(0.08, 0.08, dist)
-    TracerPart.Transparency = 0.2
-end
-
--- =============================================
--- Silent Aim — target tracking with PREDICTION
+-- Silent Aim — target tracking (with prediction)
 -- =============================================
 local TargetPos = nil
 local TargetPart = nil
@@ -392,63 +335,32 @@ RunService.RenderStepped:Connect(function()
     if not Features.SilentAim then
         TargetPos = nil
         TargetPart = nil
-        pcall(UpdateTracer, nil, nil, false)
         return
     end
     local hrp, part = GetNearestTarget(Features.SilentAimTarget, Features.SilentAimMode, Features.SilentAimDistance)
     if hrp and part then
         TargetPart = part
-
+        local pos = part.Position
         local pred = Features.SilentAimPrediction or 0
-        local predictedPos = part.Position
-        if pred > 0 then
-            local targetChar = part.Parent
-            local targetHRP = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
-            if targetHRP then
-                local vel = targetHRP.AssemblyLinearVelocity
-                if vel then
-                    predictedPos = part.Position + (vel * pred)
-                end
-            end
+        if pred > 0 and hrp.AssemblyLinearVelocity then
+            local vel = hrp.AssemblyLinearVelocity
+            pos = pos + (vel * pred)
         end
-        TargetPos = predictedPos
-
-        if Features.ShowTracer then
-            local myChar = player.Character
-            local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
-            local origin = myHRP and (myHRP.Position + Vector3.new(0, 1, 0)) or Camera.CFrame.Position
-            pcall(UpdateTracer, origin, TargetPos, true)
-        else
-            pcall(UpdateTracer, nil, nil, false)
-        end
+        TargetPos = pos
     else
         TargetPos = nil
         TargetPart = nil
-        pcall(UpdateTracer, nil, nil, false)
     end
 end)
 
 -- =============================================
--- SILENT AIM HOOK
+-- SILENT AIM HOOK (melee/skills only)
 -- =============================================
 pcall(function()
     local mt = getrawmetatable(game)
     if not mt then return end
-    local oldIndex = mt.__index
     local oldNamecall = mt.__namecall
     setreadonly(mt, false)
-
-    mt.__index = function(self, key)
-        if not checkcaller() and Features.SilentAim and self == mouse and TargetPos then
-            if key == "Hit" then return CFrame.new(TargetPos) end
-            if key == "Target" then return TargetPart end
-            if key == "UnitRay" then
-                local o = Camera.CFrame.Position
-                return Ray.new(o, (TargetPos - o).Unit * 5000)
-            end
-        end
-        return oldIndex(self, key)
-    end
 
     mt.__namecall = function(self, ...)
         local method = getnamecallmethod()
@@ -479,7 +391,7 @@ pcall(function()
 end)
 
 -- =============================================
--- HITBOX (players only) + IN-BOX M1
+-- HITBOX EXPANDER (Players only)
 -- =============================================
 local HitboxOriginals = {}
 local HitboxBoxes = {}
@@ -565,6 +477,7 @@ RunService.Heartbeat:Connect(function()
         if next(HitboxOriginals) ~= nil then clearAllHitboxes() end
         return
     end
+
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= player and plr.Character then
             pcall(applyHitbox, plr.Character)
@@ -577,7 +490,7 @@ player.CharacterAdded:Connect(function()
 end)
 
 -- =============================================
--- Remotes for Fast Attack + In-Box M1
+-- Attack remotes (shared)
 -- =============================================
 local RegisterAttack, RegisterHit
 
@@ -590,7 +503,7 @@ task.spawn(function()
     RegisterHit = net:WaitForChild("RE/RegisterHit", 10)
 end)
 
-local function fireAtTarget(target)
+local function fireHit(target)
     if not RegisterAttack or not RegisterHit then return end
     pcall(function()
         RegisterAttack:FireServer()
@@ -604,17 +517,12 @@ local function fireAtTarget(target)
     end)
 end
 
--- In-Box M1: fires melee remote when you're inside the hitbox and tap M1
-local function getInBoxTargets()
+local function getTargetsInRange(range)
     local list = {}
-    if not Features.Hitbox then return list end
-
     local myChar = player.Character
     if not myChar then return list end
     local myRoot = myChar:FindFirstChild("HumanoidRootPart")
     if not myRoot then return list end
-
-    local inBoxRange = (Features.HitboxSize / 2) + 2
 
     for _, plr in pairs(Players:GetPlayers()) do
         if plr ~= player and plr.Character then
@@ -622,8 +530,26 @@ local function getInBoxTargets()
             local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
             if hum and hum.Health > 0 and hrp then
                 local dist = (hrp.Position - myRoot.Position).Magnitude
-                if dist <= inBoxRange then
+                if dist <= range then
                     table.insert(list, {model = plr.Character, root = hrp, dist = dist})
+                end
+            end
+        end
+    end
+
+    for _, name in ipairs(NPC_FOLDERS) do
+        local folder = workspace:FindFirstChild(name)
+        if folder then
+            for _, npc in pairs(folder:GetChildren()) do
+                if npc:IsA("Model") then
+                    local hum = npc:FindFirstChildOfClass("Humanoid")
+                    local hrp = npc:FindFirstChild("HumanoidRootPart")
+                    if hum and hum.Health > 0 and hrp and isCombatNPC(npc, hum, hrp) then
+                        local dist = (hrp.Position - myRoot.Position).Magnitude
+                        if dist <= range then
+                            table.insert(list, {model = npc, root = hrp, dist = dist})
+                        end
+                    end
                 end
             end
         end
@@ -631,103 +557,12 @@ local function getInBoxTargets()
     return list
 end
 
-local M1Cooldown = 0
-local function fireInBoxHit()
-    if not Features.Hitbox then return end
-    if tick() < M1Cooldown then return end
-    if not RegisterAttack or not RegisterHit then return end
-
-    local targets = getInBoxTargets()
-    if #targets == 0 then return end
-
-    M1Cooldown = tick() + 0.15
-    table.sort(targets, function(a, b) return a.dist < b.dist end)
-    fireAtTarget(targets[1])
-end
-
-local hookedTools = {}
-local function hookTool(tool)
-    if hookedTools[tool] then return end
-    hookedTools[tool] = true
-    pcall(function()
-        tool.Activated:Connect(function()
-            if IsHoldingMeleeOrSword() then
-                fireInBoxHit()
-            end
-        end)
-    end)
-end
-
-local function scanTools()
-    local char = player.Character
-    if not char then return end
-    for _, child in ipairs(char:GetChildren()) do
-        if child:IsA("Tool") then
-            hookTool(child)
-        end
-    end
-end
-
-player.CharacterAdded:Connect(function(c)
-    hookedTools = {}
-    task.wait(0.5)
-    scanTools()
-end)
-
-task.spawn(function()
-    while true do
-        task.wait(0.5)
-        pcall(scanTools)
-    end
-end)
-
 -- =============================================
--- Fast Attack (melee + NPCs + players)
+-- Fast Attack (regular — all weapons)
 -- =============================================
 local FastAttack = (function()
     local module = {}
     local conn, last = nil, 0
-
-    local function getTargets()
-        local list = {}
-        local myChar = player.Character
-        if not myChar then return list end
-        local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-        if not myRoot then return list end
-        local range = Features.FastAttackRange or 60
-
-        for _, name in ipairs(NPC_FOLDERS) do
-            local folder = workspace:FindFirstChild(name)
-            if folder then
-                for _, npc in pairs(folder:GetChildren()) do
-                    if npc:IsA("Model") then
-                        local hum = npc:FindFirstChildOfClass("Humanoid")
-                        local hrp = npc:FindFirstChild("HumanoidRootPart")
-                        if hum and hum.Health > 0 and hrp and isCombatNPC(npc, hum, hrp) then
-                            local dist = (hrp.Position - myRoot.Position).Magnitude
-                            if dist <= range then
-                                table.insert(list, {model = npc, root = hrp, dist = dist})
-                            end
-                        end
-                    end
-                end
-            end
-        end
-
-        for _, plr in pairs(Players:GetPlayers()) do
-            if plr ~= player and plr.Character then
-                local hum = plr.Character:FindFirstChildOfClass("Humanoid")
-                local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
-                if hum and hum.Health > 0 and hrp then
-                    local dist = (hrp.Position - myRoot.Position).Magnitude
-                    if dist <= range then
-                        table.insert(list, {model = plr.Character, root = hrp, dist = dist})
-                    end
-                end
-            end
-        end
-        return list
-    end
 
     function module:SetEnabled(state)
         if state and not conn then
@@ -736,10 +571,10 @@ local FastAttack = (function()
                 local speed = Features.FastAttackSpeed or 0.05
                 if tick() - last < speed then return end
                 last = tick()
-                local targets = getTargets()
-                if #targets == 0 then fireAtTarget(nil) return end
+                local targets = getTargetsInRange(Features.FastAttackRange or 60)
+                if #targets == 0 then fireHit(nil) return end
                 table.sort(targets, function(a, b) return a.dist < b.dist end)
-                for _, t in ipairs(targets) do fireAtTarget(t) end
+                for _, t in ipairs(targets) do fireHit(t) end
             end)
         elseif not state and conn then
             conn:Disconnect()
@@ -750,52 +585,11 @@ local FastAttack = (function()
 end)()
 
 -- =============================================
--- GUN Fast Attack (only fires when holding a gun)
+-- Gun Fast Attack (only when holding a gun)
 -- =============================================
 local GunFastAttack = (function()
     local module = {}
     local conn, last = nil, 0
-
-    local function getTargets()
-        local list = {}
-        local myChar = player.Character
-        if not myChar then return list end
-        local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-        if not myRoot then return list end
-        local range = Features.GunFastAttackRange or 80
-
-        for _, plr in pairs(Players:GetPlayers()) do
-            if plr ~= player and plr.Character then
-                local hum = plr.Character:FindFirstChildOfClass("Humanoid")
-                local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
-                if hum and hum.Health > 0 and hrp then
-                    local dist = (hrp.Position - myRoot.Position).Magnitude
-                    if dist <= range then
-                        table.insert(list, {model = plr.Character, root = hrp, dist = dist})
-                    end
-                end
-            end
-        end
-
-        for _, name in ipairs(NPC_FOLDERS) do
-            local folder = workspace:FindFirstChild(name)
-            if folder then
-                for _, npc in pairs(folder:GetChildren()) do
-                    if npc:IsA("Model") then
-                        local hum = npc:FindFirstChildOfClass("Humanoid")
-                        local hrp = npc:FindFirstChild("HumanoidRootPart")
-                        if hum and hum.Health > 0 and hrp and isCombatNPC(npc, hum, hrp) then
-                            local dist = (hrp.Position - myRoot.Position).Magnitude
-                            if dist <= range then
-                                table.insert(list, {model = npc, root = hrp, dist = dist})
-                            end
-                        end
-                    end
-                end
-            end
-        end
-        return list
-    end
 
     function module:SetEnabled(state)
         if state and not conn then
@@ -805,10 +599,10 @@ local GunFastAttack = (function()
                 local speed = Features.GunFastAttackSpeed or 0.08
                 if tick() - last < speed then return end
                 last = tick()
-                local targets = getTargets()
-                if #targets == 0 then fireAtTarget(nil) return end
+                local targets = getTargetsInRange(Features.GunFastAttackRange or 60)
+                if #targets == 0 then fireHit(nil) return end
                 table.sort(targets, function(a, b) return a.dist < b.dist end)
-                for _, t in ipairs(targets) do fireAtTarget(t) end
+                for _, t in ipairs(targets) do fireHit(t) end
             end)
         elseif not state and conn then
             conn:Disconnect()
@@ -849,12 +643,15 @@ end
 local function DoSoruTeleport()
     if not Features.SoruAim then return end
     if tick() < SoruCooldown then return end
+
     local target = GetNearestTarget(Features.SoruTarget, Features.SoruMode, Features.SoruRange)
     if not target then return end
+
     local char = player.Character
     if not char then return end
     local hrp = char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
+
     pcall(function()
         local behind = target.CFrame.LookVector * -3
         hrp.CFrame = CFrame.new(target.Position + behind + Vector3.new(0, 3, 0))
@@ -876,167 +673,6 @@ end
 
 player.CharacterAdded:Connect(function(c) task.wait(0.5) MonitorFlashstep(c) end)
 if player.Character then task.wait(0.5) MonitorFlashstep(player.Character) end
-
--- =============================================
--- ESP
--- =============================================
-local ESPData = {}
-
-local function CreateESP(target, displayName)
-    if ESPData[target] then return end
-    local char = target:IsA("Player") and target.Character or target
-    if not char then return end
-    local head = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
-    if not head then return end
-
-    local gui = Instance.new("BillboardGui")
-    gui.Name = "IvoryESP"
-    gui.Adornee = head
-    gui.Size = UDim2.new(0, 100, 0, 60)
-    gui.StudsOffset = Vector3.new(0, 2.5, 0)
-    gui.AlwaysOnTop = true
-    gui.Parent = head
-
-    local box = Instance.new("Frame")
-    box.AnchorPoint = Vector2.new(0.5, 0.5)
-    box.Position = UDim2.new(0.5, 0, 0.5, 0)
-    box.Size = UDim2.new(0, 30, 0, 40)
-    box.BackgroundTransparency = 1
-    box.BorderSizePixel = 0
-    box.Parent = gui
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = COLORS.ACCENT
-    stroke.Thickness = 1
-    stroke.Parent = box
-
-    local nameL = Instance.new("TextLabel")
-    nameL.Size = UDim2.new(1, 0, 0, 12)
-    nameL.Position = UDim2.new(0, 0, 0.5, -34)
-    nameL.BackgroundTransparency = 1
-    nameL.Text = displayName or "NPC"
-    nameL.TextColor3 = COLORS.WHITE
-    nameL.TextStrokeTransparency = 0
-    nameL.TextStrokeColor3 = Color3.new(0,0,0)
-    nameL.TextSize = 10
-    nameL.Font = Enum.Font.GothamBold
-    nameL.TextXAlignment = Enum.TextXAlignment.Center
-    nameL.Parent = gui
-
-    local hpText = Instance.new("TextLabel")
-    hpText.Size = UDim2.new(1, 0, 0, 11)
-    hpText.Position = UDim2.new(0, 0, 0.5, 22)
-    hpText.BackgroundTransparency = 1
-    hpText.Text = "100%"
-    hpText.TextColor3 = COLORS.GREEN
-    hpText.TextStrokeTransparency = 0
-    hpText.TextStrokeColor3 = Color3.new(0,0,0)
-    hpText.TextSize = 10
-    hpText.Font = Enum.Font.GothamBold
-    hpText.TextXAlignment = Enum.TextXAlignment.Center
-    hpText.Parent = gui
-
-    local distL = Instance.new("TextLabel")
-    distL.Size = UDim2.new(1, 0, 0, 11)
-    distL.Position = UDim2.new(0, 0, 0.5, 32)
-    distL.BackgroundTransparency = 1
-    distL.Text = "0m"
-    distL.TextColor3 = COLORS.GRAY
-    distL.TextStrokeTransparency = 0
-    distL.TextStrokeColor3 = Color3.new(0,0,0)
-    distL.TextSize = 10
-    distL.Font = Enum.Font.Gotham
-    distL.TextXAlignment = Enum.TextXAlignment.Center
-    distL.Parent = gui
-
-    local healthBg = Instance.new("Frame")
-    healthBg.AnchorPoint = Vector2.new(0.5, 0.5)
-    healthBg.Size = UDim2.new(0, 30, 0, 2)
-    healthBg.Position = UDim2.new(0.5, 0, 0.5, -22)
-    healthBg.BackgroundColor3 = Color3.fromRGB(20,20,20)
-    healthBg.BorderSizePixel = 0
-    healthBg.Parent = gui
-    Corner(healthBg, 2)
-
-    local healthFill = Instance.new("Frame")
-    healthFill.Size = UDim2.new(1, 0, 1, 0)
-    healthFill.BackgroundColor3 = COLORS.GREEN
-    healthFill.BorderSizePixel = 0
-    healthFill.Parent = healthBg
-    Corner(healthFill, 2)
-
-    ESPData[target] = { gui=gui, box=box, stroke=stroke, name=nameL, dist=distL,
-        healthBg=healthBg, healthFill=healthFill, hpText=hpText }
-end
-
-local function UpdateESP()
-    if not Features.ESP then
-        for _, d in pairs(ESPData) do pcall(function() d.gui.Visible = false end) end
-        return
-    end
-    local current = {}
-    local cam = Camera
-
-    local function apply(d, name, root, hum)
-        d.gui.Visible = true
-        local dist = (root.Position - cam.CFrame.Position).Magnitude
-        d.name.Text = name
-        d.dist.Text = math.floor(dist) .. "m"
-        local hp = hum.Health / math.max(hum.MaxHealth, 1)
-        d.healthFill.Size = UDim2.new(hp, 0, 1, 0)
-        d.hpText.Text = math.floor(hp * 100) .. "%"
-        local col = hp > 0.5 and COLORS.GREEN or (hp > 0.25 and COLORS.YELLOW or COLORS.RED)
-        d.healthFill.BackgroundColor3 = col
-        d.hpText.TextColor3 = col
-        d.box.Visible = Features.ESPBox
-        d.stroke.Visible = Features.ESPBox
-        d.name.Visible = Features.ESPName
-        d.healthBg.Visible = Features.ESPHealth
-        d.hpText.Visible = Features.ESPHealth
-        d.dist.Visible = Features.ESPDistance
-    end
-
-    if Features.ESPPlayers then
-        for _, plr in pairs(Players:GetPlayers()) do
-            if plr ~= player and plr.Character then
-                local hum = plr.Character:FindFirstChildOfClass("Humanoid")
-                local root = plr.Character:FindFirstChild("HumanoidRootPart")
-                if hum and hum.Health > 0 and root then
-                    if not ESPData[plr] then CreateESP(plr, plr.Name) end
-                    current[plr] = true
-                    if ESPData[plr] then apply(ESPData[plr], plr.Name, root, hum) end
-                end
-            end
-        end
-    end
-
-    if Features.ESPNPCs then
-        for _, name in ipairs(NPC_FOLDERS) do
-            local folder = Workspace:FindFirstChild(name)
-            if folder then
-                for _, npc in pairs(folder:GetChildren()) do
-                    if npc:IsA("Model") then
-                        local hum = npc:FindFirstChildOfClass("Humanoid")
-                        local root = npc:FindFirstChild("HumanoidRootPart")
-                        if hum and hum.Health > 0 and root and isCombatNPC(npc, hum, root) then
-                            if not ESPData[npc] then CreateESP(npc, npc.Name) end
-                            current[npc] = true
-                            if ESPData[npc] then apply(ESPData[npc], npc.Name, root, hum) end
-                        end
-                    end
-                end
-            end
-        end
-    end
-
-    for t, d in pairs(ESPData) do
-        if not current[t] then
-            pcall(function() d.gui:Destroy() end)
-            ESPData[t] = nil
-        end
-    end
-end
-
-RunService.Heartbeat:Connect(function() pcall(UpdateESP) end)
 
 -- =============================================
 -- MACRO SYSTEM
@@ -1545,14 +1181,14 @@ local MainPage = CreatePage("Main")
 local CombatPage = CreatePage("Combat")
 local FastPage = CreatePage("Fast")
 local MacroPage = CreatePage("Macro")
-local VisualPage = CreatePage("Visual")
+local VisualsPage = CreatePage("Visuals")
 local HitboxPage = CreatePage("Hitbox")
 local ConfigPage = CreatePage("Config")
 local SocialsPage = CreatePage("Socials")
 local AboutPage = CreatePage("About")
 
 Section(MainPage, "IVORY HUB")
-local mtL = Text(MainPage, "IVORY HUB v13.1", 16, true)
+local mtL = Text(MainPage, "IVORY HUB v13.0", 16, true)
 mtL.Size = UDim2.new(1, 0, 0, 24)
 mtL.TextXAlignment = Enum.TextXAlignment.Center
 mtL.TextColor3 = COLORS.WHITE
@@ -1577,7 +1213,6 @@ task.spawn(function()
         if Features.FastAttack then table.insert(active, "Fast") end
         if Features.GunFastAttack then table.insert(active, "Gun Fast") end
         if Features.Hitbox then table.insert(active, "Hitbox") end
-        if Features.ESP then table.insert(active, "ESP") end
         if MacroRunning then table.insert(active, "Macro") end
         if statusLbl and statusLbl.Parent then
             if #active == 0 then
@@ -1597,8 +1232,7 @@ Toggle(CombatPage, "Enable Silent Aim", Features.SilentAim, function(s) Features
 CycleButton(CombatPage, "Target", {"Both","Players","NPCs"}, Features.SilentAimTarget, function(v) Features.SilentAimTarget = v SaveConfig() end)
 CycleButton(CombatPage, "Mode", {"360","FOV"}, Features.SilentAimMode, function(v) Features.SilentAimMode = v SaveConfig() end)
 Slider(CombatPage, "Aim Distance", Features.SilentAimDistance, 0, 2000, function(v) Features.SilentAimDistance = v SaveConfig() end, "m")
-Slider(CombatPage, "Prediction", Features.SilentAimPrediction, 0, 0.25, function(v) Features.SilentAimPrediction = v SaveConfig() end, "s")
-Toggle(CombatPage, "Show Tracer", Features.ShowTracer, function(s) Features.ShowTracer = s SaveConfig() end)
+Slider(CombatPage, "Prediction", Features.SilentAimPrediction, 0, 0.5, function(v) Features.SilentAimPrediction = v SaveConfig() end, "s")
 
 Section(CombatPage, "SORU")
 Toggle(CombatPage, "Enable Soru", Features.SoruAim, function(s) Features.SoruAim = s SaveConfig() end)
@@ -1611,7 +1245,7 @@ Toggle(CombatPage, "Show FOV Circle", Features.FOVCircle, function(s) Features.F
 Slider(CombatPage, "FOV Radius", Features.FOVRadius, 10, 500, function(v) Features.FOVRadius = v SaveConfig() end)
 CycleButton(CombatPage, "FOV Mode", {"V1","V2"}, Features.FOVMode, function(v) Features.FOVMode = v SaveConfig() end)
 
-Section(FastPage, "FAST ATTACK (Melee/NPCs)")
+Section(FastPage, "FAST ATTACK")
 Toggle(FastPage, "Enable Fast Attack", Features.FastAttack, function(s)
     Features.FastAttack = s
     FastAttack:SetEnabled(s)
@@ -1626,10 +1260,10 @@ Toggle(FastPage, "Enable Gun Fast Attack", Features.GunFastAttack, function(s)
     GunFastAttack:SetEnabled(s)
     SaveConfig()
 end)
-Slider(FastPage, "Gun Range", Features.GunFastAttackRange, 10, 200, function(v) Features.GunFastAttackRange = v SaveConfig() end, " studs")
+Slider(FastPage, "Gun Range", Features.GunFastAttackRange, 10, 150, function(v) Features.GunFastAttackRange = v SaveConfig() end, " studs")
 Slider(FastPage, "Gun Speed", Features.GunFastAttackSpeed, 0.02, 0.30, function(v) Features.GunFastAttackSpeed = v SaveConfig() end, "s")
 
-Section(HitboxPage, "HITBOX (Players only + In-Box M1)")
+Section(HitboxPage, "HITBOX")
 Toggle(HitboxPage, "Player Hitbox", Features.Hitbox, function(s)
     Features.Hitbox = s
     if not s then clearAllHitboxes() end
@@ -1639,9 +1273,18 @@ Slider(HitboxPage, "Hitbox Bigness", Features.HitboxSize, 3, 40, function(v) Fea
 Toggle(HitboxPage, "Hide Box", Features.HideBox, function(s)
     Features.HideBox = s
     for _, box in pairs(HitboxBoxes) do
-        pcall(function() box.Transparency = s and 1 or 0.3 end)
+        pcall(function()
+            box.Transparency = s and 1 or 0.3
+        end)
     end
     SaveConfig()
+end)
+
+Section(VisualsPage, "FPS BOOST")
+Button(VisualsPage, "FPS Boost", function()
+    pcall(function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/zrrf97zg77-code/Ivoryscirpttest/refs/heads/main/Ivorytesting.lua"))()
+    end)
 end)
 
 Section(MacroPage, "MACRO")
@@ -1836,15 +1479,6 @@ for i = 1, 10 do
     slotUI[i] = { weaponBtn=weaponBtn, skillBtn=skillBtn, holdLbl=holdLbl, delayLbl=delayLbl }
 end
 
-Section(VisualPage, "ESP")
-Toggle(VisualPage, "Enable ESP", Features.ESP, function(s) Features.ESP = s SaveConfig() end)
-Toggle(VisualPage, "Box", Features.ESPBox, function(s) Features.ESPBox = s SaveConfig() end)
-Toggle(VisualPage, "Name", Features.ESPName, function(s) Features.ESPName = s SaveConfig() end)
-Toggle(VisualPage, "Health %", Features.ESPHealth, function(s) Features.ESPHealth = s SaveConfig() end)
-Toggle(VisualPage, "Distance", Features.ESPDistance, function(s) Features.ESPDistance = s SaveConfig() end)
-Toggle(VisualPage, "Players", Features.ESPPlayers, function(s) Features.ESPPlayers = s SaveConfig() end)
-Toggle(VisualPage, "NPCs", Features.ESPNPCs, function(s) Features.ESPNPCs = s SaveConfig() end)
-
 Section(ConfigPage, "CONFIG")
 Button(ConfigPage, "Save Config", function() SaveConfig() SaveMacroConfig() end)
 Button(ConfigPage, "Load Config", function() LoadConfig() LoadMacroConfig() end)
@@ -1861,14 +1495,7 @@ Button(ConfigPage, "Reset Config", function()
     end
     SaveMacroConfig()
 end)
-Button(ConfigPage, "Unload UI", function()
-    SaveConfig()
-    SaveMacroConfig()
-    StopMacro()
-    clearAllHitboxes()
-    if TracerPart then TracerPart:Destroy() end
-    Gui:Destroy()
-end)
+Button(ConfigPage, "Unload UI", function() SaveConfig() SaveMacroConfig() StopMacro() clearAllHitboxes() Gui:Destroy() end)
 
 Section(SocialsPage, "⭐ JOIN US ⭐")
 local socialTitle = Text(SocialsPage, "Ivory & Rayo's Discord", 12, true)
@@ -1901,13 +1528,11 @@ socialCard("RAYO", "Rayo06996", 125)
 
 Section(AboutPage, "📖 ABOUT IVORY HUB")
 local aboutLines = {
-    "Ivory Hub v13.1",
+    "Ivory Hub v13.0",
     "",
-    "• Silent Aim + Prediction (0-0.25s)",
-    "• Tracer shows aim point",
-    "• Fast Attack (melee) + Gun Fast Attack",
-    "• Hitbox (Players) + In-Box M1",
-    "• Soru, ESP, Macro",
+    "• Silent Aim with Prediction",
+    "• Soru, Fast Attack, Gun Fast Attack",
+    "• Player Hitbox, Macro, FPS Boost",
     "",
     "Thanks for using Ivory Hub 🦷"
 }
@@ -1925,7 +1550,7 @@ local Tabs = {
     {name="FAST", icon="⚡", page=FastPage},
     {name="HITBOX", icon="📦", page=HitboxPage},
     {name="MACRO", icon="🎮", page=MacroPage},
-    {name="VISUAL", icon="👁️", page=VisualPage},
+    {name="VISUALS", icon="✨", page=VisualsPage},
     {name="CONFIG", icon="⚙️", page=ConfigPage},
     {name="SOCIALS", icon="💬", page=SocialsPage},
     {name="ABOUT", icon="📖", page=AboutPage},
@@ -2001,16 +1626,15 @@ Close.MouseButton1Click:Connect(function()
     SaveMacroConfig()
     StopMacro()
     clearAllHitboxes()
-    if TracerPart then TracerPart:Destroy() end
     TweenIt(Main, {Size = UDim2.new(0, 0, 0, 0)})
     task.wait(.3)
     Gui:Destroy()
 end)
 
 print("========================================")
-print("        IVORY HUB v13.1 LOADED")
+print("        IVORY HUB v13.0 LOADED")
 print("========================================")
-print("Gun Fast Attack: fires RegisterHit while holding gun")
-print("In-Box M1: back in")
-print("Prediction max: 0.25s")
+print("Silent Aim: prediction slider added")
+print("Hitbox: players only")
+print("New: Gun Fast Attack + FPS Boost")
 print("========================================")
