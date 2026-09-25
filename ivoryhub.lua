@@ -1,8 +1,8 @@
 -- =============================================
--- IVORY HUB v13.2 - FPS BOOST INLINE + CLICK ANIM + BIGGER MACRO
+-- IVORY HUB v13.3 - NEW FPS BOOST
 -- =============================================
 
-print("🦷 Ivory Hub v13.2 loading...")
+print("🦷 Ivory Hub v13.3 loading...")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -61,7 +61,6 @@ local function TweenIt(o, p, t)
     TweenService:Create(o, TweenInfo.new(t or 0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), p):Play()
 end
 
--- Click flash animation for any button
 local function AttachClickAnim(btn)
     if not btn then return end
     btn.MouseButton1Down:Connect(function()
@@ -174,7 +173,7 @@ end
 LoadConfig()
 
 -- =============================================
--- FPS BOOST FUNCTION
+-- FPS BOOST FUNCTION (new version)
 -- =============================================
 local function ApplyFPSBoost()
     pcall(function()
@@ -197,21 +196,21 @@ local function ApplyFPSBoost()
         end
 
         local function optimize(obj)
-            if obj:IsA("PostEffect") then
-                obj.Enabled = false
-            elseif obj:IsA("Smoke") or obj:IsA("Fire") or obj:IsA("Sparkles") then
-                obj.Enabled = false
-            elseif obj:IsA("Beam") then
-                obj.Enabled = false
-            elseif obj:IsA("Trail") then
-                obj.Enabled = false
+            if obj:IsA("Smoke") or obj:IsA("Fire") or obj:IsA("Sparkles")
+               or obj:IsA("Beam") or obj:IsA("Trail") then
+                pcall(function() obj.Enabled = false end)
+            elseif obj:IsA("PostEffect") then
+                pcall(function() obj.Enabled = false end)
             elseif obj:IsA("ParticleEmitter") then
                 pcall(function()
-                    obj.Rate = math.min(obj.Rate, 20)
+                    obj.Rate = math.min(obj.Rate, 12)
+                    obj.LightInfluence = 1
                 end)
             elseif obj:IsA("BasePart") then
+                pcall(function() obj.CastShadow = false end)
+            elseif obj:IsA("MeshPart") then
                 pcall(function()
-                    obj.CastShadow = false
+                    obj.RenderFidelity = Enum.RenderFidelity.Performance
                 end)
             end
         end
@@ -221,17 +220,16 @@ local function ApplyFPSBoost()
         end
 
         game.DescendantAdded:Connect(function(obj)
-            task.defer(function()
-                optimize(obj)
-            end)
+            task.defer(function() optimize(obj) end)
         end)
 
         task.spawn(function()
             while true do
-                Lighting.GlobalShadows = false
                 Lighting.Brightness = 3
+                Lighting.GlobalShadows = false
                 Lighting.EnvironmentDiffuseScale = 0
                 Lighting.EnvironmentSpecularScale = 0
+                Lighting.FogEnd = 100000
                 task.wait(2)
             end
         end)
@@ -403,7 +401,7 @@ local function IsHoldingGun()
 end
 
 -- =============================================
--- Silent Aim — target tracking (with prediction)
+-- Silent Aim
 -- =============================================
 local TargetPos = nil
 local TargetPart = nil
@@ -430,9 +428,6 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- =============================================
--- SILENT AIM HOOK
--- =============================================
 pcall(function()
     local mt = getrawmetatable(game)
     if not mt then return end
@@ -1267,7 +1262,7 @@ local SocialsPage = CreatePage("Socials")
 local AboutPage = CreatePage("About")
 
 Section(MainPage, "IVORY HUB")
-local mtL = Text(MainPage, "IVORY HUB v13.2", 16, true)
+local mtL = Text(MainPage, "IVORY HUB v13.3", 16, true)
 mtL.Size = UDim2.new(1, 0, 0, 24)
 mtL.TextXAlignment = Enum.TextXAlignment.Center
 mtL.TextColor3 = COLORS.WHITE
@@ -1377,7 +1372,7 @@ local slotUI = {}
 
 for i = 1, 10 do
     local row = Instance.new("Frame")
-    row.Size = UDim2.new(1, -10, 0, 100)  -- bigger row
+    row.Size = UDim2.new(1, -10, 0, 100)
     row.BackgroundColor3 = COLORS.CARD
     row.BorderSizePixel = 0
     row.Parent = MacroPage
@@ -1607,7 +1602,7 @@ socialCard("RAYO", "Rayo06996", 125)
 
 Section(AboutPage, "📖 ABOUT IVORY HUB")
 local aboutLines = {
-    "Ivory Hub v13.2",
+    "Ivory Hub v13.3",
     "",
     "• Silent Aim with Prediction",
     "• Soru, Fast Attack, Gun Fast Attack",
@@ -1712,9 +1707,7 @@ Close.MouseButton1Click:Connect(function()
 end)
 
 print("========================================")
-print("        IVORY HUB v13.2 LOADED")
+print("        IVORY HUB v13.3 LOADED")
 print("========================================")
-print("FPS Boost now runs inline Luau")
-print("Click animation on all buttons")
-print("Macro blocks enlarged")
+print("FPS Boost replaced with new version")
 print("========================================")
