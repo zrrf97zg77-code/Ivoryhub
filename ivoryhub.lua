@@ -1,8 +1,8 @@
 -- =============================================
--- IVORY HUB v13.7 - SILENT AIM PREDICTION + TRACER
+-- IVORY HUB v13.8 - CENTUDOX SILENT AIM + TRACER
 -- =============================================
 
-print("🦷 Ivory Hub v13.7 loading...")
+print("🦷 Ivory Hub v13.8 loading...")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -88,7 +88,6 @@ local Features = {
     SilentAimTarget = "Both",
     SilentAimMode = "360",
     SilentAimDistance = 500,
-    SilentAimPrediction = 0.15,
     Tracer = false,
     TracerColor = "Red",
     TracerThickness = 1.5,
@@ -158,7 +157,6 @@ local function ResetConfig()
     Features.SilentAimTarget = "Both"
     Features.SilentAimMode = "360"
     Features.SilentAimDistance = 500
-    Features.SilentAimPrediction = 0.15
     Features.TracerColor = "Red"
     Features.TracerThickness = 1.5
     Features.SoruTarget = "Players"
@@ -213,8 +211,6 @@ local function ApplyFPSBoost()
                 end)
             elseif obj:IsA("BasePart") then
                 pcall(function() obj.CastShadow = false end)
-            elseif obj:IsA("MeshPart") then
-                pcall(function() obj.RenderFidelity = Enum.RenderFidelity.Performance end)
             end
         end
 
@@ -308,7 +304,7 @@ local function ApplyShaders()
 end
 
 -- =============================================
--- FOV
+-- FOV (kept intact)
 -- =============================================
 local FOVGui, FOVRing = nil, nil
 
@@ -392,7 +388,11 @@ local function getHitboxPart(model)
 end
 
 local NPC_FOLDERS = {"Enemies","Enemy","Monsters","Monster","Mobs","Mob","Bosses","Boss","NPCs","Npcs"}
+local CENTUDOX_FOLDERS = {"Enemies","Characters"}
 
+-- =============================================
+-- CENTUDOX-STYLE TARGET SCANNER
+-- =============================================
 local function GetNearestTarget(targetType, mode, maxDist)
     local char = player.Character
     if not char then return nil, nil end
@@ -401,28 +401,52 @@ local function GetNearestTarget(targetType, mode, maxDist)
 
     local best, bestPart, bestDist = nil, nil, math.huge
     local maxRange = maxDist or Features.MaxRange or 1000
+    local origin = root.Position
 
+    local function consider(hum, hrp, part)
+        if not hum or not hrp then return end
+        if hum.Health <= 0 then return end
+        local dist = (hrp.Position - origin).Magnitude
+        if dist > maxRange then return end
+        local ok = (mode ~= "FOV") or isInFOV(hrp)
+        if not ok then return end
+        if dist < bestDist then
+            bestDist = dist
+            best = hrp
+            bestPart = part or hrp
+        end
+    end
+
+    -- 1) PLAYERS
     if targetType == "Players" or targetType == "Both" then
         for _, plr in pairs(Players:GetPlayers()) do
             if plr ~= player and plr.Character then
                 local hum = plr.Character:FindFirstChildOfClass("Humanoid")
                 local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
-                if hum and hum.Health > 0 and hrp then
-                    local dist = (hrp.Position - root.Position).Magnitude
-                    if dist <= maxRange then
-                        local ok = (mode ~= "FOV") or isInFOV(hrp)
-                        if ok and dist < bestDist then
-                            bestDist = dist
-                            best = hrp
-                            bestPart = plr.Character:FindFirstChild("Head") or hrp
+                local part = plr.Character:FindFirstChild("Head") or hrp
+                consider(hum, hrp, part)
+            end
+        end
+    end
+
+    -- 2) NPCs (CentuDox folders first)
+    if targetType == "NPCs" or targetType == "Both" then
+        for _, folderName in ipairs(CENTUDOX_FOLDERS) do
+            local folder = workspace:FindFirstChild(folderName)
+            if folder then
+                for _, model in ipairs(folder:GetChildren()) do
+                    if model ~= char and model:IsA("Model") then
+                        local hum = model:FindFirstChildOfClass("Humanoid")
+                        local hrp = model:FindFirstChild("HumanoidRootPart")
+                        if hum and hrp and isCombatNPC(model, hum, hrp) then
+                            consider(hum, hrp, getHitboxPart(model))
                         end
                     end
                 end
             end
         end
-    end
 
-    if targetType == "NPCs" or targetType == "Both" then
+        -- 3) Legacy fallback
         for _, name in ipairs(NPC_FOLDERS) do
             local folder = workspace:FindFirstChild(name)
             if folder then
@@ -431,21 +455,14 @@ local function GetNearestTarget(targetType, mode, maxDist)
                         local hum = npc:FindFirstChildOfClass("Humanoid")
                         local hrp = npc:FindFirstChild("HumanoidRootPart")
                         if hum and hrp and hum.Health > 0 and isCombatNPC(npc, hum, hrp) then
-                            local dist = (hrp.Position - root.Position).Magnitude
-                            if dist <= maxRange then
-                                local ok = (mode ~= "FOV") or isInFOV(hrp)
-                                if ok and dist < bestDist then
-                                    bestDist = dist
-                                    best = hrp
-                                    bestPart = getHitboxPart(npc)
-                                end
-                            end
+                            consider(hum, hrp, getHitboxPart(npc))
                         end
                     end
                 end
             end
         end
     end
+
     return best, bestPart
 end
 
@@ -472,21 +489,16 @@ local function IsHoldingGun()
 end
 
 -- =============================================
--- SILENT AIM (PREDICTION + PING SCALING)
+-- CENTUDOX SILENT AIM (no prediction, camera untouched)
 -- =============================================
 local TargetPos = nil
 local TargetPart = nil
 local TargetHRP = nil
-
-local function GetPing()
-    local ok, p = pcall(function() return player:GetNetworkPing() end)
-    if ok and type(p) == "number" and p > 0 then return p end
-    return 0.05 -- reasonable default if unavailable
-end
+local TargetModel = nil
 
 RunService.RenderStepped:Connect(function()
     if not Features.SilentAim then
-        TargetPos, TargetPart, TargetHRP = nil, nil, nil
+        TargetPos, TargetPart, TargetHRP, TargetModel = nil, nil, nil, nil
         return
     end
 
@@ -494,33 +506,15 @@ RunService.RenderStepped:Connect(function()
     if hrp and part then
         TargetPart = part
         TargetHRP = hrp
-
-        local pos = part.Position
-        local pred = Features.SilentAimPrediction or 0
-
-        if pred > 0 then
-            -- Use the exact part's velocity (head/torso tracks better than HRP)
-            local vel = part.AssemblyLinearVelocity
-            if not vel or vel.Magnitude < 0.1 then
-                vel = hrp.AssemblyLinearVelocity
-            end
-            if vel then
-                -- Add ping/2 to compensate for network latency
-                local pingComp = GetPing() * 0.5
-                local totalPred = pred + pingComp
-                pos = pos + (vel * totalPred)
-                -- Gravity compensation for projectiles (small nudge upward)
-                pos = pos + Vector3.new(0, 0.5 * (totalPred ^ 2) * workspace.Gravity, 0)
-            end
-        end
-
-        TargetPos = pos
+        TargetModel = hrp.Parent
+        -- Silent aim: snap directly to current position, no prediction
+        TargetPos = part.Position
     else
-        TargetPos, TargetPart, TargetHRP = nil, nil, nil
+        TargetPos, TargetPart, TargetHRP, TargetModel = nil, nil, nil, nil
     end
 end)
 
--- Silent Aim namecall hook
+-- CentuDox-style namecall rewrite
 pcall(function()
     local mt = getrawmetatable(game)
     if not mt then return end
@@ -540,12 +534,20 @@ pcall(function()
                     if string.find(nm, s, 1, true) then ok = false break end
                 end
                 if ok then
+                    local rewritten = table.pack(table.unpack(args))
                     local changed = false
-                    for i, v in ipairs(args) do
-                        if typeof(v) == "Vector3" then args[i] = TargetPos changed = true
-                        elseif typeof(v) == "CFrame" then args[i] = CFrame.new(TargetPos) changed = true end
+                    for i, v in ipairs(rewritten) do
+                        if typeof(v) == "Vector3" then
+                            rewritten[i] = TargetPos
+                            changed = true
+                        elseif typeof(v) == "CFrame" then
+                            rewritten[i] = CFrame.new(TargetPos)
+                            changed = true
+                        end
                     end
-                    if changed then return oldNamecall(self, unpack(args)) end
+                    if changed then
+                        return oldNamecall(self, table.unpack(rewritten, 1, rewritten.n))
+                    end
                 end
             end
         end
@@ -556,7 +558,7 @@ pcall(function()
 end)
 
 -- =============================================
--- TRACER (Mobile-Safe: Drawing + Beam Fallback)
+-- TRACER — MOBILE SAFE (Beam + Part fallback)
 -- =============================================
 local TRACER_MAP = {
     Red    = Color3.fromRGB(255, 50, 50),
@@ -569,28 +571,12 @@ local TRACER_MAP = {
 }
 local TRACER_COLOR = TRACER_MAP[Features.TracerColor] or TRACER_MAP.Red
 
--- Try Drawing library first (works on most mobile executors)
-local DrawingLine = nil
-local HasDrawing = false
-pcall(function()
-    if Drawing and Drawing.new then
-        HasDrawing = true
-    end
-end)
+local TracerFolder = Instance.new("Folder")
+TracerFolder.Name = "IvoryTracerFolder"
+TracerFolder.Parent = workspace
 
-if HasDrawing then
-    pcall(function()
-        DrawingLine = Drawing.new("Line")
-        DrawingLine.Visible = false
-        DrawingLine.Color = TRACER_COLOR
-        DrawingLine.Thickness = Features.TracerThickness or 1.5
-        DrawingLine.Transparency = 0.35
-        DrawingLine.ZIndex = 999
-    end)
-end
-
--- Beam fallback (always available)
 local BeamTracer, BeamAtt0, BeamAtt1 = nil, nil, nil
+local PartTracer = nil
 
 local function getTracerOriginPart()
     local char = player.Character
@@ -606,51 +592,85 @@ local function getTracerOriginPart()
         or char:FindFirstChild("HumanoidRootPart")
 end
 
-local function ensureBeamTracer()
-    if BeamTracer and BeamTracer.Parent then return true end
-    local origin = getTracerOriginPart()
-    if not origin then return false end
-
-    if not BeamAtt0 or not BeamAtt0.Parent then
-        BeamAtt0 = Instance.new("Attachment")
-        BeamAtt0.Name = "IvoryTracerA0"
-        BeamAtt0.Parent = origin
-    end
-    if not BeamAtt1 or not BeamAtt1.Parent then
-        BeamAtt1 = Instance.new("Attachment")
-        BeamAtt1.Name = "IvoryTracerA1"
-        BeamAtt1.Parent = origin
-    end
-
-    if not BeamTracer or not BeamTracer.Parent then
-        BeamTracer = Instance.new("Beam")
-        BeamTracer.Name = "IvoryTracerBeam"
-        BeamTracer.Attachment0 = BeamAtt0
-        BeamTracer.Attachment1 = BeamAtt1
-        BeamTracer.Color = ColorSequence.new(TRACER_COLOR)
-        BeamTracer.Transparency = NumberSequence.new(0.35)
-        BeamTracer.Width0 = Features.TracerThickness or 1.5
-        BeamTracer.Width1 = Features.TracerThickness or 1.5
-        BeamTracer.FaceCamera = true
-        BeamTracer.LightEmission = 1
-        BeamTracer.LightInfluence = 0
-        BeamTracer.Parent = origin
-    end
-    return true
-end
-
-local function hideTracer()
-    if DrawingLine then DrawingLine.Visible = false end
-    if BeamTracer then BeamTracer.Enabled = false end
-end
-
 local function destroyTracer()
     if BeamTracer then pcall(function() BeamTracer:Destroy() end) BeamTracer = nil end
     if BeamAtt0 then pcall(function() BeamAtt0:Destroy() end) BeamAtt0 = nil end
     if BeamAtt1 then pcall(function() BeamAtt1:Destroy() end) BeamAtt1 = nil end
+    if PartTracer then pcall(function() PartTracer:Destroy() end) PartTracer = nil end
 end
 
--- Tracer updater
+local function ensureBeamTracer()
+    local origin = getTracerOriginPart()
+    if not origin then return false end
+
+    if BeamTracer and BeamTracer.Parent then
+        if BeamAtt0.Parent ~= origin then BeamAtt0.Parent = origin end
+        if BeamAtt1.Parent ~= origin then BeamAtt1.Parent = origin end
+        return true
+    end
+
+    BeamAtt0 = Instance.new("Attachment")
+    BeamAtt0.Name = "IvoryTracerA0"
+    BeamAtt0.Parent = origin
+
+    BeamAtt1 = Instance.new("Attachment")
+    BeamAtt1.Name = "IvoryTracerA1"
+    BeamAtt1.Parent = origin
+
+    BeamTracer = Instance.new("Beam")
+    BeamTracer.Name = "IvoryTracerBeam"
+    BeamTracer.Attachment0 = BeamAtt0
+    BeamTracer.Attachment1 = BeamAtt1
+    BeamTracer.Color = ColorSequence.new(TRACER_COLOR)
+    BeamTracer.Transparency = NumberSequence.new(0.25)
+    BeamTracer.Width0 = Features.TracerThickness or 1.5
+    BeamTracer.Width1 = Features.TracerThickness or 1.5
+    BeamTracer.FaceCamera = true
+    BeamTracer.LightEmission = 1
+    BeamTracer.LightInfluence = 0
+    BeamTracer.Segments = 1
+    BeamTracer.Enabled = false
+    BeamTracer.Parent = origin
+    return true
+end
+
+local function hideTracer()
+    if BeamTracer then BeamTracer.Enabled = false end
+    if PartTracer then PartTracer.Transparency = 1 end
+end
+
+local function getOrCreatePartTracer()
+    if PartTracer and PartTracer.Parent then return PartTracer end
+    PartTracer = Instance.new("Part")
+    PartTracer.Name = "IvoryTracerPart"
+    PartTracer.Anchored = true
+    PartTracer.CanCollide = false
+    PartTracer.CanQuery = false
+    PartTracer.CanTouch = false
+    PartTracer.CastShadow = false
+    PartTracer.Material = Enum.Material.Neon
+    PartTracer.Color = TRACER_COLOR
+    PartTracer.Transparency = 1
+    PartTracer.Size = Vector3.new(0.05, 0.05, 1)
+    PartTracer.Parent = TracerFolder
+    return PartTracer
+end
+
+local function updatePartTracer(fromPos, toPos, thickness, color)
+    local p = getOrCreatePartTracer()
+    local diff = toPos - fromPos
+    local length = diff.Magnitude
+    if length < 0.1 then
+        p.Transparency = 1
+        return
+    end
+    local mid = fromPos + diff * 0.5
+    p.CFrame = CFrame.lookAt(mid, toPos)
+    p.Size = Vector3.new(thickness * 0.1, thickness * 0.1, length)
+    p.Color = color
+    p.Transparency = 0.25
+end
+
 RunService.RenderStepped:Connect(function()
     pcall(function()
         if not Features.SilentAim or not Features.Tracer or not TargetPos then
@@ -661,34 +681,25 @@ RunService.RenderStepped:Connect(function()
         local originPart = getTracerOriginPart()
         if not originPart then hideTracer() return end
 
-        -- Prefer Drawing on mobile (cheaper)
-        if HasDrawing and DrawingLine then
-            local screenOrigin = Camera:WorldToViewportPoint(originPart.Position)
-            local screenTarget = Camera:WorldToViewportPoint(TargetPos)
-            if screenOrigin.Z > 0 and screenTarget.Z > 0 then
-                DrawingLine.From = Vector2.new(screenOrigin.X, screenOrigin.Y)
-                DrawingLine.To   = Vector2.new(screenTarget.X, screenTarget.Y)
-                DrawingLine.Color = TRACER_COLOR
-                DrawingLine.Thickness = Features.TracerThickness or 1.5
-                DrawingLine.Visible = true
-                if BeamTracer then BeamTracer.Enabled = false end
-                return
-            end
-        end
+        local fromPos = originPart.Position
+        local toPos = TargetPos
+        local thickness = Features.TracerThickness or 1.5
 
-        -- Beam fallback
-        if ensureBeamTracer() then
-            BeamAtt0.WorldPosition = originPart.Position
-            BeamAtt1.WorldPosition = TargetPos
+        if ensureBeamTracer() and BeamTracer and BeamAtt0 and BeamAtt1 then
+            BeamAtt0.WorldPosition = fromPos
+            BeamAtt1.WorldPosition = toPos
             BeamTracer.Color = ColorSequence.new(TRACER_COLOR)
-            BeamTracer.Width0 = Features.TracerThickness or 1.5
-            BeamTracer.Width1 = Features.TracerThickness or 1.5
+            BeamTracer.Width0 = thickness
+            BeamTracer.Width1 = thickness
             BeamTracer.Enabled = true
+            if PartTracer then PartTracer.Transparency = 1 end
+        else
+            if BeamTracer then BeamTracer.Enabled = false end
+            updatePartTracer(fromPos, toPos, thickness, TRACER_COLOR)
         end
     end)
 end)
 
--- Cleanup on respawn
 player.CharacterAdded:Connect(function()
     destroyTracer()
     hideTracer()
@@ -1451,7 +1462,7 @@ local SocialsPage = CreatePage("Socials")
 local AboutPage = CreatePage("About")
 
 Section(MainPage, "IVORY HUB")
-local mtL = Text(MainPage, "IVORY HUB v13.7", 16, true)
+local mtL = Text(MainPage, "IVORY HUB v13.8", 16, true)
 mtL.Size = UDim2.new(1, 0, 0, 24)
 mtL.TextXAlignment = Enum.TextXAlignment.Center
 mtL.TextColor3 = COLORS.WHITE
@@ -1492,14 +1503,13 @@ task.spawn(function()
 end)
 
 -- =============================================
--- COMBAT TAB (with new Tracer section)
+-- COMBAT TAB
 -- =============================================
 Section(CombatPage, "SILENT AIM")
 Toggle(CombatPage, "Enable Silent Aim", Features.SilentAim, function(s) Features.SilentAim = s SaveConfig() end)
 CycleButton(CombatPage, "Target", {"Both","Players","NPCs"}, Features.SilentAimTarget, function(v) Features.SilentAimTarget = v SaveConfig() end)
 CycleButton(CombatPage, "Mode", {"360","FOV"}, Features.SilentAimMode, function(v) Features.SilentAimMode = v SaveConfig() end)
 Slider(CombatPage, "Aim Distance", Features.SilentAimDistance, 0, 2000, function(v) Features.SilentAimDistance = v SaveConfig() end, "m")
-Slider(CombatPage, "Prediction", Features.SilentAimPrediction, 0, 0.5, function(v) Features.SilentAimPrediction = v SaveConfig() end, "s")
 
 Section(CombatPage, "TRACER")
 Toggle(CombatPage, "Show Tracer", Features.Tracer, function(s)
@@ -1509,13 +1519,12 @@ end)
 CycleButton(CombatPage, "Tracer Color", {"Red","Green","Yellow","White","Blue","Cyan","Purple"}, Features.TracerColor, function(v)
     Features.TracerColor = v
     TRACER_COLOR = TRACER_MAP[v] or TRACER_MAP.Red
-    if DrawingLine then DrawingLine.Color = TRACER_COLOR end
     if BeamTracer then BeamTracer.Color = ColorSequence.new(TRACER_COLOR) end
+    if PartTracer then PartTracer.Color = TRACER_COLOR end
     SaveConfig()
 end)
 Slider(CombatPage, "Tracer Thickness", Features.TracerThickness, 0.5, 5, function(v)
     Features.TracerThickness = v
-    if DrawingLine then DrawingLine.Thickness = v end
     if BeamTracer then BeamTracer.Width0 = v BeamTracer.Width1 = v end
     SaveConfig()
 end, "px")
@@ -1815,9 +1824,9 @@ socialCard("RAYO", "Rayo06996", 125)
 
 Section(AboutPage, "📖 ABOUT IVORY HUB")
 local aboutLines = {
-    "Ivory Hub v13.7",
+    "Ivory Hub v13.8",
     "",
-    "• Silent Aim with Prediction + Ping Comp",
+    "• CentuDox Silent Aim (no prediction)",
     "• Tracer for Locked Target",
     "• Soru, Fast Attack, Gun Fast Attack",
     "• Player Hitbox, Macro",
@@ -1924,7 +1933,8 @@ Close.MouseButton1Click:Connect(function()
 end)
 
 print("========================================")
-print("     IVORY HUB v13.7 LOADED")
+print("     IVORY HUB v13.8 LOADED")
 print("========================================")
-print("NEW: Silent Aim Prediction + Tracer")
+print("Silent Aim: CentuDox (no prediction)")
+print("Tracer: Beam + Part fallback")
 print("========================================")
