@@ -1,8 +1,8 @@
 -- =============================================
--- IVORY HUB v13.5 - NEW SHADERS
+-- IVORY HUB v13.6 - NEW SHADERS v3
 -- =============================================
 
-print("🦷 Ivory Hub v13.5 loading...")
+print("🦷 Ivory Hub v13.6 loading...")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -237,126 +237,127 @@ local function ApplyFPSBoost()
 end
 
 -- =============================================
--- SHADERS FUNCTION (new version)
+-- SHADERS FUNCTION (Distinct Atmospheric Realism)
 -- =============================================
 local function ApplyShaders()
     pcall(function()
         local Terrain = Workspace:FindFirstChildOfClass("Terrain")
 
-        -- LIGHTING
+        -- CORE LIGHTING
         pcall(function() Lighting.Technology = Enum.Technology.Future end)
-        Lighting.Brightness = 2.2
-        Lighting.ClockTime = 15.5
+        Lighting.Brightness = 2
+        Lighting.ClockTime = 16.2
         Lighting.GlobalShadows = true
-        Lighting.ShadowSoftness = 0.25
+        Lighting.ShadowSoftness = 0.38
         Lighting.EnvironmentDiffuseScale = 1
         Lighting.EnvironmentSpecularScale = 1
-        Lighting.ExposureCompensation = 0
+        Lighting.ExposureCompensation = 0.05
 
-        -- REALISTIC DISTANT FOG
-        Lighting.FogColor = Color3.fromRGB(195, 205, 215)
-        Lighting.FogStart = 100
-        Lighting.FogEnd = 1800
+        -- SOFT DISTANCE FOG
+        Lighting.FogColor = Color3.fromRGB(185, 201, 214)
+        Lighting.FogStart = 55
+        Lighting.FogEnd = 1250
 
-        -- ATMOSPHERE
-        local Atmosphere = Lighting:FindFirstChild("RealisticAtmosphere")
+        -- ATMOSPHERIC DEPTH
+        local Atmosphere = Lighting:FindFirstChild("AtmosphericRealism")
         if not Atmosphere then
             Atmosphere = Instance.new("Atmosphere")
-            Atmosphere.Name = "RealisticAtmosphere"
+            Atmosphere.Name = "AtmosphericRealism"
             Atmosphere.Parent = Lighting
         end
-        Atmosphere.Density = 0.28
-        Atmosphere.Offset = 0.15
-        Atmosphere.Color = Color3.fromRGB(199, 215, 230)
-        Atmosphere.Decay = Color3.fromRGB(105, 125, 150)
-        Atmosphere.Glare = 0.18
-        Atmosphere.Haze = 1.8
+        Atmosphere.Density = 0.34
+        Atmosphere.Offset = 0.08
+        Atmosphere.Color = Color3.fromRGB(190, 210, 225)
+        Atmosphere.Decay = Color3.fromRGB(120, 135, 150)
+        Atmosphere.Glare = 0.25
+        Atmosphere.Haze = 2.15
 
-        -- COLOR GRADING
-        local ColorCorrection = Lighting:FindFirstChild("RealisticColor")
+        -- NATURAL COLOR
+        local ColorCorrection = Lighting:FindFirstChild("AtmosphericColor")
         if not ColorCorrection then
             ColorCorrection = Instance.new("ColorCorrectionEffect")
-            ColorCorrection.Name = "RealisticColor"
+            ColorCorrection.Name = "AtmosphericColor"
             ColorCorrection.Parent = Lighting
         end
-        ColorCorrection.Brightness = 0.02
-        ColorCorrection.Contrast = 0.12
-        ColorCorrection.Saturation = 0.05
-        ColorCorrection.TintColor = Color3.fromRGB(255, 249, 240)
+        ColorCorrection.Brightness = 0.025
+        ColorCorrection.Contrast = 0.07
+        ColorCorrection.Saturation = -0.02
+        ColorCorrection.TintColor = Color3.fromRGB(255, 250, 242)
 
-        -- BLOOM
-        local Bloom = Lighting:FindFirstChild("RealisticBloom")
-        if not Bloom then
-            Bloom = Instance.new("BloomEffect")
-            Bloom.Name = "RealisticBloom"
-            Bloom.Parent = Lighting
-        end
-        Bloom.Intensity = 0.22
-        Bloom.Size = 28
-        Bloom.Threshold = 1.2
-
-        -- SUN RAYS
-        local SunRays = Lighting:FindFirstChild("RealisticSunRays")
+        -- SOFT SUNLIGHT
+        local SunRays = Lighting:FindFirstChild("AtmosphericSun")
         if not SunRays then
             SunRays = Instance.new("SunRaysEffect")
-            SunRays.Name = "RealisticSunRays"
+            SunRays.Name = "AtmosphericSun"
             SunRays.Parent = Lighting
         end
-        SunRays.Intensity = 0.12
-        SunRays.Spread = 0.8
+        SunRays.Intensity = 0.16
+        SunRays.Spread = 0.88
 
-        -- DEPTH OF FIELD
-        local DOF = Lighting:FindFirstChild("RealisticDepthOfField")
+        -- VERY SUBTLE BLOOM
+        local Bloom = Lighting:FindFirstChild("AtmosphericBloom")
+        if not Bloom then
+            Bloom = Instance.new("BloomEffect")
+            Bloom.Name = "AtmosphericBloom"
+            Bloom.Parent = Lighting
+        end
+        Bloom.Intensity = 0.16
+        Bloom.Size = 32
+        Bloom.Threshold = 1.35
+
+        -- SUBTLE DEPTH OF FIELD
+        local DOF = Lighting:FindFirstChild("AtmosphericDOF")
         if not DOF then
             DOF = Instance.new("DepthOfFieldEffect")
-            DOF.Name = "RealisticDepthOfField"
+            DOF.Name = "AtmosphericDOF"
             DOF.Parent = Lighting
         end
-        DOF.FocusDistance = 100
-        DOF.InFocusRadius = 60
-        DOF.NearIntensity = 0.08
-        DOF.FarIntensity = 0.12
+        DOF.FocusDistance = 120
+        DOF.InFocusRadius = 75
+        DOF.NearIntensity = 0.025
+        DOF.FarIntensity = 0.075
 
-        -- REALISTIC CLOUDS
+        -- CLOUDS
         if Terrain then
-            local Clouds = Terrain:FindFirstChild("RealisticClouds")
+            local Clouds = Terrain:FindFirstChild("AtmosphericClouds")
             if not Clouds then
                 Clouds = Instance.new("Clouds")
-                Clouds.Name = "RealisticClouds"
+                Clouds.Name = "AtmosphericClouds"
                 Clouds.Parent = Terrain
             end
-            Clouds.Cover = 0.42
-            Clouds.Density = 0.55
-            Clouds.Color = Color3.fromRGB(235, 238, 242)
+            Clouds.Cover = 0.46
+            Clouds.Density = 0.48
+            Clouds.Color = Color3.fromRGB(228, 232, 235)
         end
 
-        -- TERRAIN WATER
+        -- WATER
         if Terrain then
-            Terrain.WaterWaveSize = 0.35
-            Terrain.WaterWaveSpeed = 8
-            Terrain.WaterReflectance = 0.35
-            Terrain.WaterTransparency = 0.18
-            Terrain.WaterColor = Color3.fromRGB(45, 105, 135)
+            Terrain.WaterWaveSize = 0.4
+            Terrain.WaterWaveSpeed = 9
+            Terrain.WaterReflectance = 0.42
+            Terrain.WaterTransparency = 0.2
+            Terrain.WaterColor = Color3.fromRGB(55, 110, 135)
         end
 
-        -- KEEP ACTIVE
+        -- KEEP LOOK ACTIVE
         task.spawn(function()
-            while task.wait(5) do
-                pcall(function() Lighting.Technology = Enum.Technology.Future end)
+            while task.wait(4) do
+                Lighting.Brightness = 2
                 Lighting.GlobalShadows = true
-                Lighting.ShadowSoftness = 0.25
+                Lighting.ShadowSoftness = 0.38
                 Lighting.EnvironmentDiffuseScale = 1
                 Lighting.EnvironmentSpecularScale = 1
-                Lighting.FogStart = 100
-                Lighting.FogEnd = 1800
-                Atmosphere.Density = 0.28
-                Atmosphere.Haze = 1.8
-                Atmosphere.Glare = 0.18
+                Lighting.FogStart = 55
+                Lighting.FogEnd = 1250
+                Atmosphere.Density = 0.34
+                Atmosphere.Haze = 2.15
+                Atmosphere.Glare = 0.25
+                SunRays.Intensity = 0.16
                 if Terrain then
-                    local Clouds = Terrain:FindFirstChild("RealisticClouds")
+                    local Clouds = Terrain:FindFirstChild("AtmosphericClouds")
                     if Clouds then
-                        Clouds.Cover = 0.42
-                        Clouds.Density = 0.55
+                        Clouds.Cover = 0.46
+                        Clouds.Density = 0.48
                     end
                 end
             end
@@ -1390,7 +1391,7 @@ local SocialsPage = CreatePage("Socials")
 local AboutPage = CreatePage("About")
 
 Section(MainPage, "IVORY HUB")
-local mtL = Text(MainPage, "IVORY HUB v13.5", 16, true)
+local mtL = Text(MainPage, "IVORY HUB v13.6", 16, true)
 mtL.Size = UDim2.new(1, 0, 0, 24)
 mtL.TextXAlignment = Enum.TextXAlignment.Center
 mtL.TextColor3 = COLORS.WHITE
@@ -1735,12 +1736,12 @@ socialCard("RAYO", "Rayo06996", 125)
 
 Section(AboutPage, "📖 ABOUT IVORY HUB")
 local aboutLines = {
-    "Ivory Hub v13.5",
+    "Ivory Hub v13.6",
     "",
     "• Silent Aim with Prediction",
     "• Soru, Fast Attack, Gun Fast Attack",
     "• Player Hitbox, Macro",
-    "• FPS Boost + Realistic Shaders",
+    "• FPS Boost + Atmospheric Shaders",
     "",
     "Thanks for using Ivory Hub 🦷"
 }
@@ -1841,7 +1842,7 @@ Close.MouseButton1Click:Connect(function()
 end)
 
 print("========================================")
-print("        IVORY HUB v13.5 LOADED")
+print("        IVORY HUB v13.6 LOADED")
 print("========================================")
-print("NEW: Realistic Shaders v2")
+print("NEW: Atmospheric Realism Shaders")
 print("========================================")
