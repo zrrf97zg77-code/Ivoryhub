@@ -1,8 +1,8 @@
 -- =============================================
--- IVORY HUB v13.8 - CENTUDOX SILENT AIM + TRACER
+-- IVORY HUB v13.9 - CENTUDOX + PREDICTION + TRACER
 -- =============================================
 
-print("🦷 Ivory Hub v13.8 loading...")
+print("🦷 Ivory Hub v13.9 loading...")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -88,6 +88,7 @@ local Features = {
     SilentAimTarget = "Both",
     SilentAimMode = "360",
     SilentAimDistance = 500,
+    SilentAimPrediction = 0.15,
     Tracer = false,
     TracerColor = "Red",
     TracerThickness = 1.5,
@@ -157,6 +158,7 @@ local function ResetConfig()
     Features.SilentAimTarget = "Both"
     Features.SilentAimMode = "360"
     Features.SilentAimDistance = 500
+    Features.SilentAimPrediction = 0.15
     Features.TracerColor = "Red"
     Features.TracerThickness = 1.5
     Features.SoruTarget = "Players"
@@ -304,7 +306,7 @@ local function ApplyShaders()
 end
 
 -- =============================================
--- FOV (kept intact)
+-- FOV
 -- =============================================
 local FOVGui, FOVRing = nil, nil
 
@@ -417,7 +419,6 @@ local function GetNearestTarget(targetType, mode, maxDist)
         end
     end
 
-    -- 1) PLAYERS
     if targetType == "Players" or targetType == "Both" then
         for _, plr in pairs(Players:GetPlayers()) do
             if plr ~= player and plr.Character then
@@ -429,7 +430,6 @@ local function GetNearestTarget(targetType, mode, maxDist)
         end
     end
 
-    -- 2) NPCs (CentuDox folders first)
     if targetType == "NPCs" or targetType == "Both" then
         for _, folderName in ipairs(CENTUDOX_FOLDERS) do
             local folder = workspace:FindFirstChild(folderName)
@@ -446,7 +446,6 @@ local function GetNearestTarget(targetType, mode, maxDist)
             end
         end
 
-        -- 3) Legacy fallback
         for _, name in ipairs(NPC_FOLDERS) do
             local folder = workspace:FindFirstChild(name)
             if folder then
@@ -489,16 +488,23 @@ local function IsHoldingGun()
 end
 
 -- =============================================
--- CENTUDOX SILENT AIM (no prediction, camera untouched)
+-- CENTUDOX SILENT AIM + PREDICTION
 -- =============================================
-local TargetPos = nil
+local TargetPos = nil       -- predicted position (used for namecall rewrite + tracer)
+local TargetRealPos = nil   -- real current position (for reference/debug)
 local TargetPart = nil
 local TargetHRP = nil
 local TargetModel = nil
 
+local function GetPing()
+    local ok, p = pcall(function() return player:GetNetworkPing() end)
+    if ok and type(p) == "number" and p > 0 then return p end
+    return 0.05
+end
+
 RunService.RenderStepped:Connect(function()
     if not Features.SilentAim then
-        TargetPos, TargetPart, TargetHRP, TargetModel = nil, nil, nil, nil
+        TargetPos, TargetRealPos, TargetPart, TargetHRP, TargetModel = nil, nil, nil, nil, nil
         return
     end
 
@@ -507,14 +513,35 @@ RunService.RenderStepped:Connect(function()
         TargetPart = part
         TargetHRP = hrp
         TargetModel = hrp.Parent
-        -- Silent aim: snap directly to current position, no prediction
-        TargetPos = part.Position
+        TargetRealPos = part.Position
+
+        local pred = Features.SilentAimPrediction or 0
+        if pred > 0 then
+            -- Use the exact part's velocity first (head/torso tracks better than HRP)
+            local vel = part.AssemblyLinearVelocity
+            if not vel or vel.Magnitude < 0.1 then
+                vel = hrp.AssemblyLinearVelocity
+            end
+            if vel then
+                -- Add ping/2 compensation for network latency
+                local pingComp = GetPing() * 0.5
+                local totalPred = pred + pingComp
+                local pos = part.Position + (vel * totalPred)
+                -- Small gravity compensation for arc'd projectiles
+                pos = pos + Vector3.new(0, 0.5 * (totalPred ^ 2) * workspace.Gravity * 0.1, 0)
+                TargetPos = pos
+            else
+                TargetPos = part.Position
+            end
+        else
+            TargetPos = part.Position
+        end
     else
-        TargetPos, TargetPart, TargetHRP, TargetModel = nil, nil, nil, nil
+        TargetPos, TargetRealPos, TargetPart, TargetHRP, TargetModel = nil, nil, nil, nil, nil
     end
 end)
 
--- CentuDox-style namecall rewrite
+-- CentuDox-style namecall rewrite — now uses predicted TargetPos
 pcall(function()
     local mt = getrawmetatable(game)
     if not mt then return end
@@ -682,7 +709,7 @@ RunService.RenderStepped:Connect(function()
         if not originPart then hideTracer() return end
 
         local fromPos = originPart.Position
-        local toPos = TargetPos
+        local toPos = TargetPos   -- tracer now leads with prediction
         local thickness = Features.TracerThickness or 1.5
 
         if ensureBeamTracer() and BeamTracer and BeamAtt0 and BeamAtt1 then
@@ -1090,7 +1117,6 @@ local function StopMacro()
     ReleaseAllKeys()
 end
 
--- Macro floating button
 local MacroBtn = Instance.new("TextButton")
 MacroBtn.Name = "IvoryMacroBtn"
 MacroBtn.Size = UDim2.fromOffset(70, 70)
@@ -1462,7 +1488,7 @@ local SocialsPage = CreatePage("Socials")
 local AboutPage = CreatePage("About")
 
 Section(MainPage, "IVORY HUB")
-local mtL = Text(MainPage, "IVORY HUB v13.8", 16, true)
+local mtL = Text(MainPage, "IVORY HUB v13.9", 16, true)
 mtL.Size = UDim2.new(1, 0, 0, 24)
 mtL.TextXAlignment = Enum.TextXAlignment.Center
 mtL.TextColor3 = COLORS.WHITE
@@ -1503,13 +1529,14 @@ task.spawn(function()
 end)
 
 -- =============================================
--- COMBAT TAB
+-- COMBAT TAB (Prediction slider is back!)
 -- =============================================
 Section(CombatPage, "SILENT AIM")
 Toggle(CombatPage, "Enable Silent Aim", Features.SilentAim, function(s) Features.SilentAim = s SaveConfig() end)
 CycleButton(CombatPage, "Target", {"Both","Players","NPCs"}, Features.SilentAimTarget, function(v) Features.SilentAimTarget = v SaveConfig() end)
 CycleButton(CombatPage, "Mode", {"360","FOV"}, Features.SilentAimMode, function(v) Features.SilentAimMode = v SaveConfig() end)
 Slider(CombatPage, "Aim Distance", Features.SilentAimDistance, 0, 2000, function(v) Features.SilentAimDistance = v SaveConfig() end, "m")
+Slider(CombatPage, "Prediction", Features.SilentAimPrediction, 0, 0.5, function(v) Features.SilentAimPrediction = v SaveConfig() end, "s")
 
 Section(CombatPage, "TRACER")
 Toggle(CombatPage, "Show Tracer", Features.Tracer, function(s)
@@ -1824,10 +1851,10 @@ socialCard("RAYO", "Rayo06996", 125)
 
 Section(AboutPage, "📖 ABOUT IVORY HUB")
 local aboutLines = {
-    "Ivory Hub v13.8",
+    "Ivory Hub v13.9",
     "",
-    "• CentuDox Silent Aim (no prediction)",
-    "• Tracer for Locked Target",
+    "• CentuDox Silent Aim + Prediction",
+    "• Tracer that leads with prediction",
     "• Soru, Fast Attack, Gun Fast Attack",
     "• Player Hitbox, Macro",
     "• FPS Boost + Atmospheric Shaders",
@@ -1933,8 +1960,8 @@ Close.MouseButton1Click:Connect(function()
 end)
 
 print("========================================")
-print("     IVORY HUB v13.8 LOADED")
+print("     IVORY HUB v13.9 LOADED")
 print("========================================")
-print("Silent Aim: CentuDox (no prediction)")
-print("Tracer: Beam + Part fallback")
+print("Silent Aim: CentuDox + Prediction")
+print("Tracer: Leads with prediction")
 print("========================================")
