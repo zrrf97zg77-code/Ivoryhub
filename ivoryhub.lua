@@ -1,8 +1,8 @@
 -- =============================================
--- IVORY HUB v12.4 - PLAYERS + NPC HITBOX, NO QUEST GIVERS
+-- IVORY HUB v13.0 - PREDICTION + TRACER
 -- =============================================
 
-print("🦷 Ivory Hub v12.4 loading...")
+print("🦷 Ivory Hub v13.0 loading...")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -77,8 +77,8 @@ local Features = {
     SilentAimTarget = "Both",
     SilentAimMode = "360",
     SilentAimDistance = 500,
-    SilentAimGuns = true,
-    SilentAimMelee = true,
+    SilentAimPrediction = 0.15,
+    ShowTracer = true,
     SoruAim = false,
     SoruTarget = "Players",
     SoruMode = "360",
@@ -93,6 +93,9 @@ local Features = {
     FastAttack = false,
     FastAttackRange = 60,
     FastAttackSpeed = 0.05,
+    GunFastAttack = false,
+    GunFastAttackRange = 80,
+    GunFastAttackSpeed = 0.08,
     Hitbox = false,
     HitboxSize = 5,
     HideBox = false,
@@ -149,8 +152,8 @@ local function ResetConfig()
     Features.SilentAimTarget = "Both"
     Features.SilentAimMode = "360"
     Features.SilentAimDistance = 500
-    Features.SilentAimGuns = true
-    Features.SilentAimMelee = true
+    Features.SilentAimPrediction = 0.15
+    Features.ShowTracer = true
     Features.SoruTarget = "Players"
     Features.SoruMode = "360"
     Features.SoruRange = 150
@@ -162,6 +165,8 @@ local function ResetConfig()
     Features.ESPNPCs = true
     Features.FastAttackRange = 60
     Features.FastAttackSpeed = 0.05
+    Features.GunFastAttackRange = 80
+    Features.GunFastAttackSpeed = 0.08
     Features.HitboxSize = 5
     Features.FOVRadius = 150
     Features.FOVMode = "V1"
@@ -335,16 +340,42 @@ local function IsHoldingGun()
     return false
 end
 
-local function IsHoldingMeleeOrSword()
-    local char = player.Character
-    if not char then return false end
-    local tool = char:FindFirstChildOfClass("Tool")
-    if not tool then return false end
-    return not IsHoldingGun()
+-- =============================================
+-- Tracer (visual beam from your gun to aim point)
+-- =============================================
+local TracerPart = nil
+local function UpdateTracer(fromPos, toPos, visible)
+    if not visible or not fromPos or not toPos then
+        if TracerPart then TracerPart.Transparency = 1 end
+        return
+    end
+    if not TracerPart or not TracerPart.Parent then
+        TracerPart = Instance.new("Part")
+        TracerPart.Name = "IvoryTracer"
+        TracerPart.Anchored = true
+        TracerPart.CanCollide = false
+        TracerPart.CanQuery = false
+        TracerPart.CanTouch = false
+        TracerPart.Massless = true
+        TracerPart.Material = Enum.Material.Neon
+        TracerPart.Color = COLORS.ACCENT
+        TracerPart.Size = Vector3.new(0.08, 0.08, 1)
+        TracerPart.Transparency = 0.2
+        TracerPart.Parent = workspace
+    end
+    local dist = (toPos - fromPos).Magnitude
+    if dist < 0.1 then
+        TracerPart.Transparency = 1
+        return
+    end
+    local mid = (fromPos + toPos) / 2
+    TracerPart.CFrame = CFrame.lookAt(mid, toPos)
+    TracerPart.Size = Vector3.new(0.08, 0.08, dist)
+    TracerPart.Transparency = 0.2
 end
 
 -- =============================================
--- Silent Aim — target tracking
+-- Silent Aim — target tracking with PREDICTION
 -- =============================================
 local TargetPos = nil
 local TargetPart = nil
@@ -353,20 +384,46 @@ RunService.RenderStepped:Connect(function()
     if not Features.SilentAim then
         TargetPos = nil
         TargetPart = nil
+        pcall(UpdateTracer, nil, nil, false)
         return
     end
     local hrp, part = GetNearestTarget(Features.SilentAimTarget, Features.SilentAimMode, Features.SilentAimDistance)
     if hrp and part then
         TargetPart = part
-        TargetPos = part.Position
+
+        -- Prediction: aim ahead based on target's velocity
+        local pred = Features.SilentAimPrediction or 0
+        local predictedPos = part.Position
+        if pred > 0 then
+            local targetChar = part.Parent
+            local targetHRP = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+            if targetHRP then
+                local vel = targetHRP.AssemblyLinearVelocity
+                if vel then
+                    predictedPos = part.Position + (vel * pred)
+                end
+            end
+        end
+        TargetPos = predictedPos
+
+        -- Tracer from camera to aim point
+        if Features.ShowTracer then
+            local myChar = player.Character
+            local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+            local origin = myHRP and (myHRP.Position + Vector3.new(0, 1, 0)) or Camera.CFrame.Position
+            pcall(UpdateTracer, origin, TargetPos, true)
+        else
+            pcall(UpdateTracer, nil, nil, false)
+        end
     else
         TargetPos = nil
         TargetPart = nil
+        pcall(UpdateTracer, nil, nil, false)
     end
 end)
 
 -- =============================================
--- SILENT AIM HOOK
+-- SILENT AIM HOOK (melee + skills only)
 -- =============================================
 pcall(function()
     local mt = getrawmetatable(game)
@@ -377,13 +434,11 @@ pcall(function()
 
     mt.__index = function(self, key)
         if not checkcaller() and Features.SilentAim and self == mouse and TargetPos then
-            if Features.SilentAimGuns and IsHoldingGun() then
-                if key == "Hit" then return CFrame.new(TargetPos) end
-                if key == "Target" then return TargetPart end
-                if key == "UnitRay" then
-                    local o = Camera.CFrame.Position
-                    return Ray.new(o, (TargetPos - o).Unit * 5000)
-                end
+            if key == "Hit" then return CFrame.new(TargetPos) end
+            if key == "Target" then return TargetPart end
+            if key == "UnitRay" then
+                local o = Camera.CFrame.Position
+                return Ray.new(o, (TargetPos - o).Unit * 5000)
             end
         end
         return oldIndex(self, key)
@@ -402,25 +457,12 @@ pcall(function()
                     if string.find(nm, s, 1, true) then ok = false break end
                 end
                 if ok then
-                    if Features.SilentAimMelee then
-                        local changed = false
-                        for i, v in ipairs(args) do
-                            if typeof(v) == "Vector3" then args[i] = TargetPos changed = true
-                            elseif typeof(v) == "CFrame" then args[i] = CFrame.new(TargetPos) changed = true end
-                        end
-                        if changed then return oldNamecall(self, unpack(args)) end
+                    local changed = false
+                    for i, v in ipairs(args) do
+                        if typeof(v) == "Vector3" then args[i] = TargetPos changed = true
+                        elseif typeof(v) == "CFrame" then args[i] = CFrame.new(TargetPos) changed = true end
                     end
-                    if Features.SilentAimGuns then
-                        if string.find(nm, "shoot") or string.find(nm, "fire")
-                           or string.find(nm, "gun") or string.find(nm, "hit") then
-                            local changed = false
-                            for i, v in ipairs(args) do
-                                if typeof(v) == "Vector3" then args[i] = TargetPos changed = true
-                                elseif typeof(v) == "CFrame" then args[i] = CFrame.new(TargetPos) changed = true end
-                            end
-                            if changed then return oldNamecall(self, unpack(args)) end
-                        end
-                    end
+                    if changed then return oldNamecall(self, unpack(args)) end
                 end
             end
         end
@@ -431,7 +473,7 @@ pcall(function()
 end)
 
 -- =============================================
--- HITBOX EXPANDER (players + combat NPCs only)
+-- HITBOX (players only)
 -- =============================================
 local HitboxOriginals = {}
 local HitboxBoxes = {}
@@ -448,7 +490,7 @@ local function removeBox(model)
     end
 end
 
-local function applyHitbox(model, isNPC)
+local function applyHitbox(model)
     if not model or model == player.Character then return end
 
     local hum = model:FindFirstChildOfClass("Humanoid")
@@ -459,12 +501,6 @@ local function applyHitbox(model, isNPC)
 
     local hrp = model:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
-
-    -- NPCs: filter out quest givers, shops, etc.
-    if isNPC and not isCombatNPC(model, hum, hrp) then
-        removeBox(model)
-        return
-    end
 
     local myChar = player.Character
     local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
@@ -524,22 +560,10 @@ RunService.Heartbeat:Connect(function()
         return
     end
 
-    -- Players (no filter)
+    -- Players ONLY
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= player and plr.Character then
-            pcall(applyHitbox, plr.Character, false)
-        end
-    end
-
-    -- NPCs (filtered to combat NPCs only)
-    for _, folderName in ipairs(NPC_FOLDERS) do
-        local folder = workspace:FindFirstChild(folderName)
-        if folder then
-            for _, npc in ipairs(folder:GetChildren()) do
-                if npc:IsA("Model") then
-                    pcall(applyHitbox, npc, true)
-                end
-            end
+            pcall(applyHitbox, plr.Character)
         end
     end
 end)
@@ -549,7 +573,7 @@ player.CharacterAdded:Connect(function()
 end)
 
 -- =============================================
--- IN-BOX M1
+-- Fast Attack (melee/NPCs)
 -- =============================================
 local RegisterAttack, RegisterHit
 
@@ -562,177 +586,20 @@ task.spawn(function()
     RegisterHit = net:WaitForChild("RE/RegisterHit", 10)
 end)
 
-local function getInBoxTargets()
-    local list = {}
-    if not Features.Hitbox then return list end
-
-    local myChar = player.Character
-    if not myChar then return list end
-    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-    if not myRoot then return list end
-
-    local inBoxRange = (Features.HitboxSize / 2) + 2
-
-    -- Players
-    for _, plr in pairs(Players:GetPlayers()) do
-        if plr ~= player and plr.Character then
-            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
-            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
-            if hum and hum.Health > 0 and hrp then
-                local dist = (hrp.Position - myRoot.Position).Magnitude
-                if dist <= inBoxRange then
-                    table.insert(list, {model = plr.Character, root = hrp, dist = dist})
-                end
-            end
-        end
-    end
-
-    -- NPCs
-    for _, name in ipairs(NPC_FOLDERS) do
-        local folder = workspace:FindFirstChild(name)
-        if folder then
-            for _, npc in pairs(folder:GetChildren()) do
-                if npc:IsA("Model") then
-                    local hum = npc:FindFirstChildOfClass("Humanoid")
-                    local hrp = npc:FindFirstChild("HumanoidRootPart")
-                    if hum and hum.Health > 0 and hrp and isCombatNPC(npc, hum, hrp) then
-                        local dist = (hrp.Position - myRoot.Position).Magnitude
-                        if dist <= inBoxRange then
-                            table.insert(list, {model = npc, root = hrp, dist = dist})
-                        end
-                    end
-                end
-            end
-        end
-    end
-    return list
-end
-
-local M1Cooldown = 0
-local function fireInBoxHit()
-    if not Features.Hitbox then return end
-    if tick() < M1Cooldown then return end
+local function fireAtTarget(target)
     if not RegisterAttack or not RegisterHit then return end
-
-    local targets = getInBoxTargets()
-    if #targets == 0 then return end
-
-    M1Cooldown = tick() + 0.15
-
-    table.sort(targets, function(a, b) return a.dist < b.dist end)
-    local t = targets[1]
-
     pcall(function()
         RegisterAttack:FireServer()
-        local hitParts = {}
-        for _, part in ipairs(t.model:GetDescendants()) do
-            if part:IsA("BasePart") then hitParts[part] = true end
-        end
-        RegisterHit:FireServer(t.root, hitParts)
-    end)
-end
-
-local hookedTools = {}
-local function hookTool(tool)
-    if hookedTools[tool] then return end
-    hookedTools[tool] = true
-    pcall(function()
-        tool.Activated:Connect(function()
-            if IsHoldingMeleeOrSword() then
-                fireInBoxHit()
+        if target then
+            local hitParts = {}
+            for _, part in ipairs(target.model:GetDescendants()) do
+                if part:IsA("BasePart") then hitParts[part] = true end
             end
-        end)
-    end)
-end
-
-local function scanTools()
-    local char = player.Character
-    if not char then return end
-    for _, child in ipairs(char:GetChildren()) do
-        if child:IsA("Tool") then
-            hookTool(child)
-        end
-    end
-end
-
-player.CharacterAdded:Connect(function(c)
-    hookedTools = {}
-    task.wait(0.5)
-    scanTools()
-end)
-
-task.spawn(function()
-    while true do
-        task.wait(0.5)
-        pcall(scanTools)
-    end
-end)
-
--- =============================================
--- Soru
--- =============================================
-local SoruCooldown = 0
-
-local FLASHSTEP_KEYWORDS = {
-    "flashstep", "soru", "skywalk", "geppo", "flash step", "flash_step"
-}
-local FLASHSTEP_IDS = {
-    "17555632156", "616006778", "1846164274", "1846163351", "11420797633"
-}
-local DASH_EXCLUDE = { "dash", "dodge", "roll", "sidestep" }
-
-local function isFlashstepAnim(track)
-    local n = string.lower(track.Name or "")
-    local id = tostring(track.Animation and track.Animation.AnimationId or "")
-    for _, w in ipairs(DASH_EXCLUDE) do
-        if string.find(n, w, 1, true) then return false end
-    end
-    for _, w in ipairs(FLASHSTEP_KEYWORDS) do
-        if string.find(n, w, 1, true) then return true end
-    end
-    for _, w in ipairs(FLASHSTEP_IDS) do
-        if string.find(id, w, 1, true) then return true end
-    end
-    return false
-end
-
-local function DoSoruTeleport()
-    if not Features.SoruAim then return end
-    if tick() < SoruCooldown then return end
-
-    local target = GetNearestTarget(Features.SoruTarget, Features.SoruMode, Features.SoruRange)
-    if not target then return end
-
-    local char = player.Character
-    if not char then return end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-
-    pcall(function()
-        local behind = target.CFrame.LookVector * -3
-        hrp.CFrame = CFrame.new(target.Position + behind + Vector3.new(0, 3, 0))
-    end)
-    SoruCooldown = tick() + 0.8
-end
-
-local function MonitorFlashstep(char)
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if not hum then return end
-    hum.AnimationPlayed:Connect(function(track)
-        if not Features.SoruAim then return end
-        if tick() < SoruCooldown then return end
-        if isFlashstepAnim(track) then
-            DoSoruTeleport()
+            RegisterHit:FireServer(target.root, hitParts)
         end
     end)
 end
 
-player.CharacterAdded:Connect(function(c) task.wait(0.5) MonitorFlashstep(c) end)
-if player.Character then task.wait(0.5) MonitorFlashstep(player.Character) end
-
--- =============================================
--- Fast Attack
--- =============================================
 local FastAttack = (function()
     local module = {}
     local conn, last = nil, 0
@@ -744,6 +611,74 @@ local FastAttack = (function()
         local myRoot = myChar:FindFirstChild("HumanoidRootPart")
         if not myRoot then return list end
         local range = Features.FastAttackRange or 60
+
+        for _, name in ipairs(NPC_FOLDERS) do
+            local folder = workspace:FindFirstChild(name)
+            if folder then
+                for _, npc in pairs(folder:GetChildren()) do
+                    if npc:IsA("Model") then
+                        local hum = npc:FindFirstChildOfClass("Humanoid")
+                        local hrp = npc:FindFirstChild("HumanoidRootPart")
+                        if hum and hum.Health > 0 and hrp and isCombatNPC(npc, hum, hrp) then
+                            local dist = (hrp.Position - myRoot.Position).Magnitude
+                            if dist <= range then
+                                table.insert(list, {model = npc, root = hrp, dist = dist})
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
+        for _, plr in pairs(Players:GetPlayers()) do
+            if plr ~= player and plr.Character then
+                local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+                local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+                if hum and hum.Health > 0 and hrp then
+                    local dist = (hrp.Position - myRoot.Position).Magnitude
+                    if dist <= range then
+                        table.insert(list, {model = plr.Character, root = hrp, dist = dist})
+                    end
+                end
+            end
+        end
+        return list
+    end
+
+    function module:SetEnabled(state)
+        if state and not conn then
+            conn = RunService.Heartbeat:Connect(function()
+                if not Features.FastAttack then return end
+                local speed = Features.FastAttackSpeed or 0.05
+                if tick() - last < speed then return end
+                last = tick()
+                local targets = getTargets()
+                if #targets == 0 then fireAtTarget(nil) return end
+                table.sort(targets, function(a, b) return a.dist < b.dist end)
+                for _, t in ipairs(targets) do fireAtTarget(t) end
+            end)
+        elseif not state and conn then
+            conn:Disconnect()
+            conn = nil
+        end
+    end
+    return module
+end)()
+
+-- =============================================
+-- Gun Fast Attack (auto-spam when holding a gun)
+-- =============================================
+local GunFastAttack = (function()
+    local module = {}
+    local conn, last = nil, 0
+
+    local function getTargets()
+        local list = {}
+        local myChar = player.Character
+        if not myChar then return list end
+        local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+        if not myRoot then return list end
+        local range = Features.GunFastAttackRange or 80
 
         for _, plr in pairs(Players:GetPlayers()) do
             if plr ~= player and plr.Character then
@@ -778,31 +713,19 @@ local FastAttack = (function()
         return list
     end
 
-    local function fire(target)
-        if not RegisterAttack or not RegisterHit then return end
-        pcall(function()
-            RegisterAttack:FireServer()
-            if target then
-                local hitParts = {}
-                for _, part in ipairs(target.model:GetDescendants()) do
-                    if part:IsA("BasePart") then hitParts[part] = true end
-                end
-                RegisterHit:FireServer(target.root, hitParts)
-            end
-        end)
-    end
-
     function module:SetEnabled(state)
         if state and not conn then
             conn = RunService.Heartbeat:Connect(function()
-                if not Features.FastAttack then return end
-                local speed = Features.FastAttackSpeed or 0.05
+                if not Features.GunFastAttack then return end
+                -- Only fire when a gun is held
+                if not IsHoldingGun() then return end
+                local speed = Features.GunFastAttackSpeed or 0.08
                 if tick() - last < speed then return end
                 last = tick()
                 local targets = getTargets()
-                if #targets == 0 then fire(nil) return end
+                if #targets == 0 then fireAtTarget(nil) return end
                 table.sort(targets, function(a, b) return a.dist < b.dist end)
-                for _, t in ipairs(targets) do fire(t) end
+                for _, t in ipairs(targets) do fireAtTarget(t) end
             end)
         elseif not state and conn then
             conn:Disconnect()
@@ -811,6 +734,65 @@ local FastAttack = (function()
     end
     return module
 end)()
+
+-- =============================================
+-- Soru
+-- =============================================
+local SoruCooldown = 0
+
+local FLASHSTEP_KEYWORDS = {
+    "flashstep", "soru", "skywalk", "geppo", "flash step", "flash_step"
+}
+local FLASHSTEP_IDS = {
+    "17555632156", "616006778", "1846164274", "1846163351", "11420797633"
+}
+local DASH_EXCLUDE = { "dash", "dodge", "roll", "sidestep" }
+
+local function isFlashstepAnim(track)
+    local n = string.lower(track.Name or "")
+    local id = tostring(track.Animation and track.Animation.AnimationId or "")
+    for _, w in ipairs(DASH_EXCLUDE) do
+        if string.find(n, w, 1, true) then return false end
+    end
+    for _, w in ipairs(FLASHSTEP_KEYWORDS) do
+        if string.find(n, w, 1, true) then return true end
+    end
+    for _, w in ipairs(FLASHSTEP_IDS) do
+        if string.find(id, w, 1, true) then return true end
+    end
+    return false
+end
+
+local function DoSoruTeleport()
+    if not Features.SoruAim then return end
+    if tick() < SoruCooldown then return end
+    local target = GetNearestTarget(Features.SoruTarget, Features.SoruMode, Features.SoruRange)
+    if not target then return end
+    local char = player.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    pcall(function()
+        local behind = target.CFrame.LookVector * -3
+        hrp.CFrame = CFrame.new(target.Position + behind + Vector3.new(0, 3, 0))
+    end)
+    SoruCooldown = tick() + 0.8
+end
+
+local function MonitorFlashstep(char)
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+    hum.AnimationPlayed:Connect(function(track)
+        if not Features.SoruAim then return end
+        if tick() < SoruCooldown then return end
+        if isFlashstepAnim(track) then
+            DoSoruTeleport()
+        end
+    end)
+end
+
+player.CharacterAdded:Connect(function(c) task.wait(0.5) MonitorFlashstep(c) end)
+if player.Character then task.wait(0.5) MonitorFlashstep(player.Character) end
 
 -- =============================================
 -- ESP
@@ -1487,7 +1469,7 @@ local SocialsPage = CreatePage("Socials")
 local AboutPage = CreatePage("About")
 
 Section(MainPage, "IVORY HUB")
-local mtL = Text(MainPage, "IVORY HUB v12.4", 16, true)
+local mtL = Text(MainPage, "IVORY HUB v13.0", 16, true)
 mtL.Size = UDim2.new(1, 0, 0, 24)
 mtL.TextXAlignment = Enum.TextXAlignment.Center
 mtL.TextColor3 = COLORS.WHITE
@@ -1510,6 +1492,7 @@ task.spawn(function()
         if Features.SilentAim then table.insert(active, "Silent Aim") end
         if Features.SoruAim then table.insert(active, "Soru") end
         if Features.FastAttack then table.insert(active, "Fast") end
+        if Features.GunFastAttack then table.insert(active, "Gun Fast") end
         if Features.Hitbox then table.insert(active, "Hitbox") end
         if Features.ESP then table.insert(active, "ESP") end
         if MacroRunning then table.insert(active, "Macro") end
@@ -1528,11 +1511,11 @@ end)
 
 Section(CombatPage, "SILENT AIM")
 Toggle(CombatPage, "Enable Silent Aim", Features.SilentAim, function(s) Features.SilentAim = s SaveConfig() end)
-Toggle(CombatPage, "Aim Guns (M1)", Features.SilentAimGuns, function(s) Features.SilentAimGuns = s SaveConfig() end)
-Toggle(CombatPage, "Aim Melee/Skills", Features.SilentAimMelee, function(s) Features.SilentAimMelee = s SaveConfig() end)
 CycleButton(CombatPage, "Target", {"Both","Players","NPCs"}, Features.SilentAimTarget, function(v) Features.SilentAimTarget = v SaveConfig() end)
 CycleButton(CombatPage, "Mode", {"360","FOV"}, Features.SilentAimMode, function(v) Features.SilentAimMode = v SaveConfig() end)
 Slider(CombatPage, "Aim Distance", Features.SilentAimDistance, 0, 2000, function(v) Features.SilentAimDistance = v SaveConfig() end, "m")
+Slider(CombatPage, "Prediction", Features.SilentAimPrediction, 0, 0.5, function(v) Features.SilentAimPrediction = v SaveConfig() end, "s")
+Toggle(CombatPage, "Show Tracer", Features.ShowTracer, function(s) Features.ShowTracer = s SaveConfig() end)
 
 Section(CombatPage, "SORU")
 Toggle(CombatPage, "Enable Soru", Features.SoruAim, function(s) Features.SoruAim = s SaveConfig() end)
@@ -1545,7 +1528,7 @@ Toggle(CombatPage, "Show FOV Circle", Features.FOVCircle, function(s) Features.F
 Slider(CombatPage, "FOV Radius", Features.FOVRadius, 10, 500, function(v) Features.FOVRadius = v SaveConfig() end)
 CycleButton(CombatPage, "FOV Mode", {"V1","V2"}, Features.FOVMode, function(v) Features.FOVMode = v SaveConfig() end)
 
-Section(FastPage, "FAST ATTACK")
+Section(FastPage, "FAST ATTACK (Melee/NPCs)")
 Toggle(FastPage, "Enable Fast Attack", Features.FastAttack, function(s)
     Features.FastAttack = s
     FastAttack:SetEnabled(s)
@@ -1554,8 +1537,17 @@ end)
 Slider(FastPage, "Range", Features.FastAttackRange, 10, 150, function(v) Features.FastAttackRange = v SaveConfig() end, " studs")
 Slider(FastPage, "Speed", Features.FastAttackSpeed, 0.02, 0.30, function(v) Features.FastAttackSpeed = v SaveConfig() end, "s")
 
-Section(HitboxPage, "HITBOX")
-Toggle(HitboxPage, "NPC Hitbox", Features.Hitbox, function(s)
+Section(FastPage, "GUN FAST ATTACK")
+Toggle(FastPage, "Enable Gun Fast Attack", Features.GunFastAttack, function(s)
+    Features.GunFastAttack = s
+    GunFastAttack:SetEnabled(s)
+    SaveConfig()
+end)
+Slider(FastPage, "Gun Range", Features.GunFastAttackRange, 10, 200, function(v) Features.GunFastAttackRange = v SaveConfig() end, " studs")
+Slider(FastPage, "Gun Speed", Features.GunFastAttackSpeed, 0.02, 0.30, function(v) Features.GunFastAttackSpeed = v SaveConfig() end, "s")
+
+Section(HitboxPage, "HITBOX (Players only)")
+Toggle(HitboxPage, "Player Hitbox", Features.Hitbox, function(s)
     Features.Hitbox = s
     if not s then clearAllHitboxes() end
     SaveConfig()
@@ -1564,9 +1556,7 @@ Slider(HitboxPage, "Hitbox Bigness", Features.HitboxSize, 3, 40, function(v) Fea
 Toggle(HitboxPage, "Hide Box", Features.HideBox, function(s)
     Features.HideBox = s
     for _, box in pairs(HitboxBoxes) do
-        pcall(function()
-            box.Transparency = s and 1 or 0.3
-        end)
+        pcall(function() box.Transparency = s and 1 or 0.3 end)
     end
     SaveConfig()
 end)
@@ -1788,7 +1778,14 @@ Button(ConfigPage, "Reset Config", function()
     end
     SaveMacroConfig()
 end)
-Button(ConfigPage, "Unload UI", function() SaveConfig() SaveMacroConfig() StopMacro() clearAllHitboxes() Gui:Destroy() end)
+Button(ConfigPage, "Unload UI", function()
+    SaveConfig()
+    SaveMacroConfig()
+    StopMacro()
+    clearAllHitboxes()
+    if TracerPart then TracerPart:Destroy() end
+    Gui:Destroy()
+end)
 
 Section(SocialsPage, "⭐ JOIN US ⭐")
 local socialTitle = Text(SocialsPage, "Ivory & Rayo's Discord", 12, true)
@@ -1821,12 +1818,12 @@ socialCard("RAYO", "Rayo06996", 125)
 
 Section(AboutPage, "📖 ABOUT IVORY HUB")
 local aboutLines = {
-    "Ivory Hub v12.4",
+    "Ivory Hub v13.0",
     "",
-    "• Hitbox for players + NPCs",
-    "• Quest givers filtered out",
-    "• Size slider + Hide Box toggle",
-    "• Soru, Silent Aim, Fast Attack, ESP, Macro",
+    "• Silent Aim with Prediction + Tracer",
+    "• Fast Attack + Gun Fast Attack",
+    "• Hitbox (Players only)",
+    "• Soru, ESP, Macro",
     "",
     "Thanks for using Ivory Hub 🦷"
 }
@@ -1920,14 +1917,16 @@ Close.MouseButton1Click:Connect(function()
     SaveMacroConfig()
     StopMacro()
     clearAllHitboxes()
+    if TracerPart then TracerPart:Destroy() end
     TweenIt(Main, {Size = UDim2.new(0, 0, 0, 0)})
     task.wait(.3)
     Gui:Destroy()
 end)
 
 print("========================================")
-print("        IVORY HUB v12.4 LOADED")
+print("        IVORY HUB v13.0 LOADED")
 print("========================================")
-print("Hitbox: Players + combat NPCs only")
-print("Quest givers filtered out")
+print("Silent Aim: prediction + tracer")
+print("Fast Attack + Gun Fast Attack")
+print("Hitbox: Players only")
 print("========================================")
