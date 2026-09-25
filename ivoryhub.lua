@@ -1,8 +1,8 @@
 -- =============================================
--- IVORY HUB v13.0 - PREDICTION + TRACER
+-- IVORY HUB v13.1 - GUN FAST ATTACK FIX + IN-BOX M1
 -- =============================================
 
-print("🦷 Ivory Hub v13.0 loading...")
+print("🦷 Ivory Hub v13.1 loading...")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -77,7 +77,7 @@ local Features = {
     SilentAimTarget = "Both",
     SilentAimMode = "360",
     SilentAimDistance = 500,
-    SilentAimPrediction = 0.15,
+    SilentAimPrediction = 0.10,
     ShowTracer = true,
     SoruAim = false,
     SoruTarget = "Players",
@@ -152,7 +152,7 @@ local function ResetConfig()
     Features.SilentAimTarget = "Both"
     Features.SilentAimMode = "360"
     Features.SilentAimDistance = 500
-    Features.SilentAimPrediction = 0.15
+    Features.SilentAimPrediction = 0.10
     Features.ShowTracer = true
     Features.SoruTarget = "Players"
     Features.SoruMode = "360"
@@ -340,8 +340,16 @@ local function IsHoldingGun()
     return false
 end
 
+local function IsHoldingMeleeOrSword()
+    local char = player.Character
+    if not char then return false end
+    local tool = char:FindFirstChildOfClass("Tool")
+    if not tool then return false end
+    return not IsHoldingGun()
+end
+
 -- =============================================
--- Tracer (visual beam from your gun to aim point)
+-- Tracer
 -- =============================================
 local TracerPart = nil
 local function UpdateTracer(fromPos, toPos, visible)
@@ -391,7 +399,6 @@ RunService.RenderStepped:Connect(function()
     if hrp and part then
         TargetPart = part
 
-        -- Prediction: aim ahead based on target's velocity
         local pred = Features.SilentAimPrediction or 0
         local predictedPos = part.Position
         if pred > 0 then
@@ -406,7 +413,6 @@ RunService.RenderStepped:Connect(function()
         end
         TargetPos = predictedPos
 
-        -- Tracer from camera to aim point
         if Features.ShowTracer then
             local myChar = player.Character
             local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
@@ -423,7 +429,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- =============================================
--- SILENT AIM HOOK (melee + skills only)
+-- SILENT AIM HOOK
 -- =============================================
 pcall(function()
     local mt = getrawmetatable(game)
@@ -473,7 +479,7 @@ pcall(function()
 end)
 
 -- =============================================
--- HITBOX (players only)
+-- HITBOX (players only) + IN-BOX M1
 -- =============================================
 local HitboxOriginals = {}
 local HitboxBoxes = {}
@@ -559,8 +565,6 @@ RunService.Heartbeat:Connect(function()
         if next(HitboxOriginals) ~= nil then clearAllHitboxes() end
         return
     end
-
-    -- Players ONLY
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= player and plr.Character then
             pcall(applyHitbox, plr.Character)
@@ -573,7 +577,7 @@ player.CharacterAdded:Connect(function()
 end)
 
 -- =============================================
--- Fast Attack (melee/NPCs)
+-- Remotes for Fast Attack + In-Box M1
 -- =============================================
 local RegisterAttack, RegisterHit
 
@@ -600,6 +604,86 @@ local function fireAtTarget(target)
     end)
 end
 
+-- In-Box M1: fires melee remote when you're inside the hitbox and tap M1
+local function getInBoxTargets()
+    local list = {}
+    if not Features.Hitbox then return list end
+
+    local myChar = player.Character
+    if not myChar then return list end
+    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return list end
+
+    local inBoxRange = (Features.HitboxSize / 2) + 2
+
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= player and plr.Character then
+            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+            if hum and hum.Health > 0 and hrp then
+                local dist = (hrp.Position - myRoot.Position).Magnitude
+                if dist <= inBoxRange then
+                    table.insert(list, {model = plr.Character, root = hrp, dist = dist})
+                end
+            end
+        end
+    end
+    return list
+end
+
+local M1Cooldown = 0
+local function fireInBoxHit()
+    if not Features.Hitbox then return end
+    if tick() < M1Cooldown then return end
+    if not RegisterAttack or not RegisterHit then return end
+
+    local targets = getInBoxTargets()
+    if #targets == 0 then return end
+
+    M1Cooldown = tick() + 0.15
+    table.sort(targets, function(a, b) return a.dist < b.dist end)
+    fireAtTarget(targets[1])
+end
+
+local hookedTools = {}
+local function hookTool(tool)
+    if hookedTools[tool] then return end
+    hookedTools[tool] = true
+    pcall(function()
+        tool.Activated:Connect(function()
+            if IsHoldingMeleeOrSword() then
+                fireInBoxHit()
+            end
+        end)
+    end)
+end
+
+local function scanTools()
+    local char = player.Character
+    if not char then return end
+    for _, child in ipairs(char:GetChildren()) do
+        if child:IsA("Tool") then
+            hookTool(child)
+        end
+    end
+end
+
+player.CharacterAdded:Connect(function(c)
+    hookedTools = {}
+    task.wait(0.5)
+    scanTools()
+end)
+
+task.spawn(function()
+    while true do
+        task.wait(0.5)
+        pcall(scanTools)
+    end
+end)
+
+-- =============================================
+-- Fast Attack (melee + NPCs + players)
+-- =============================================
 local FastAttack = (function()
     local module = {}
     local conn, last = nil, 0
@@ -666,7 +750,7 @@ local FastAttack = (function()
 end)()
 
 -- =============================================
--- Gun Fast Attack (auto-spam when holding a gun)
+-- GUN Fast Attack (only fires when holding a gun)
 -- =============================================
 local GunFastAttack = (function()
     local module = {}
@@ -717,7 +801,6 @@ local GunFastAttack = (function()
         if state and not conn then
             conn = RunService.Heartbeat:Connect(function()
                 if not Features.GunFastAttack then return end
-                -- Only fire when a gun is held
                 if not IsHoldingGun() then return end
                 local speed = Features.GunFastAttackSpeed or 0.08
                 if tick() - last < speed then return end
@@ -1469,7 +1552,7 @@ local SocialsPage = CreatePage("Socials")
 local AboutPage = CreatePage("About")
 
 Section(MainPage, "IVORY HUB")
-local mtL = Text(MainPage, "IVORY HUB v13.0", 16, true)
+local mtL = Text(MainPage, "IVORY HUB v13.1", 16, true)
 mtL.Size = UDim2.new(1, 0, 0, 24)
 mtL.TextXAlignment = Enum.TextXAlignment.Center
 mtL.TextColor3 = COLORS.WHITE
@@ -1514,7 +1597,7 @@ Toggle(CombatPage, "Enable Silent Aim", Features.SilentAim, function(s) Features
 CycleButton(CombatPage, "Target", {"Both","Players","NPCs"}, Features.SilentAimTarget, function(v) Features.SilentAimTarget = v SaveConfig() end)
 CycleButton(CombatPage, "Mode", {"360","FOV"}, Features.SilentAimMode, function(v) Features.SilentAimMode = v SaveConfig() end)
 Slider(CombatPage, "Aim Distance", Features.SilentAimDistance, 0, 2000, function(v) Features.SilentAimDistance = v SaveConfig() end, "m")
-Slider(CombatPage, "Prediction", Features.SilentAimPrediction, 0, 0.5, function(v) Features.SilentAimPrediction = v SaveConfig() end, "s")
+Slider(CombatPage, "Prediction", Features.SilentAimPrediction, 0, 0.25, function(v) Features.SilentAimPrediction = v SaveConfig() end, "s")
 Toggle(CombatPage, "Show Tracer", Features.ShowTracer, function(s) Features.ShowTracer = s SaveConfig() end)
 
 Section(CombatPage, "SORU")
@@ -1546,7 +1629,7 @@ end)
 Slider(FastPage, "Gun Range", Features.GunFastAttackRange, 10, 200, function(v) Features.GunFastAttackRange = v SaveConfig() end, " studs")
 Slider(FastPage, "Gun Speed", Features.GunFastAttackSpeed, 0.02, 0.30, function(v) Features.GunFastAttackSpeed = v SaveConfig() end, "s")
 
-Section(HitboxPage, "HITBOX (Players only)")
+Section(HitboxPage, "HITBOX (Players only + In-Box M1)")
 Toggle(HitboxPage, "Player Hitbox", Features.Hitbox, function(s)
     Features.Hitbox = s
     if not s then clearAllHitboxes() end
@@ -1818,11 +1901,12 @@ socialCard("RAYO", "Rayo06996", 125)
 
 Section(AboutPage, "📖 ABOUT IVORY HUB")
 local aboutLines = {
-    "Ivory Hub v13.0",
+    "Ivory Hub v13.1",
     "",
-    "• Silent Aim with Prediction + Tracer",
-    "• Fast Attack + Gun Fast Attack",
-    "• Hitbox (Players only)",
+    "• Silent Aim + Prediction (0-0.25s)",
+    "• Tracer shows aim point",
+    "• Fast Attack (melee) + Gun Fast Attack",
+    "• Hitbox (Players) + In-Box M1",
     "• Soru, ESP, Macro",
     "",
     "Thanks for using Ivory Hub 🦷"
@@ -1924,9 +2008,9 @@ Close.MouseButton1Click:Connect(function()
 end)
 
 print("========================================")
-print("        IVORY HUB v13.0 LOADED")
+print("        IVORY HUB v13.1 LOADED")
 print("========================================")
-print("Silent Aim: prediction + tracer")
-print("Fast Attack + Gun Fast Attack")
-print("Hitbox: Players only")
+print("Gun Fast Attack: fires RegisterHit while holding gun")
+print("In-Box M1: back in")
+print("Prediction max: 0.25s")
 print("========================================")
