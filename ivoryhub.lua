@@ -1,8 +1,8 @@
 -- =============================================
--- IVORY HUB v13.3 - NEW FPS BOOST
+-- IVORY HUB v13.4 - SHADERS ADDED
 -- =============================================
 
-print("🦷 Ivory Hub v13.3 loading...")
+print("🦷 Ivory Hub v13.4 loading...")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -173,7 +173,7 @@ end
 LoadConfig()
 
 -- =============================================
--- FPS BOOST FUNCTION (new version)
+-- FPS BOOST FUNCTION
 -- =============================================
 local function ApplyFPSBoost()
     pcall(function()
@@ -231,6 +231,113 @@ local function ApplyFPSBoost()
                 Lighting.EnvironmentSpecularScale = 0
                 Lighting.FogEnd = 100000
                 task.wait(2)
+            end
+        end)
+    end)
+end
+
+-- =============================================
+-- SHADERS FUNCTION
+-- =============================================
+local function ApplyShaders()
+    pcall(function()
+        -- REALISTIC LIGHTING
+        pcall(function() Lighting.Technology = Enum.Technology.Future end)
+        Lighting.Brightness = 2
+        Lighting.ClockTime = 15
+        Lighting.GlobalShadows = true
+        Lighting.ShadowSoftness = 0.35
+        Lighting.EnvironmentDiffuseScale = 0.8
+        Lighting.EnvironmentSpecularScale = 0.65
+        Lighting.ExposureCompensation = 0.05
+        Lighting.FogStart = 80
+        Lighting.FogEnd = 900
+        Lighting.FogColor = Color3.fromRGB(205, 215, 225)
+
+        -- ATMOSPHERE
+        local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
+        if not atmosphere then
+            atmosphere = Instance.new("Atmosphere")
+            atmosphere.Parent = Lighting
+        end
+        atmosphere.Density = 0.18
+        atmosphere.Offset = 0.15
+        atmosphere.Color = Color3.fromRGB(199, 211, 225)
+        atmosphere.Decay = Color3.fromRGB(105, 120, 140)
+        atmosphere.Glare = 0.08
+        atmosphere.Haze = 1.1
+
+        -- COLOR GRADING
+        local colorCorrection = Lighting:FindFirstChild("RealisticColor")
+        if not colorCorrection then
+            colorCorrection = Instance.new("ColorCorrectionEffect")
+            colorCorrection.Name = "RealisticColor"
+            colorCorrection.Parent = Lighting
+        end
+        colorCorrection.Enabled = true
+        colorCorrection.Brightness = 0.02
+        colorCorrection.Contrast = 0.08
+        colorCorrection.Saturation = 0.04
+        colorCorrection.TintColor = Color3.fromRGB(255, 252, 245)
+
+        -- BLOOM
+        local bloom = Lighting:FindFirstChild("RealisticBloom")
+        if not bloom then
+            bloom = Instance.new("BloomEffect")
+            bloom.Name = "RealisticBloom"
+            bloom.Parent = Lighting
+        end
+        bloom.Enabled = true
+        bloom.Intensity = 0.12
+        bloom.Size = 18
+        bloom.Threshold = 1.8
+
+        -- DEPTH OF FIELD
+        local dof = Lighting:FindFirstChild("RealisticDepth")
+        if not dof then
+            dof = Instance.new("DepthOfFieldEffect")
+            dof.Name = "RealisticDepth"
+            dof.Parent = Lighting
+        end
+        dof.Enabled = true
+        dof.FocusDistance = 80
+        dof.InFocusRadius = 45
+        dof.NearIntensity = 0.03
+        dof.FarIntensity = 0.04
+
+        -- SUN RAYS
+        local sunRays = Lighting:FindFirstChild("RealisticSun")
+        if not sunRays then
+            sunRays = Instance.new("SunRaysEffect")
+            sunRays.Name = "RealisticSun"
+            sunRays.Parent = Lighting
+        end
+        sunRays.Enabled = true
+        sunRays.Intensity = 0.035
+        sunRays.Spread = 0.65
+
+        -- CLOUDS
+        local terrain = Workspace:FindFirstChildOfClass("Terrain")
+        if terrain then
+            local clouds = terrain:FindFirstChildOfClass("Clouds")
+            if not clouds then
+                clouds = Instance.new("Clouds")
+                clouds.Parent = terrain
+            end
+            clouds.Enabled = true
+            clouds.Cover = 0.38
+            clouds.Density = 0.35
+            clouds.Color = Color3.fromRGB(235, 238, 242)
+        end
+
+        -- KEEP ACTIVE
+        task.spawn(function()
+            while true do
+                Lighting.GlobalShadows = true
+                Lighting.EnvironmentDiffuseScale = 0.8
+                Lighting.EnvironmentSpecularScale = 0.65
+                Lighting.ExposureCompensation = 0.05
+                task.wait(3)
             end
         end)
     end)
@@ -1262,7 +1369,7 @@ local SocialsPage = CreatePage("Socials")
 local AboutPage = CreatePage("About")
 
 Section(MainPage, "IVORY HUB")
-local mtL = Text(MainPage, "IVORY HUB v13.3", 16, true)
+local mtL = Text(MainPage, "IVORY HUB v13.4", 16, true)
 mtL.Size = UDim2.new(1, 0, 0, 24)
 mtL.TextXAlignment = Enum.TextXAlignment.Center
 mtL.TextColor3 = COLORS.WHITE
@@ -1357,6 +1464,11 @@ end)
 Section(VisualsPage, "FPS BOOST")
 Button(VisualsPage, "FPS Boost", function()
     ApplyFPSBoost()
+end)
+
+Section(VisualsPage, "SHADERS")
+Button(VisualsPage, "Shaders", function()
+    ApplyShaders()
 end)
 
 Section(MacroPage, "MACRO")
@@ -1602,11 +1714,12 @@ socialCard("RAYO", "Rayo06996", 125)
 
 Section(AboutPage, "📖 ABOUT IVORY HUB")
 local aboutLines = {
-    "Ivory Hub v13.3",
+    "Ivory Hub v13.4",
     "",
     "• Silent Aim with Prediction",
     "• Soru, Fast Attack, Gun Fast Attack",
-    "• Player Hitbox, Macro, FPS Boost",
+    "• Player Hitbox, Macro",
+    "• FPS Boost + Shaders",
     "",
     "Thanks for using Ivory Hub 🦷"
 }
@@ -1707,7 +1820,7 @@ Close.MouseButton1Click:Connect(function()
 end)
 
 print("========================================")
-print("        IVORY HUB v13.3 LOADED")
+print("        IVORY HUB v13.4 LOADED")
 print("========================================")
-print("FPS Boost replaced with new version")
+print("NEW: Shaders button under FPS Boost")
 print("========================================")
