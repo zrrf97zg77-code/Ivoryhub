@@ -1,8 +1,8 @@
 -- =============================================
--- IVORY HUB v13.0 - CLEANED + FPS BOOST + PREDICTION
+-- IVORY HUB v13.2 - FPS BOOST INLINE + CLICK ANIM + BIGGER MACRO
 -- =============================================
 
-print("🦷 Ivory Hub v13.0 loading...")
+print("🦷 Ivory Hub v13.2 loading...")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -11,6 +11,7 @@ local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CoreGui = game:GetService("CoreGui")
 local Workspace = game:GetService("Workspace")
+local Lighting = game:GetService("Lighting")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local VIM = VirtualInputManager
 
@@ -58,6 +59,17 @@ end
 
 local function TweenIt(o, p, t)
     TweenService:Create(o, TweenInfo.new(t or 0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), p):Play()
+end
+
+-- Click flash animation for any button
+local function AttachClickAnim(btn)
+    if not btn then return end
+    btn.MouseButton1Down:Connect(function()
+        pcall(function()
+            TweenService:Create(btn, TweenInfo.new(0.08, Enum.EasingStyle.Quad), {BackgroundTransparency = 0.5}):Play()
+            TweenService:Create(btn, TweenInfo.new(0.15, Enum.EasingStyle.Quad), {BackgroundTransparency = 0}):Play()
+        end)
+    end)
 end
 
 local function Text(parent, text, size, bold)
@@ -160,6 +172,71 @@ local function ResetConfig()
 end
 
 LoadConfig()
+
+-- =============================================
+-- FPS BOOST FUNCTION
+-- =============================================
+local function ApplyFPSBoost()
+    pcall(function()
+        Lighting.Brightness = 3
+        Lighting.ClockTime = 14
+        Lighting.GlobalShadows = false
+        Lighting.FogStart = 0
+        Lighting.FogEnd = 100000
+        Lighting.EnvironmentDiffuseScale = 0
+        Lighting.EnvironmentSpecularScale = 0
+
+        local terrain = Workspace:FindFirstChildOfClass("Terrain")
+        if terrain then
+            pcall(function()
+                terrain.Decoration = false
+                terrain.WaterWaveSize = 0
+                terrain.WaterWaveSpeed = 0
+                terrain.WaterReflectance = 0
+            end)
+        end
+
+        local function optimize(obj)
+            if obj:IsA("PostEffect") then
+                obj.Enabled = false
+            elseif obj:IsA("Smoke") or obj:IsA("Fire") or obj:IsA("Sparkles") then
+                obj.Enabled = false
+            elseif obj:IsA("Beam") then
+                obj.Enabled = false
+            elseif obj:IsA("Trail") then
+                obj.Enabled = false
+            elseif obj:IsA("ParticleEmitter") then
+                pcall(function()
+                    obj.Rate = math.min(obj.Rate, 20)
+                end)
+            elseif obj:IsA("BasePart") then
+                pcall(function()
+                    obj.CastShadow = false
+                end)
+            end
+        end
+
+        for _, obj in ipairs(game:GetDescendants()) do
+            optimize(obj)
+        end
+
+        game.DescendantAdded:Connect(function(obj)
+            task.defer(function()
+                optimize(obj)
+            end)
+        end)
+
+        task.spawn(function()
+            while true do
+                Lighting.GlobalShadows = false
+                Lighting.Brightness = 3
+                Lighting.EnvironmentDiffuseScale = 0
+                Lighting.EnvironmentSpecularScale = 0
+                task.wait(2)
+            end
+        end)
+    end)
+end
 
 -- =============================================
 -- FOV
@@ -354,7 +431,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- =============================================
--- SILENT AIM HOOK (melee/skills only)
+-- SILENT AIM HOOK
 -- =============================================
 pcall(function()
     local mt = getrawmetatable(game)
@@ -490,7 +567,7 @@ player.CharacterAdded:Connect(function()
 end)
 
 -- =============================================
--- Attack remotes (shared)
+-- Attack remotes
 -- =============================================
 local RegisterAttack, RegisterHit
 
@@ -558,7 +635,7 @@ local function getTargetsInRange(range)
 end
 
 -- =============================================
--- Fast Attack (regular — all weapons)
+-- Fast Attack
 -- =============================================
 local FastAttack = (function()
     local module = {}
@@ -585,7 +662,7 @@ local FastAttack = (function()
 end)()
 
 -- =============================================
--- Gun Fast Attack (only when holding a gun)
+-- Gun Fast Attack
 -- =============================================
 local GunFastAttack = (function()
     local module = {}
@@ -1013,7 +1090,7 @@ end
 
 local function Button(parent, text, cb)
     local b = Instance.new("TextButton")
-    b.Size = UDim2.new(1, 0, 0, 26)
+    b.Size = UDim2.new(1, 0, 0, 28)
     b.BackgroundColor3 = COLORS.CARD
     b.BorderSizePixel = 0
     b.Text = text
@@ -1024,6 +1101,7 @@ local function Button(parent, text, cb)
     b.Parent = parent
     Corner(b, 8)
     Stroke(b, Color3.fromRGB(35,35,35), 1)
+    AttachClickAnim(b)
     b.MouseButton1Click:Connect(cb)
     return b
 end
@@ -1032,7 +1110,7 @@ local function CycleButton(parent, text, options, default, cb)
     local idx = 1
     for i, o in ipairs(options) do if o == default then idx = i break end end
     local b = Instance.new("TextButton")
-    b.Size = UDim2.new(1, 0, 0, 26)
+    b.Size = UDim2.new(1, 0, 0, 28)
     b.BackgroundColor3 = COLORS.CARD
     b.BorderSizePixel = 0
     b.Text = text .. ": " .. options[idx]
@@ -1043,6 +1121,7 @@ local function CycleButton(parent, text, options, default, cb)
     b.Parent = parent
     Corner(b, 8)
     Stroke(b, Color3.fromRGB(35,35,35), 1)
+    AttachClickAnim(b)
     b.MouseButton1Click:Connect(function()
         idx = idx % #options + 1
         b.Text = text .. ": " .. options[idx]
@@ -1054,7 +1133,7 @@ end
 local function Toggle(parent, text, default, cb)
     local state = default or false
     local h = Instance.new("Frame")
-    h.Size = UDim2.new(1, 0, 0, 26)
+    h.Size = UDim2.new(1, 0, 0, 28)
     h.BackgroundColor3 = COLORS.CARD
     h.BorderSizePixel = 0
     h.Parent = parent
@@ -1112,7 +1191,7 @@ end)
 local function Slider(parent, text, default, minVal, maxVal, cb, suffix)
     local Value = default or 50
     local h = Instance.new("Frame")
-    h.Size = UDim2.new(1, 0, 0, 36)
+    h.Size = UDim2.new(1, 0, 0, 38)
     h.BackgroundColor3 = COLORS.CARD
     h.BorderSizePixel = 0
     h.Parent = parent
@@ -1188,7 +1267,7 @@ local SocialsPage = CreatePage("Socials")
 local AboutPage = CreatePage("About")
 
 Section(MainPage, "IVORY HUB")
-local mtL = Text(MainPage, "IVORY HUB v13.0", 16, true)
+local mtL = Text(MainPage, "IVORY HUB v13.2", 16, true)
 mtL.Size = UDim2.new(1, 0, 0, 24)
 mtL.TextXAlignment = Enum.TextXAlignment.Center
 mtL.TextColor3 = COLORS.WHITE
@@ -1282,9 +1361,7 @@ end)
 
 Section(VisualsPage, "FPS BOOST")
 Button(VisualsPage, "FPS Boost", function()
-    pcall(function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/zrrf97zg77-code/Ivoryscirpttest/refs/heads/main/Ivorytesting.lua"))()
-    end)
+    ApplyFPSBoost()
 end)
 
 Section(MacroPage, "MACRO")
@@ -1300,21 +1377,21 @@ local slotUI = {}
 
 for i = 1, 10 do
     local row = Instance.new("Frame")
-    row.Size = UDim2.new(1, -10, 0, 74)
+    row.Size = UDim2.new(1, -10, 0, 100)  -- bigger row
     row.BackgroundColor3 = COLORS.CARD
     row.BorderSizePixel = 0
     row.Parent = MacroPage
     Corner(row, 8)
     Stroke(row, Color3.fromRGB(35,35,35), 1)
 
-    local numL = Text(row, "#" .. i, 11, true)
-    numL.Position = UDim2.new(0, 10, 0, 6)
-    numL.Size = UDim2.new(0, 30, 0, 14)
+    local numL = Text(row, "#" .. i, 12, true)
+    numL.Position = UDim2.new(0, 10, 0, 8)
+    numL.Size = UDim2.new(0, 30, 0, 16)
     numL.TextColor3 = COLORS.ACCENT
 
     local weaponBtn = Instance.new("TextButton")
-    weaponBtn.Size = UDim2.new(0, 78, 0, 22)
-    weaponBtn.Position = UDim2.new(0, 42, 0, 4)
+    weaponBtn.Size = UDim2.new(0, 90, 0, 26)
+    weaponBtn.Position = UDim2.new(0, 42, 0, 6)
     weaponBtn.BackgroundColor3 = COLORS.DARKER
     weaponBtn.Text = MacroSlots[i].weapon
     weaponBtn.TextColor3 = COLORS.WHITE
@@ -1324,10 +1401,11 @@ for i = 1, 10 do
     weaponBtn.Parent = row
     Corner(weaponBtn, 6)
     Stroke(weaponBtn, Color3.fromRGB(60,60,60), 1)
+    AttachClickAnim(weaponBtn)
 
     local skillBtn = Instance.new("TextButton")
-    skillBtn.Size = UDim2.new(0, 52, 0, 22)
-    skillBtn.Position = UDim2.new(0, 126, 0, 4)
+    skillBtn.Size = UDim2.new(0, 60, 0, 26)
+    skillBtn.Position = UDim2.new(0, 138, 0, 6)
     skillBtn.BackgroundColor3 = COLORS.DARKER
     skillBtn.Text = MacroSlots[i].skill
     skillBtn.TextColor3 = COLORS.WHITE
@@ -1337,69 +1415,70 @@ for i = 1, 10 do
     skillBtn.Parent = row
     Corner(skillBtn, 6)
     Stroke(skillBtn, Color3.fromRGB(60,60,60), 1)
+    AttachClickAnim(skillBtn)
 
-    local holdTitle = Text(row, "Hold Time", 8, true)
-    holdTitle.Position = UDim2.new(0, 10, 0, 30)
-    holdTitle.Size = UDim2.new(0, 80, 0, 10)
+    local holdTitle = Text(row, "Hold Time", 9, true)
+    holdTitle.Position = UDim2.new(0, 10, 0, 42)
+    holdTitle.Size = UDim2.new(0, 80, 0, 12)
     holdTitle.TextColor3 = COLORS.GRAY
 
-    local holdLbl = Text(row, string.format("%.2fs", MacroSlots[i].holdTime), 9, false)
-    holdLbl.Position = UDim2.new(0, 92, 0, 30)
-    holdLbl.Size = UDim2.new(0, 50, 0, 10)
+    local holdLbl = Text(row, string.format("%.2fs", MacroSlots[i].holdTime), 10, false)
+    holdLbl.Position = UDim2.new(0, 92, 0, 42)
+    holdLbl.Size = UDim2.new(0, 50, 0, 12)
     holdLbl.TextColor3 = COLORS.ACCENT
 
     local hBar = Instance.new("Frame")
-    hBar.Size = UDim2.new(1, -20, 0, 4)
-    hBar.Position = UDim2.new(0, 10, 0, 44)
+    hBar.Size = UDim2.new(1, -20, 0, 6)
+    hBar.Position = UDim2.new(0, 10, 0, 58)
     hBar.BackgroundColor3 = Color3.fromRGB(45,45,45)
     hBar.BorderSizePixel = 0
     hBar.Parent = row
-    Corner(hBar, 2)
+    Corner(hBar, 3)
 
     local hFill = Instance.new("Frame")
     hFill.Size = UDim2.new((MacroSlots[i].holdTime - 0.05) / (3.0 - 0.05), 0, 1, 0)
     hFill.BackgroundColor3 = COLORS.GREEN
     hFill.BorderSizePixel = 0
     hFill.Parent = hBar
-    Corner(hFill, 2)
+    Corner(hFill, 3)
 
     local hKnob = Instance.new("TextButton")
-    hKnob.Size = UDim2.new(0, 10, 0, 10)
-    hKnob.Position = UDim2.new((MacroSlots[i].holdTime - 0.05) / (3.0 - 0.05), -5, 0.5, -5)
+    hKnob.Size = UDim2.new(0, 14, 0, 14)
+    hKnob.Position = UDim2.new((MacroSlots[i].holdTime - 0.05) / (3.0 - 0.05), -7, 0.5, -7)
     hKnob.BackgroundColor3 = COLORS.WHITE
     hKnob.Text = ""
     hKnob.BorderSizePixel = 0
     hKnob.Parent = hBar
     Corner(hKnob, 10)
 
-    local delayTitle = Text(row, "Delay After Move", 8, true)
-    delayTitle.Position = UDim2.new(0, 10, 0, 52)
-    delayTitle.Size = UDim2.new(0, 110, 0, 10)
+    local delayTitle = Text(row, "Delay After Move", 9, true)
+    delayTitle.Position = UDim2.new(0, 10, 0, 72)
+    delayTitle.Size = UDim2.new(0, 110, 0, 12)
     delayTitle.TextColor3 = COLORS.GRAY
 
-    local delayLbl = Text(row, string.format("%.2fs", MacroSlots[i].delayAfterMove), 9, false)
-    delayLbl.Position = UDim2.new(0, 122, 0, 52)
-    delayLbl.Size = UDim2.new(0, 50, 0, 10)
+    local delayLbl = Text(row, string.format("%.2fs", MacroSlots[i].delayAfterMove), 10, false)
+    delayLbl.Position = UDim2.new(0, 122, 0, 72)
+    delayLbl.Size = UDim2.new(0, 50, 0, 12)
     delayLbl.TextColor3 = COLORS.ACCENT
 
     local dBar = Instance.new("Frame")
-    dBar.Size = UDim2.new(1, -20, 0, 4)
-    dBar.Position = UDim2.new(0, 10, 0, 66)
+    dBar.Size = UDim2.new(1, -20, 0, 6)
+    dBar.Position = UDim2.new(0, 10, 0, 88)
     dBar.BackgroundColor3 = Color3.fromRGB(45,45,45)
     dBar.BorderSizePixel = 0
     dBar.Parent = row
-    Corner(dBar, 2)
+    Corner(dBar, 3)
 
     local dFill = Instance.new("Frame")
     dFill.Size = UDim2.new(MacroSlots[i].delayAfterMove / 5.0, 0, 1, 0)
     dFill.BackgroundColor3 = COLORS.ACCENT
     dFill.BorderSizePixel = 0
     dFill.Parent = dBar
-    Corner(dFill, 2)
+    Corner(dFill, 3)
 
     local dKnob = Instance.new("TextButton")
-    dKnob.Size = UDim2.new(0, 10, 0, 10)
-    dKnob.Position = UDim2.new(MacroSlots[i].delayAfterMove / 5.0, -5, 0.5, -5)
+    dKnob.Size = UDim2.new(0, 14, 0, 14)
+    dKnob.Position = UDim2.new(MacroSlots[i].delayAfterMove / 5.0, -7, 0.5, -7)
     dKnob.BackgroundColor3 = COLORS.WHITE
     dKnob.Text = ""
     dKnob.BorderSizePixel = 0
@@ -1434,7 +1513,7 @@ for i = 1, 10 do
         local newHold = math.floor((0.05 + ratio * (3.0 - 0.05)) * 100 + 0.5) / 100
         MacroSlots[i].holdTime = newHold
         hFill.Size = UDim2.new(ratio, 0, 1, 0)
-        hKnob.Position = UDim2.new(ratio, -5, 0.5, -5)
+        hKnob.Position = UDim2.new(ratio, -7, 0.5, -7)
         holdLbl.Text = string.format("%.2fs", newHold)
         SaveMacroConfig()
     end
@@ -1459,7 +1538,7 @@ for i = 1, 10 do
         local newDelay = math.floor((ratio * 5.0) * 100 + 0.5) / 100
         MacroSlots[i].delayAfterMove = newDelay
         dFill.Size = UDim2.new(ratio, 0, 1, 0)
-        dKnob.Position = UDim2.new(ratio, -5, 0.5, -5)
+        dKnob.Position = UDim2.new(ratio, -7, 0.5, -7)
         delayLbl.Text = string.format("%.2fs", newDelay)
         SaveMacroConfig()
     end
@@ -1528,7 +1607,7 @@ socialCard("RAYO", "Rayo06996", 125)
 
 Section(AboutPage, "📖 ABOUT IVORY HUB")
 local aboutLines = {
-    "Ivory Hub v13.0",
+    "Ivory Hub v13.2",
     "",
     "• Silent Aim with Prediction",
     "• Soru, Fast Attack, Gun Fast Attack",
@@ -1583,6 +1662,7 @@ for _, d in ipairs(Tabs) do
     btn.Parent = Sidebar
     Corner(btn, 8)
     Stroke(btn, Color3.fromRGB(35,35,35), 1)
+    AttachClickAnim(btn)
     d.button = btn
     btn.MouseButton1Click:Connect(function() SelectTab(btn, d.page) end)
 end
@@ -1632,9 +1712,9 @@ Close.MouseButton1Click:Connect(function()
 end)
 
 print("========================================")
-print("        IVORY HUB v13.0 LOADED")
+print("        IVORY HUB v13.2 LOADED")
 print("========================================")
-print("Silent Aim: prediction slider added")
-print("Hitbox: players only")
-print("New: Gun Fast Attack + FPS Boost")
+print("FPS Boost now runs inline Luau")
+print("Click animation on all buttons")
+print("Macro blocks enlarged")
 print("========================================")
